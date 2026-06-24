@@ -6,8 +6,8 @@ import mongoose             from 'mongoose';
 import mongoosePaginate     from 'mongoose-paginate-v2';
 import mongooseLeanVirtuals from 'mongoose-lean-virtuals';
 import bcrypt               from 'bcryptjs';
-import { ROLES } from '../constants/enums.js';
-import { AGE_LIMITS } from '../constants/app.constants.js';
+import { ROLES }            from '../constants/enums.js';
+import { AGE_LIMITS }       from '../constants/app.constants.js';
 import {
   jsonTransform,
   toObjectOptions,
@@ -91,7 +91,26 @@ const userSchema = new Schema(
     },
     parentGuardian: {
       name:        { type: String, trim: true, default: null },
-      phone:       { type: String, trim: true, default: null, validate: phoneValidator },
+      phone:       { 
+        type: String, 
+        trim: true, 
+        default: null, 
+        validate: {
+          validator: function(v) {
+            // SAFE BYPASS: If the sub-document field is empty, skip validation gracefully
+            if (v === null || v === undefined || v === '') return true;
+            
+            // DYNAMIC CALL: Evaluate using global project phoneValidator helper if string exists
+            if (typeof phoneValidator === 'function') return phoneValidator(v);
+            if (phoneValidator && typeof phoneValidator.validator === 'function') {
+              return phoneValidator.validator(v);
+            }
+            // Standard E.164 pattern fallback check
+            return /^\+?[1-9]\d{1,14}$/.test(v);
+          },
+          message: 'Guardian phone number must be a valid contact string'
+        }
+      },
       relation:    { type: String, trim: true, default: null },
       consentedAt: { type: Date, default: null },
       consentTokenHash: { type: String, trim: true, default: null, select: false },
@@ -170,23 +189,38 @@ userSchema.virtual('displayName').get(function () {
 });
 
 // ── CRITICAL RESOLUTION FOR TRUST BADGE REQUIREMENT ──────────────────────────
-// Yeh frontend ko automatic response pass karega true badge link karne ke liye
 userSchema.virtual('hasVerifiedTeacherBadge').get(function () {
   return this.role === ROLES.TEACHER && this.kycStatus === 'approved';
 });
 
-// ── Instance methods ──────────────────────────────────────────────────────────
-userSchema.pre('save', async function (next) {
-  // Hash plaintext password on set/change. Controllers must assign the raw
-  // password to `user.passwordHash` before calling save() — never hash twice.
+// ── Unified Atomic Hook Execution Pipeline ────────────────────────────────────
+userSchema.pre('save', async function () {
+  // 1. Assign chronological onboarding markers
+  if (this.isNew) {
+    this.onboardedAt = new Date();
+  }
+
+  // 2. Manage explicit termination states
+  if ((this.isBanned || this.deletedAt) && this.isActive) {
+    this.isActive = false;
+  }
+
+  // 3. Cryptographic Password Hashing Gateway
   if (this.isModified('passwordHash') && this.passwordHash && !this.passwordHash.startsWith('$2')) {
     this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
   }
-  next();
+
+  // 4. Minor Status Evaluation Engine
+  if (this.isModified('dateOfBirth') && this.dateOfBirth) {
+    const ageMs = Date.now() - this.dateOfBirth.getTime();
+    const ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
+    this.isMinor = ageYears < AGE_LIMITS.MINOR_THRESHOLD;
+  }
 });
 
+// ── Instance methods ──────────────────────────────────────────────────────────
 userSchema.methods.comparePassword = async function (plainPassword) {
-  if (!this.passwordHash) return false; // account has no password set (OTP/Google-only)
+  if (!this.passwordHash) return false;
   return bcrypt.compare(plainPassword, this.passwordHash);
 };
 
@@ -228,20 +262,7 @@ userSchema.statics.listPaginated = function (filter = {}, options = {}) {
   });
 };
 
-// ── Middleware Hooks ───────────────────────────────────────────────────────────
-userSchema.pre('save', function (next) {
-  if (this.isNew) this.onboardedAt = new Date();
-  if ((this.isBanned || this.deletedAt) && this.isActive) this.isActive = false;
-  
-  // Clean registry usage mapping instead of hardcoded numbers
-  if (this.isModified('dateOfBirth') && this.dateOfBirth) {
-    const ageMs = Date.now() - this.dateOfBirth.getTime();
-    const ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
-    this.isMinor = ageYears < AGE_LIMITS.MINOR_THRESHOLD;
-  }
-  next();
-});
-
+// ── Query Helpers ──────────────────────────────────────────────────────────────
 userSchema.query.active = function () {
   return this.where({ isActive: true, deletedAt: null });
 };

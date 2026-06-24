@@ -18,7 +18,7 @@ const TeacherRooms = () => {
   });
 
   useEffect(() => {
-    document.title = 'Group Rooms — TrueEdu';
+    document.title = 'Group Rooms — TrueEd';
     window.scrollTo(0, 0);
   }, []);
 

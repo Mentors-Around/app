@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import useAuth from '../hooks/useAuth';
-import { useUser } from '../context/UserContext';
 import Spinner from '../components/shared/Spinner';
+import TokenPurchaseModal from '../components/shared/TokenPurchaseModal';
 
 const MAX_SUBJECTS = 8;
 
@@ -21,14 +21,37 @@ const suggestionGroups = [
 ];
 
 const StudentProfile = () => {
-  const { user: authUser } = useAuth();
-  const { user, updateUser } = useUser();
+  const { user, updateUser } = useAuth();
   
-  const [profileForm, setProfileForm] = useState({
-    name: user?.name || 'Student Name',
-    class: 'Class 10',
-    location: user?.location || 'Bangalore',
-    subjects: ['Mathematics', 'Science'],
+  const [profileForm, setProfileForm] = useState(() => {
+    let studentProfile = {};
+    try {
+      const raw = localStorage.getItem('trueed_student_profile');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          studentProfile = parsed;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    
+    const profile = studentProfile || {};
+    const tokenBalance = profile.tokenBalance ?? 0;
+    const subjects = profile.subjects || [];
+    const interests = profile.interests || [];
+    const enrolledClassrooms = profile.enrolledClassrooms || [];
+    
+    return {
+      name: profile.name || user?.name || 'Student Name',
+      class: profile.class || user?.class || 'Class 10',
+      location: profile.location || user?.location || 'Bangalore',
+      subjects: subjects.length > 0 ? subjects : (user?.subjects || ['Mathematics', 'Science']),
+      interests: interests,
+      enrolledClassrooms: enrolledClassrooms,
+      tokenBalance: tokenBalance,
+    };
   });
 
   const [saving, setSaving] = useState(false);
@@ -41,7 +64,30 @@ const StudentProfile = () => {
   const [subjectSearch, setSubjectSearch] = useState('');
   const dropdownRef = useRef(null);
 
-  useEffect(() => { document.title = 'My Profile — TrueEdu'; }, []);
+  // Query Tokens
+  const [queryTokens, setQueryTokens] = useState(0);
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [tokenSuccessToast, setTokenSuccessToast] = useState(false);
+
+  useEffect(() => {
+    let tokens = 0;
+    try {
+      tokens = parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10);
+      if (isNaN(tokens)) tokens = 0;
+    } catch {
+      tokens = 0;
+    }
+    setQueryTokens(tokens);
+  }, []);
+
+  const handleTokenPurchaseSuccess = (newTokens) => {
+    setQueryTokens(newTokens);
+    setIsTokenModalOpen(false);
+    setTokenSuccessToast(true);
+    setTimeout(() => setTokenSuccessToast(false), 3000);
+  };
+
+  useEffect(() => { document.title = 'My Profile — TrueEd'; }, []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -108,32 +154,38 @@ const StudentProfile = () => {
     setSaving(true);
     setTimeout(() => {
       updateUser(profileForm);
+      try {
+        localStorage.setItem('trueed_student_profile', JSON.stringify(profileForm));
+      } catch (e) {
+        console.error(e);
+      }
       setSaving(false);
       setSuccessToast(true);
       setTimeout(() => setSuccessToast(false), 3000);
     }, 1000);
   };
 
-  const atLimit = profileForm.subjects.length >= MAX_SUBJECTS;
+  const safeSubjects = profileForm.subjects || [];
+  const atLimit = safeSubjects.length >= MAX_SUBJECTS;
 
   const addSubject = (sub) => {
     if (atLimit) return;
-    if (!profileForm.subjects.includes(sub)) {
-      setProfileForm({ ...profileForm, subjects: [...profileForm.subjects, sub] });
+    if (!safeSubjects.includes(sub)) {
+      setProfileForm({ ...profileForm, subjects: [...safeSubjects, sub] });
     }
   };
 
   const addCustomSubject = () => {
     const trimmed = subjectSearch.trim();
     if (!trimmed || atLimit) return;
-    if (!profileForm.subjects.includes(trimmed)) {
-      setProfileForm({ ...profileForm, subjects: [...profileForm.subjects, trimmed] });
+    if (!safeSubjects.includes(trimmed)) {
+      setProfileForm({ ...profileForm, subjects: [...safeSubjects, trimmed] });
     }
     setSubjectSearch('');
   };
 
   const removeSubject = (sub) => {
-    setProfileForm({ ...profileForm, subjects: profileForm.subjects.filter(s => s !== sub) });
+    setProfileForm({ ...profileForm, subjects: safeSubjects.filter(s => s !== sub) });
   };
 
   // Filter suggestions: exclude already selected, then filter by search query
@@ -142,7 +194,7 @@ const StudentProfile = () => {
     return suggestionGroups.map(group => ({
       ...group,
       items: group.items.filter(item =>
-        !profileForm.subjects.includes(item) &&
+        !safeSubjects.includes(item) &&
         (query === '' || item.toLowerCase().includes(query))
       ),
     })).filter(group => group.items.length > 0);
@@ -160,6 +212,35 @@ const StudentProfile = () => {
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${successToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
         <div className="bg-success text-white px-6 py-3 rounded-full font-semibold shadow-brand-xl flex items-center gap-2">
           <i className="fa-solid fa-circle-check" /> Profile updated successfully!
+        </div>
+      </div>
+
+      {/* Token Success Toast */}
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${tokenSuccessToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <div className="bg-success text-white px-6 py-3 rounded-full font-semibold shadow-brand-xl flex items-center gap-2">
+          <i className="fa-solid fa-circle-check" /> Tokens added successfully
+        </div>
+      </div>
+
+      <div className="bg-white rounded-brand shadow-brand p-6 md:p-8 mb-8">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+          <div>
+            <h2 className="font-sora text-xl font-bold text-navy mb-1">Query Tokens</h2>
+            <p className="text-slate-500 text-sm font-medium">Use tokens to send queries to classrooms before enrolling.</p>
+          </div>
+          <div className="flex items-center gap-4 bg-slate-50 border border-slate-100 p-4 rounded-xl">
+            <div className="text-center">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Balance</p>
+              <p className="font-sora font-extrabold text-2xl text-navy">{queryTokens}</p>
+            </div>
+            <div className="w-px h-10 bg-slate-200 mx-2"></div>
+            <button 
+              onClick={() => setIsTokenModalOpen(true)}
+              className="px-5 py-2.5 bg-navy text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition whitespace-nowrap flex items-center gap-2"
+            >
+              <i className="fa-solid fa-cart-shopping"></i> Buy Tokens
+            </button>
+          </div>
         </div>
       </div>
 
@@ -202,12 +283,12 @@ const StudentProfile = () => {
           <div ref={dropdownRef} className="relative">
             <label className="block text-sm font-semibold text-navy mb-1.5">
               Subjects of Interest
-              <span className="text-slate-400 font-normal ml-1">({profileForm.subjects.length}/{MAX_SUBJECTS})</span>
+              <span className="text-slate-400 font-normal ml-1">({safeSubjects.length}/{MAX_SUBJECTS})</span>
             </label>
 
             {/* Selected subject chips */}
             <div className="flex flex-wrap gap-2 mb-3">
-              {profileForm.subjects.map(s => (
+              {safeSubjects.map(s => (
                 <span key={s} className="bg-navy text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 shadow-sm">
                   {s}
                   <button onClick={() => removeSubject(s)} className="hover:bg-white/20 transition w-4 h-4 rounded-full flex items-center justify-center text-white/70 hover:text-white">
@@ -309,7 +390,7 @@ const StudentProfile = () => {
                     )}
 
                     {/* Custom add button when search term exists and isn't already a suggestion */}
-                    {hasAnyResult && searchMatchesExact && subjectSearch.trim() && !profileForm.subjects.includes(subjectSearch.trim()) && (
+                    {hasAnyResult && searchMatchesExact && subjectSearch.trim() && !safeSubjects.includes(subjectSearch.trim()) && (
                       <div className="pt-2 border-t border-slate-100">
                         <button
                           onClick={addCustomSubject}
@@ -336,8 +417,14 @@ const StudentProfile = () => {
           </button>
         </div>
       </div>
+
+      <TokenPurchaseModal 
+        isOpen={isTokenModalOpen}
+        onClose={() => setIsTokenModalOpen(false)}
+        onSuccess={handleTokenPurchaseSuccess}
+        currentBalance={queryTokens}
+      />
     </div>
   );
 };
 export default StudentProfile;
-

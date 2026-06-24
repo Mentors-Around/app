@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
 import { AuthProvider } from './context/AuthContext';
-import { UserProvider } from './context/UserContext';
 import App from './App';
 import ScrollToTop from './components/ScrollToTop';
 import './index.css';
@@ -21,7 +20,7 @@ window.__SENTRY_INITIALIZED__ = true;
 const SentryFallback = () => (
   <div className="min-h-screen bg-cream flex items-center justify-center p-6">
     <div className="bg-white rounded-brand-xl shadow-brand-xl p-10 max-w-md w-full text-center">
-      <img src="/logo.png" alt="TrueEdu" className="h-10 w-auto mx-auto mb-6" loading="lazy" />
+      <img src="/logo.png" alt="TrueEd" className="h-10 w-auto mx-auto mb-6" loading="lazy" />
       <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
         <i className="fa-solid fa-triangle-exclamation text-red-500 text-2xl" />
       </div>
@@ -45,9 +44,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <ScrollToTop />
         <AuthProvider>
-          <UserProvider>
             <App />
-          </UserProvider>
         </AuthProvider>
       </BrowserRouter>
     </Sentry.ErrorBoundary>

@@ -8,7 +8,7 @@ const CookieConsent = () => {
   const [marketing, setMarketing] = useState(false);
 
   useEffect(() => {
-    const consent = localStorage.getItem('trueedu_cookie_consent');
+    const consent = localStorage.getItem('trueed_cookie_consent');
     if (!consent) {
       // Delay to allow page to load first
       const timer = setTimeout(() => setVisible(true), 1000);
@@ -17,13 +17,13 @@ const CookieConsent = () => {
   }, []);
 
   const handleAcceptAll = () => {
-    localStorage.setItem('trueedu_cookie_consent', 'accepted');
+    localStorage.setItem('trueed_cookie_consent', 'accepted');
     setVisible(false);
   };
 
   const handleSavePreferences = () => {
     const prefs = { essential: true, analytics, marketing };
-    localStorage.setItem('trueedu_cookie_consent', JSON.stringify(prefs));
+    localStorage.setItem('trueed_cookie_consent', JSON.stringify(prefs));
     setShowPreferences(false);
     setVisible(false);
   };
@@ -107,7 +107,7 @@ const CookieConsent = () => {
                 <h4 className="font-sora font-bold text-sm">Cookie Notice</h4>
               </div>
               <p className="text-sm text-white/80 leading-relaxed">
-                We use cookies to improve your experience on TrueEdu. By continuing, you agree to our{' '}
+                We use cookies to improve your experience on TrueEd. By continuing, you agree to our{' '}
                 <Link to="/privacy" className="text-amber font-semibold hover:underline">
                   Privacy Policy
                 </Link>.

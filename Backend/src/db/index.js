@@ -53,7 +53,7 @@ function attachMongooseEventHooks() {
   );
 }
 
-mongoose.set("sanitizeFilter", false);
+mongoose.set("sanitizeFilter", true);
 
 // ─── Connect with retry ───────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const AboutUs = () => {
-  useEffect(() => { document.title = 'About Us — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'About Us — TrueEd'; }, []);
   return (
     <div>
       {/* Hero */}
@@ -70,21 +70,49 @@ const AboutUs = () => {
       </div>
 
       {/* Team */}
-      <div className="py-20 px-6 max-w-[1100px] mx-auto">
-        <h2 className="font-sora text-2xl font-bold text-navy text-center mb-12">Meet the Team</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+      <div className="py-24 px-6 max-w-6xl mx-auto">
+        <div className="text-center mb-16 animate-fade-in-up">
+          <h2 className="font-sora text-3xl md:text-4xl font-extrabold text-navy tracking-tight mb-4">Meet the Team</h2>
+          <p className="text-lg text-slate-500 font-medium">Building India's most trusted student–teacher learning platform.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {[
-            { name: 'Rahul Sharma', role: 'Founder & CEO', bio: 'Former ed-tech executive passionate about personalized learning.' },
-            { name: 'Priya Patel', role: 'Head of Operations', bio: 'Ensuring top quality and safety for all our users.' },
-            { name: 'Amit Kumar', role: 'Chief Technology Officer', bio: 'Building seamless digital experiences for education.' }
-          ].map(f => (
-            <div key={f.name} className="text-center bg-white p-6 rounded-brand shadow-brand border border-slate-100">
-              <div className="w-20 h-20 bg-gradient-to-br from-navy to-sky text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                {f.name.split(' ').map(n => n[0]).join('')}
-              </div>
-              <h3 className="font-bold text-navy">{f.name}</h3>
-              <p className="text-xs text-sky font-semibold mb-3">{f.role}</p>
-              <p className="text-sm text-muted">{f.bio}</p>
+            {
+              name: "Rohit Kumar",
+              role: "Founder",
+              initials: "RK",
+              image: null
+            },
+            {
+              name: "Sugayan Singh",
+              role: "Co-Founder",
+              initials: "SS",
+              image: null
+            },
+            {
+              name: "Akanksha",
+              role: "Co-Founder",
+              initials: "AK",
+              image: null
+            },
+            {
+              name: "Hari Prasad L",
+              role: "Co-Founder",
+              initials: "HP",
+              image: null
+            }
+          ].map((f, i) => (
+            <div key={i} className="text-center bg-white p-10 rounded-[20px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-300 flex flex-col items-center justify-center animate-fade-in-up h-full" style={{ animationDelay: `${i * 100}ms` }}>
+              {f.image ? (
+                <img src={f.image} alt={f.name} className="w-28 h-28 rounded-full object-cover mb-6 shadow-sm border-4 border-white" />
+              ) : (
+                <div className="w-28 h-28 bg-gradient-to-br from-navy to-sky text-white rounded-full flex items-center justify-center text-3xl font-bold mb-6 shadow-sm border-4 border-white">
+                  {f.initials}
+                </div>
+              )}
+              <h3 className="font-sora font-bold text-navy text-[24px] mb-1">{f.name}</h3>
+              <p className="text-[16px] text-[#0F2B5B] font-medium opacity-80">{f.role}</p>
             </div>
           ))}
         </div>

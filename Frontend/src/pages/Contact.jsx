@@ -14,7 +14,7 @@ const Contact = () => {
   const [messageError, setMessageError] = useState('');
 
   useEffect(() => {
-    document.title = 'Contact Us — TrueEdu';
+    document.title = 'Contact Us — TrueEd';
   }, []);
 
   const handleSubmit = (e) => {

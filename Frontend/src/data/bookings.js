@@ -1,4 +1,3 @@
-import { teacherData } from './teacherData';
 
 const getFormattedDate = (daysOffset) => {
   const d = new Date();
@@ -10,7 +9,7 @@ const getFormattedDate = (daysOffset) => {
 export const studentSessions = [
   {
     id: 1,
-    tutorName: teacherData.name,
+    tutorName: 'Alex Johnson',
     tutorInitials: "RK",
     tutorColor: "#5BA3E0",
     subject: "Mathematics",

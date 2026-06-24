@@ -90,7 +90,7 @@ const TeacherApply = () => {
         <div className="py-4 px-8 border-b border-gray-100 flex items-center justify-center">
           <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-blue-600">
             <Building2 className="h-8 w-8" />
-            TrueEdu
+            TrueEd
           </Link>
         </div>
         
@@ -392,7 +392,7 @@ const TeacherApply = () => {
                       className="mt-1 w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                     />
                     <div>
-                      <span className="text-sm text-gray-700">I confirm that the information provided is accurate. I agree to TrueEdu's <span className="text-blue-600 hover:underline">Terms of Service</span> and <span className="text-blue-600 hover:underline">Privacy Policy</span>.</span>
+                      <span className="text-sm text-gray-700">I confirm that the information provided is accurate. I agree to TrueEd's <span className="text-blue-600 hover:underline">Terms of Service</span> and <span className="text-blue-600 hover:underline">Privacy Policy</span>.</span>
                       {errors.termsAccepted && <p className="text-red-500 text-xs mt-1">{errors.termsAccepted}</p>}
                     </div>
                   </label>

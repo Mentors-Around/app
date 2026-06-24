@@ -30,7 +30,7 @@ class ErrorBoundary extends Component {
       return (
         <div className="min-h-screen bg-cream flex items-center justify-center p-6">
           <div className="bg-white rounded-brand-xl shadow-brand-xl p-10 max-w-md w-full text-center">
-            <img src="/logo.png" alt="TrueEdu logo" className="h-10 w-auto mx-auto mb-6" loading="lazy" />
+            <img src="/logo.png" alt="TrueEd logo" className="h-10 w-auto mx-auto mb-6" loading="lazy" />
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
               <i className="fa-solid fa-triangle-exclamation text-red-500 text-2xl" />
             </div>

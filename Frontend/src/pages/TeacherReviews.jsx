@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 const TeacherReviews = () => {
-  useEffect(() => { document.title = 'Reviews — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Reviews — TrueEd'; }, []);
   const dummyReviews = [
     { id: 1, student: 'Rahul Sharma', rating: 5, comment: 'Excellent teacher! Very clear explanations.', date: 'Oct 01' },
     { id: 2, student: 'Neha Gupta', rating: 4, comment: 'Good session, helped me understand complex topics.', date: 'Sep 28' },

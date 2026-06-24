@@ -56,7 +56,7 @@ const SearchBar = ({ onSearch }) => {
   // Load recent searches on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('trueedu_recent_searches');
+      const stored = localStorage.getItem('trueed_recent_searches');
       if (stored) {
         setRecentSearches(JSON.parse(stored));
       }
@@ -70,14 +70,14 @@ const SearchBar = ({ onSearch }) => {
     if (!term) return;
     const newRecent = [term, ...recentSearches.filter(t => t !== term)].slice(0, 5);
     setRecentSearches(newRecent);
-    localStorage.setItem('trueedu_recent_searches', JSON.stringify(newRecent));
+    localStorage.setItem('trueed_recent_searches', JSON.stringify(newRecent));
   };
 
   const removeRecentSearch = (termToRemove, e) => {
     e.stopPropagation();
     const newRecent = recentSearches.filter(t => t !== termToRemove);
     setRecentSearches(newRecent);
-    localStorage.setItem('trueedu_recent_searches', JSON.stringify(newRecent));
+    localStorage.setItem('trueed_recent_searches', JSON.stringify(newRecent));
   };
 
   const handleSearch = (term) => {

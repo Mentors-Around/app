@@ -16,7 +16,7 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  useEffect(() => { document.title = 'Login — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Login — TrueEd'; }, []);
 
   const { sendPhoneOTP, verifyPhoneOTP, register, verifyEmailOTP, getDashboardRoute } = useAuth();
   const navigate = useNavigate();

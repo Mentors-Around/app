@@ -1,10 +1,8 @@
-import { teacherData } from './teacherData';
-
 export const tutors = [
   {
     id: "ravi-kumar",
-    name: teacherData.name,
-    initials: "RK",
+    name: 'Alex Johnson',
+    initials: "AJ",
     color: "#5BA3E0",
     subject: "Mathematics",
     education: "M.Sc Mathematics, IIT Delhi",
@@ -18,7 +16,7 @@ export const tutors = [
     verified: true,
     featured: true,
     badge: "Top Rated",
-    promo: "Free first class",
+    promo: null,
     tags: ["CBSE", "ICSE", "IIT-JEE", "Olympiad"],
     bio: "Passionate mathematics educator with a focus on building strong fundamentals. IIT Delhi alumnus with 8 years of teaching experience across CBSE, ICSE, and competitive exam preparation.",
   },
@@ -186,7 +184,7 @@ export const tutors = [
     verified: true,
     featured: true,
     badge: "Top Rated",
-    promo: "Free trial class",
+    promo: null,
     tags: ["Self-Defense", "Kata", "Kumite", "Kids Karate"],
     bio: "Certified Karate instructor with 15 years of experience. Specializes in traditional Shotokan Karate, self-defense techniques, and building discipline in students of all ages.",
   },
@@ -206,8 +204,8 @@ export const tutors = [
     mode: "Offline",
     verified: true,
     featured: false,
-    badge: null,
-    promo: "Free trial class",
+    badge: "Expert",
+    promo: null,
     tags: ["Women's Self-Defense", "Fitness", "Beginners"],
     bio: "National level Karate champion focusing on women's self-defense and overall fitness through martial arts.",
   }

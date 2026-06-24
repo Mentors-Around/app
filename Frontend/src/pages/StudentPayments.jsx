@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const StudentPayments = () => {
-  useEffect(() => { document.title = 'Payment History — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Payment History — TrueEd'; }, []);
 
   const getFormattedDate = (daysOffset) => {
     const d = new Date();

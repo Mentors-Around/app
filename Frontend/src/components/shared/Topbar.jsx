@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
-import { useUser } from '../../context/UserContext';
 import { Search, Bell, X, Menu } from 'lucide-react';
 
 const dummyTeachers = [
@@ -18,8 +17,7 @@ const dummyTeachers = [
 ];
 
 const Topbar = ({ onMenuClick }) => {
-  const { user: authUser } = useAuth();
-  const { user } = useUser();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const initials = user?.initials || 'U';
 

@@ -55,7 +55,7 @@ const TeacherCard = ({ teacher, onApprove, onReject, onView }) => (
 );
 
 const AdminVerify = () => {
-  useEffect(() => { document.title = 'Admin Verification — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Admin Verification — TrueEd'; }, []);
   const [teachers, setTeachers] = useState(allTeachers);
   const [activeTab, setActiveTab] = useState('pending');
   const [search, setSearch] = useState('');

@@ -23,7 +23,7 @@ const StudentTestTaking = () => {
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
 
   useEffect(() => {
-    document.title = 'Taking Test — TrueEdu';
+    document.title = 'Taking Test — TrueEd';
     window.scrollTo(0, 0);
 
     const timer = setInterval(() => {

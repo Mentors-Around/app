@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const StudentFavourites = () => {
-  useEffect(() => { document.title = 'Favourite Teachers — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Favourite Teachers — TrueEd'; }, []);
 
   const dummyFavourites = [
     { id: 1, name: 'Kavita Verma', subject: 'Mathematics', rating: 4.9, location: 'Online' },

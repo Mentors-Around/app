@@ -8,7 +8,7 @@ const pastTests = [
 
 const StudentTests = () => {
   useEffect(() => {
-    document.title = 'Monthly Tests — TrueEdu';
+    document.title = 'Monthly Tests — TrueEd';
     window.scrollTo(0, 0);
   }, []);
 

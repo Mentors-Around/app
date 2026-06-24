@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShieldCheck, CalendarClock, CreditCard, MailQuestion, Info } from 'lucide-react';
 
 const RefundPolicy = () => {
-  useEffect(() => { document.title = 'Refund Policy — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Refund Policy — TrueEd'; }, []);
 
   return (
     <div className="bg-slate-50 min-h-screen py-12 md:py-20">
@@ -13,7 +13,7 @@ const RefundPolicy = () => {
 
         <div className="bg-white rounded-brand-xl p-8 md:p-10 shadow-sm border border-slate-200">
           <p className="text-slate-600 font-medium leading-relaxed mb-8">
-            At TrueEdu, we strive to provide the best learning experience. However, we understand that sometimes things don't go as planned. This Refund Policy outlines the conditions under which you can request a refund for your tutoring sessions.
+            At TrueEd, we strive to provide the best learning experience. However, we understand that sometimes things don't go as planned. This Refund Policy outlines the conditions under which you can request a refund for your tutoring sessions.
           </p>
 
           <div className="bg-sky-50 border border-sky-100 rounded-xl p-6 mb-10 flex gap-4">
@@ -21,7 +21,7 @@ const RefundPolicy = () => {
             <div>
               <h4 className="font-bold text-navy mb-1">Payment Protection Guarantee</h4>
               <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                💳 All payments on TrueEdu are protected. If a session doesn't happen, you get a full refund automatically. The teacher only receives payment after the session is successfully completed.
+                💳 All payments on TrueEd are protected. If a session doesn't happen, you get a full refund automatically. The teacher only receives payment after the session is successfully completed.
               </p>
             </div>
           </div>
@@ -36,7 +36,7 @@ const RefundPolicy = () => {
                 <ul className="list-disc pl-5 space-y-2">
                   <li>The teacher cancels the session prior to the scheduled start time.</li>
                   <li>The teacher does not show up within 15 minutes of the scheduled start time.</li>
-                  <li>Technical issues on TrueEdu's platform prevent the session from occurring.</li>
+                  <li>Technical issues on TrueEd's platform prevent the session from occurring.</li>
                   <li>You cancel the session at least 24 hours before it is scheduled to begin.</li>
                 </ul>
               </div>

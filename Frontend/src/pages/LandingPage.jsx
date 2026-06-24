@@ -10,7 +10,7 @@ import CTASection from '../components/landing/CTASection';
 import SubjectCarousel from '../components/landing/SubjectCarousel';
 
 const LandingPage = () => {
-  useEffect(() => { document.title = 'TrueEdu — Find Your Perfect Tutor'; }, []);
+  useEffect(() => { document.title = 'TrueEd — Find Your Perfect Tutor'; }, []);
 
   return (
     <>

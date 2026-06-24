@@ -12,7 +12,7 @@ const CoachingCenters = () => {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    document.title = 'For Coaching Centers — TrueEdu';
+    document.title = 'For Coaching Centers — TrueEd';
     window.scrollTo(0, 0);
   }, []);
 
@@ -162,7 +162,7 @@ const CoachingCenters = () => {
             </div>
             <div className="flex items-center gap-3">
               <i className="fa-solid fa-percent text-amber text-xl" />
-              <span className="font-bold text-navy">10% platform fee</span>
+              <span className="font-bold text-navy">15% platform fee</span>
             </div>
           </div>
         </div>

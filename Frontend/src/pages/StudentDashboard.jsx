@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import TutorCard from '../components/shared/TutorCard';
-import { useUser } from '../context/UserContext';
-import { studentStats } from '../data/studentStats';
+import useAuth from '../hooks/useAuth';
 
 const getFormattedDate = (daysOffset) => {
   const d = new Date();
@@ -15,217 +13,167 @@ const getFormattedDate = (daysOffset) => {
 const mockSessions = [
   { id: 1, teacher: 'Dr. Anand', initials: 'DA', subject: 'Physics', date: getFormattedDate(0), time: '5:00 PM', mode: 'Online' },
   { id: 2, teacher: 'Mrs. Sharma', initials: 'MS', subject: 'Mathematics', date: getFormattedDate(1), time: '10:00 AM', mode: 'Offline' },
-  { id: 3, teacher: 'Mr. Gupta', initials: 'MG', subject: 'Chemistry', date: getFormattedDate(2), time: '4:00 PM', mode: 'Online' },
-];
-
-const mockTutors = [
-  {
-    name: 'Suresh Kumar',
-    initials: 'SK',
-    subject: 'Mathematics',
-    verified: true,
-    location: 'Bangalore, India',
-    badge: 'Top Rated',
-    rating: 4.9,
-    reviews: 124,
-    experience: '8 Years Exp.',
-    mode: 'Online/Offline',
-    tags: ['Algebra', 'Calculus', 'CBSE'],
-    price: 800,
-  },
-  {
-    name: 'Neha Reddy',
-    initials: 'NR',
-    subject: 'Biology',
-    verified: true,
-    location: 'Hyderabad, India',
-    badge: 'Expert',
-    rating: 4.8,
-    reviews: 98,
-    experience: '5 Years Exp.',
-    mode: 'Online',
-    tags: ['Genetics', 'Botany', 'NEET'],
-    price: 750,
-  },
-  {
-    name: 'Vikram Singh',
-    initials: 'VS',
-    subject: 'Physics',
-    verified: false,
-    location: 'Delhi, India',
-    badge: 'Rising Star',
-    rating: 4.7,
-    reviews: 45,
-    experience: '4 Years Exp.',
-    mode: 'Online/Offline',
-    tags: ['Mechanics', 'Optics', 'JEE'],
-    price: 600,
-  }
-];
-
-const recentTutors = [
-  { name: 'Priya Desai', initials: 'PD', subject: 'English', location: 'Mumbai, India', rating: 4.6, price: 500 },
-  { name: 'Amit Patel', initials: 'AP', subject: 'Computer Science', location: 'Delhi, India', rating: 4.9, price: 900 },
 ];
 
 export default function StudentDashboard() {
-  const { user } = useUser();
+  const { user } = useAuth();
+  const [recommendedClassrooms, setRecommendedClassrooms] = useState([]);
 
   useEffect(() => {
-    document.title = "Student Dashboard — TrueEdu";
+    document.title = "Student Dashboard — TrueEd";
+    
+    // Fetch classrooms from local storage or mock
+    try {
+      const stored = localStorage.getItem('trueed_teacher_classrooms');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Take first 3 active classrooms
+          setRecommendedClassrooms(parsed.filter(c => c.status === 'active').slice(0, 4));
+          return;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    
+    // Fallback Mock
+    setRecommendedClassrooms([
+      { id: '1', name: 'Mastering Calculus', subject: 'Mathematics', classLevel: 'JEE', mode: 'Online', pricePerStudent: 999, availableSeats: 15 },
+      { id: '2', name: 'Advanced Physics', subject: 'Physics', classLevel: 'NEET', mode: 'Offline', pricePerStudent: 1200, availableSeats: 5 },
+      { id: '3', name: 'Python for Beginners', subject: 'Programming', classLevel: 'Class 10', mode: 'Online', pricePerStudent: 799, availableSeats: 20 },
+      { id: '4', name: 'Organic Chemistry', subject: 'Chemistry', classLevel: 'Class 12', mode: 'Online', pricePerStudent: 899, availableSeats: 10 },
+    ]);
   }, []);
 
+  // Assuming 1 pending query based on requirements mock
+  const pendingQueriesCount = 1;
+
   return (
-    <div className="space-y-8 pb-10">
-      {/* Greeting Banner */}
-      <div className="bg-gradient-to-r from-navy to-blue-700 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10">
-          <h1 className="text-3xl font-sora font-extrabold mb-2">Hello, {user?.name || 'Student'}! 👋</h1>
-          <p className="text-blue-100 text-lg mb-8">Ready to learn something new today?</p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <div className="flex items-center gap-2 mb-2 text-blue-200">
-                <i className="fa-solid fa-calendar-check"></i>
-                <span className="text-xs font-semibold uppercase tracking-wider">Next Session</span>
-              </div>
-              <p className="font-bold text-lg leading-tight">Today 4:00 PM</p>
-              <p className="text-sm text-blue-100 mt-1">Ravi Kumar</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <div className="flex items-center gap-2 mb-2 text-blue-200">
-                <i className="fa-solid fa-book"></i>
-                <span className="text-xs font-semibold uppercase tracking-wider">Active Subjects</span>
-              </div>
-              <p className="font-bold text-lg leading-tight">3 Subjects</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <div className="flex items-center gap-2 mb-2 text-blue-200">
-                <i className="fa-solid fa-star"></i>
-                <span className="text-xs font-semibold uppercase tracking-wider">Avg Rating Given</span>
-              </div>
-              <p className="font-bold text-lg leading-tight">4.8</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <div className="flex items-center gap-2 mb-2 text-blue-200">
-                <i className="fa-solid fa-fire"></i>
-                <span className="text-xs font-semibold uppercase tracking-wider">Day Streak</span>
-              </div>
-              <p className="font-bold text-lg leading-tight">7 Days</p>
-            </div>
+    <div className="max-w-6xl mx-auto space-y-12 pb-12 animate-fadeIn">
+      {/* SaaS Hero Section */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-8 md:p-12 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col md:flex-row items-center justify-between gap-8">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-sora font-extrabold text-slate-900 tracking-tight mb-3">
+            Good morning, {user?.name?.split(' ')[0] || 'Student'}.
+          </h1>
+          <p className="text-slate-500 text-lg max-w-lg leading-relaxed mb-8">
+            You have <strong className="text-navy font-semibold">{mockSessions.length} upcoming classes</strong> and <strong className="text-amber-600 font-semibold">{pendingQueriesCount} pending query</strong>. Let's keep the momentum going.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <Link to="/student/discover" className="px-6 py-3 bg-navy text-white font-semibold rounded-lg shadow-sm hover:shadow hover:bg-navy-light transition-all flex items-center gap-2">
+              Discover Classrooms
+            </Link>
+            <Link to="/student/my-queries" className="px-6 py-3 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+              My Queries
+            </Link>
           </div>
         </div>
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="hidden md:flex w-32 h-32 rounded-full bg-slate-50 border-4 border-white shadow-xl items-center justify-center flex-shrink-0">
+          <span className="text-4xl font-bold text-navy">{user?.initials || 'U'}</span>
+        </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {studentStats.map((stat, i) => (
-          <div key={i} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${stat.bg} ${stat.color}`}>
-              <i className={`fa-solid ${stat.icon}`}></i>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
-              <p className="text-xl font-bold text-navy">{stat.value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          {/* Upcoming Sessions */}
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 space-y-12">
+          {/* Primary Section: Upcoming Classes */}
+          <section>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-sora font-bold text-navy">Upcoming Sessions</h2>
-              <Link to="/student/bookings" className="text-sm font-semibold text-sky hover:text-navy transition">View All <i className="fa-solid fa-arrow-right ml-1"></i></Link>
+              <h2 className="text-2xl font-sora font-bold text-slate-900 tracking-tight">Upcoming Classes</h2>
+              <Link to="/student/bookings" className="text-sm font-semibold text-sky hover:text-navy transition">
+                View Calendar <i className="fa-solid fa-arrow-right ml-1"></i>
+              </Link>
             </div>
+            
             <div className="space-y-4">
-              {mockSessions.map((session) => (
-                <div key={session.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-blue-100 hover:bg-blue-50/30 transition">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg">
-                      {session.initials}
+              {mockSessions.length === 0 ? (
+                <div className="p-8 border border-slate-200 rounded-xl text-center bg-slate-50">
+                  <p className="text-slate-500 font-medium">No upcoming classes scheduled.</p>
+                </div>
+              ) : (
+                mockSessions.map((session) => (
+                  <div key={session.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-[0_4px_12px_rgba(0,0,0,0.03)] transition-all cursor-pointer gap-4">
+                    <div className="flex items-center gap-5">
+                      <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 font-bold text-lg group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-colors">
+                        {session.initials}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-lg mb-0.5">{session.subject}</h3>
+                        <p className="text-sm text-slate-500 font-medium">with {session.teacher}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-navy">{session.teacher}</h3>
-                      <p className="text-sm text-gray-500">{session.subject}</p>
+                    <div className="sm:text-right flex sm:block items-center justify-between sm:w-auto w-full border-t border-slate-100 sm:border-0 pt-3 sm:pt-0">
+                      <p className="font-bold text-slate-900">{session.time}</p>
+                      <p className="text-sm text-slate-500 font-medium">{session.date}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-800">{session.date} at {session.time}</p>
-                    <span className={`inline-block mt-1 text-xs px-2 py-1 rounded-full font-semibold ${session.mode === 'Online' ? 'bg-sky-100 text-sky-700' : 'bg-purple-100 text-purple-700'}`}>
-                      {session.mode}
-                    </span>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Recommended Classrooms */}
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-sora font-bold text-slate-900 tracking-tight">Recommended Classrooms</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {recommendedClassrooms.map((cls) => (
+                <div key={cls.id} className="p-5 border border-slate-200 rounded-xl bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:border-slate-300 transition-all flex flex-col">
+                  <div className="mb-6">
+                    <h3 className="font-bold text-slate-900 text-lg leading-snug mb-1.5 line-clamp-1">{cls.name || 'Classroom'}</h3>
+                    <p className="text-sm text-slate-500 font-medium">{cls.subject} • {cls.classLevel || 'General'}</p>
+                  </div>
+                  
+                  <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Price</p>
+                      <p className="font-bold text-slate-900">₹{cls.pricePerStudent}</p>
+                    </div>
+                    <Link to={`/student/classroom/${cls.id}`} className="text-sm font-semibold text-navy hover:text-sky transition flex items-center gap-1">
+                      Details <i className="fa-solid fa-arrow-right text-[10px]"></i>
+                    </Link>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Recommended Teachers */}
-          <div>
-            <h2 className="text-xl font-sora font-bold text-navy mb-6">Recommended Teachers</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {mockTutors.map((tutor, i) => (
-                <TutorCard key={i} tutor={tutor} />
-              ))}
-            </div>
-          </div>
+          </section>
         </div>
 
-        <div className="space-y-8">
-          {/* Quick Actions */}
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-            <h2 className="text-lg font-sora font-bold text-navy mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Find a Teacher', icon: 'fa-search', to: '/lessons/mathematics', bg: 'bg-blue-50', color: 'text-blue-600' },
-                { label: 'My Bookings', icon: 'fa-calendar-alt', to: '/student/bookings', bg: 'bg-green-50', color: 'text-green-600' },
-                { label: 'My Profile', icon: 'fa-user', to: '/student/profile', bg: 'bg-purple-50', color: 'text-purple-600' },
-                { label: 'Help', icon: 'fa-question-circle', to: '/contact', bg: 'bg-orange-50', color: 'text-orange-600' },
-              ].map((action, i) => (
-                <Link key={i} to={action.to} className="flex flex-col items-center justify-center p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all group">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${action.bg} ${action.color} group-hover:scale-110 transition-transform`}>
-                    <i className={`fa-solid ${action.icon}`}></i>
-                  </div>
-                  <span className="text-xs font-semibold text-gray-700 text-center">{action.label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Recently Viewed Teachers */}
-          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-            <h2 className="text-lg font-sora font-bold text-navy mb-4">Recently Viewed</h2>
-            <div className="space-y-3">
-              {recentTutors.map((tutor, i) => (
-                <Link key={i} to={`/lessons/${tutor.subject.toLowerCase().replace(/\s+/g, '-')}/${tutor.location.split(',')[0].trim().toLowerCase().replace(/\s+/g, '-')}/${tutor.name.toLowerCase().replace(/\s+/g, '-')}`} className="flex items-center gap-3 p-3 rounded-lg border border-gray-50 hover:bg-gray-50 transition cursor-pointer">
-                  <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">
-                    {tutor.initials}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-sm text-navy">{tutor.name}</h4>
-                    <p className="text-xs text-gray-500">{tutor.subject}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-navy">₹{tutor.price}</p>
-                    <p className="text-xs text-amber-500 font-bold"><i className="fa-solid fa-star"></i> {tutor.rating}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Tip Card */}
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100 shadow-sm">
-            <div className="flex gap-3">
-              <div className="text-2xl text-amber-500">💡</div>
-              <div>
-                <h4 className="font-bold text-amber-900 mb-1">Tip of the day</h4>
-                <p className="text-sm text-amber-800 leading-relaxed">Consistency beats intensity. Even 30 minutes daily adds up to 180 hours a year!</p>
-              </div>
+        {/* Minimal Quick Actions */}
+        <div className="space-y-6">
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+            <h3 className="font-sora font-bold text-slate-900 mb-5">Quick Links</h3>
+            <div className="space-y-2">
+              <Link to="/student/discover" className="flex items-center justify-between p-3 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 transition-all text-slate-600 hover:text-slate-900 font-medium text-sm group">
+                <span className="flex items-center gap-3">
+                  <i className="fa-solid fa-compass text-slate-400 group-hover:text-navy transition-colors w-4"></i> 
+                  Explore Classes
+                </span>
+                <i className="fa-solid fa-chevron-right text-[10px] text-slate-300"></i>
+              </Link>
+              <Link to="/student/bookings" className="flex items-center justify-between p-3 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 transition-all text-slate-600 hover:text-slate-900 font-medium text-sm group">
+                <span className="flex items-center gap-3">
+                  <i className="fa-solid fa-calendar-alt text-slate-400 group-hover:text-navy transition-colors w-4"></i> 
+                  My Schedule
+                </span>
+                <i className="fa-solid fa-chevron-right text-[10px] text-slate-300"></i>
+              </Link>
+              <Link to="/student/profile" className="flex items-center justify-between p-3 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 transition-all text-slate-600 hover:text-slate-900 font-medium text-sm group">
+                <span className="flex items-center gap-3">
+                  <i className="fa-solid fa-user text-slate-400 group-hover:text-navy transition-colors w-4"></i> 
+                  Edit Profile
+                </span>
+                <i className="fa-solid fa-chevron-right text-[10px] text-slate-300"></i>
+              </Link>
+              <Link to="/contact" className="flex items-center justify-between p-3 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 transition-all text-slate-600 hover:text-slate-900 font-medium text-sm group">
+                <span className="flex items-center gap-3">
+                  <i className="fa-regular fa-life-ring text-slate-400 group-hover:text-navy transition-colors w-4"></i> 
+                  Get Support
+                </span>
+                <i className="fa-solid fa-chevron-right text-[10px] text-slate-300"></i>
+              </Link>
             </div>
           </div>
         </div>

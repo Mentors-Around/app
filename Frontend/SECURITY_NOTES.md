@@ -1,4 +1,4 @@
-# TrueEdu — Security Notes
+# TrueEd — Security Notes
 
 ## npm Audit Results
 **Last audited:** June 2026  

@@ -1,42 +1,8 @@
-/**
- * sanitize.middleware.js
- *
- * Input sanitisation layer.
- *
- * THREATS MITIGATED:
- *   1. NoSQL Injection — Mongoose operators ($where, $gt, $regex …) in
- *      request body / query params are stripped before they reach any
- *      service or model layer.
- *   2. XSS via stored content — HTML tags in string values are escaped so
- *      they cannot execute if ever rendered without further encoding.
- *   3. Prototype pollution — keys like __proto__ or constructor are removed.
- *
- * WHY HERE: Sanitisation must happen before controllers see the data.
- * Centralising it here means individual validators don't need to re-implement
- * the same logic.
- *
- * NOTE: This is a defence-in-depth measure.  Validators (Zod schemas) still
- * run after sanitisation for type / format correctness.
- */
-
-import mongoSanitize from "express-mongo-sanitize";
+// ─────────────────────────────────────────────────────────────────────────────
+// src/middlewares/sanitize.middleware.js
+// Production-grade Input Sanitation Layer for Express 5 Compliance
+// ─────────────────────────────────────────────────────────────────────────────
 import xss from "xss";
-
-// ─── NoSQL injection prevention ───────────────────────────────────────────────
-
-/**
- * express-mongo-sanitize strips any key that starts with "$" or contains "."
- * from req.body, req.query, and req.params.
- */
-export const mongoSanitizeMiddleware = mongoSanitize({
-  replaceWith: "_",          // Replace prohibited chars instead of removing
-  onSanitizeError(req, _res, key) {
-    // Could emit a security alert here in production
-    req.sanitizationOccurred = true;
-    req.sanitizedKeys = req.sanitizedKeys ?? [];
-    req.sanitizedKeys.push(key);
-  },
-});
 
 // ─── XSS prevention (recursive deep sanitise) ────────────────────────────────
 
@@ -54,10 +20,33 @@ function deepSanitize(value) {
   return value;
 }
 
+export const mongoSanitizeMiddleware = (req, _res, next) => {
+  // Clean bypass: Mongoose native 'sanitizeFilter' is handling NoSQL security on db/index.js!
+  next();
+};
+
 export const xssSanitizeMiddleware = (req, _res, next) => {
+  // 1. Sanitize request body safely (Body is mutable plain object)
   if (req.body) req.body = deepSanitize(req.body);
-  if (req.query) req.query = deepSanitize(req.query);
-  // req.params are URL-encoded strings — safe by definition, but sanitise anyway
-  if (req.params) req.params = deepSanitize(req.params);
+
+  // 2. Sanitize query variables matching Express 5 Immutable Getters contract
+  if (req.query) {
+    const sanitizedQuery = deepSanitize(req.query);
+    // Safely delete raw keys and populate fresh values inside the existing reference
+    for (const key in req.query) {
+      delete req.query[key];
+    }
+    Object.assign(req.query, sanitizedQuery);
+  }
+
+  // 3. Sanitize params matching Express 5 Immutable Getters contract
+  if (req.params) {
+    const sanitizedParams = deepSanitize(req.params);
+    for (const key in req.params) {
+      delete req.params[key];
+    }
+    Object.assign(req.params, sanitizedParams);
+  }
+
   next();
 };

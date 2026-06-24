@@ -1,3 +1,9 @@
+const getPastDate = (daysAgo) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString();
+};
+
 export const teacherQueriesData = [
   {
     id: 1,
@@ -8,7 +14,7 @@ export const teacherQueriesData = [
     preferredMode: 'Online',
     preferredDays: 'Weekends',
     preferredTime: 'Evening',
-    date: 'Oct 12, 2026',
+    createdAt: getPastDate(1), // 1 day ago
     message: 'I need help preparing for CBSE board exams. I am weak in trigonometry and geometry.',
     status: 'pending',
     reply: null,
@@ -23,11 +29,11 @@ export const teacherQueriesData = [
     preferredMode: 'Offline',
     preferredDays: 'Mon, Wed, Fri',
     preferredTime: 'Afternoon',
-    date: 'Oct 11, 2026',
+    createdAt: getPastDate(5), // 5 days ago - already replied
     message: 'Can you help with JEE preparation? I specifically want to focus on mechanics and electromagnetism.',
-    status: 'replied',
+    status: 'accepted',
     reply: 'Yes, I specialize in JEE Physics and have 8 years experience. We can start with a mock test to gauge your current level.',
-    replyDate: 'Oct 12, 2026'
+    replyDate: getPastDate(4)
   },
   {
     id: 3,
@@ -38,7 +44,7 @@ export const teacherQueriesData = [
     preferredMode: 'Both',
     preferredDays: 'Tue, Thu',
     preferredTime: 'Morning',
-    date: 'Oct 10, 2026',
+    createdAt: getPastDate(4), // 4 days ago - will be auto rejected
     message: 'I am looking for someone to explain concepts with diagrams. Do you provide notes?',
     status: 'pending',
     reply: null,
@@ -53,9 +59,9 @@ export const teacherQueriesData = [
     preferredMode: 'Online',
     preferredDays: 'Any',
     preferredTime: 'Evening',
-    date: 'Oct 09, 2026',
+    createdAt: getPastDate(2), // 2 days ago
     message: 'Organic chemistry is very confusing for me. Will you cover only that portion or physical chemistry too?',
-    status: 'declined',
+    status: 'pending',
     reply: null,
     replyDate: null
   },
@@ -68,11 +74,11 @@ export const teacherQueriesData = [
     preferredMode: 'Online',
     preferredDays: 'Sat, Sun',
     preferredTime: 'Morning',
-    date: 'Oct 08, 2026',
+    createdAt: getPastDate(6),
     message: 'I want to improve my grammar and creative writing skills. Do you offer weekly assignments?',
-    status: 'replied',
+    status: 'accepted',
     reply: 'Absolutely! I provide weekly writing prompts and detailed feedback to help improve grammar and vocabulary.',
-    replyDate: 'Oct 09, 2026'
+    replyDate: getPastDate(5)
   },
   {
     id: 6,
@@ -83,11 +89,11 @@ export const teacherQueriesData = [
     preferredMode: 'Offline',
     preferredDays: 'Mon, Tue, Wed',
     preferredTime: 'Afternoon',
-    date: 'Oct 07, 2026',
+    createdAt: getPastDate(10), // 10 days ago
     message: 'I have my practical exams coming up for Python and SQL. Can we do a crash course?',
-    status: 'pending',
-    reply: null,
-    replyDate: null
+    status: 'rejected',
+    reply: 'Sorry, I am currently not taking any short-term crash courses.',
+    replyDate: getPastDate(9)
   },
   {
     id: 7,
@@ -98,54 +104,9 @@ export const teacherQueriesData = [
     preferredMode: 'Online',
     preferredDays: 'Weekends',
     preferredTime: 'Evening',
-    date: 'Oct 06, 2026',
-    message: 'Hi sir, do you teach ICSE syllabus? I need help with arithmetic progressions and probability.',
-    status: 'replied',
-    reply: 'Yes, I am very familiar with the ICSE syllabus. Probability is one of my favorite topics to teach. Let\'s schedule a trial class.',
-    replyDate: 'Oct 07, 2026'
-  },
-  {
-    id: 8,
-    student: 'Rohan Das',
-    initials: 'RD',
-    classLevel: 'Class 11',
-    subject: 'Physics',
-    preferredMode: 'Both',
-    preferredDays: 'Mon, Wed, Fri',
-    preferredTime: 'Evening',
-    date: 'Oct 05, 2026',
-    message: 'Do you take group classes or only 1-on-1? I want to join with my friend.',
-    status: 'replied',
-    reply: 'I take both! Group classes for 2 students are offered at a discounted rate. Let me know when you guys are free.',
-    replyDate: 'Oct 06, 2026'
-  },
-  {
-    id: 9,
-    student: 'Ananya Sharma',
-    initials: 'AS',
-    classLevel: 'Class 12',
-    subject: 'Chemistry',
-    preferredMode: 'Online',
-    preferredDays: 'Tue, Thu',
-    preferredTime: 'Morning',
-    date: 'Oct 03, 2026',
-    message: 'Can you help with NEET chemistry preparation? Mostly inorganic chemistry.',
+    createdAt: getPastDate(0), // Today
+    message: 'Can we schedule a demo class this weekend?',
     status: 'pending',
-    reply: null,
-    replyDate: null
-  },
-  {
-    id: 10,
-    student: 'Amit Patel',
-    initials: 'AP',
-    classLevel: 'Class 9',
-    subject: 'English',
-    preferredMode: 'Offline',
-    preferredDays: 'Weekends',
-    preferredTime: 'Afternoon',
-    date: 'Oct 01, 2026',
-    message: 'I am struggling with literature questions. Do you have chapter-wise summaries?',
-    status: 'declined',
     reply: null,
     replyDate: null
   }

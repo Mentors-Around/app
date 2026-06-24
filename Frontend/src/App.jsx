@@ -14,7 +14,6 @@ import AdminVerify from './pages/AdminVerify';
 import DashboardLayout from './layouts/DashboardLayout';
 
 // New Public Pages
-import BookNow from './pages/BookNow';
 import Safety from './pages/Safety';
 import AboutUs from './pages/AboutUs';
 import TeacherEarningsInfo from './pages/TeacherEarningsInfo';
@@ -31,6 +30,7 @@ import HowPaymentsWork from './pages/HowPaymentsWork';
 import DirectQueriesPage from './pages/DirectQueriesPage';
 import MyQueriesPage from './pages/MyQueriesPage';
 import SubjectLandingPage from './pages/SubjectLandingPage';
+import StudentClassroomDetails from './pages/StudentClassroomDetails';
 
 // New Profile Pages
 import StudentProfile from './pages/StudentProfile';
@@ -39,7 +39,7 @@ import StudentFavourites from './pages/StudentFavourites';
 import StudentPayments from './pages/StudentPayments';
 import StudentSettings from './pages/StudentSettings';
 import StudentRooms from './pages/StudentRooms';
-import StudentAssignments from './pages/StudentAssignments';
+import ClassroomLobby from './pages/ClassroomLobby';
 import StudentTests from './pages/StudentTests';
 import StudentTestTaking from './pages/StudentTestTaking';
 import StudentTestResults from './pages/StudentTestResults';
@@ -48,9 +48,11 @@ import TeacherStudents from './pages/TeacherStudents';
 import TeacherEarnings from './pages/TeacherEarnings';
 import TeacherReviews from './pages/TeacherReviews';
 import TeacherSettings from './pages/TeacherSettings';
-import TeacherRooms from './pages/TeacherRooms';
-import TeacherAssignments from './pages/TeacherAssignments';
+import TeacherClassrooms from './pages/TeacherClassrooms';
+import TeacherClassroomDetails from './pages/TeacherClassroomDetails';
 import TeacherQueriesPage from './pages/TeacherQueriesPage';
+import TeacherDoubtsPage from './pages/TeacherDoubtsPage';
+import TeacherReports from './pages/TeacherReports';
 import PublicTeacherProfile from './pages/PublicTeacherProfile';
 
 const App = () => {
@@ -72,7 +74,6 @@ const App = () => {
           </div>
         }>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/book/:teacherName" element={<BookNow />} />
           <Route path="/safety" element={<Safety />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/teacher/earnings-info" element={<TeacherEarningsInfo />} />
@@ -85,6 +86,7 @@ const App = () => {
           <Route path="/teacher/become" element={<TeacherBecome />} />
           <Route path="/teacher/:teacherId" element={<PublicTeacherProfile />} />
           <Route path="/tutor/:id" element={<PublicTeacherProfile />} />
+          <Route path="/classroom/:classroomId" element={<StudentClassroomDetails />} />
           <Route path="/coaching-centers" element={<CoachingCenters />} />
           <Route path="/how-payments-work" element={<HowPaymentsWork />} />
           <Route path="/lessons/:subject" element={<SubjectLandingPage />} />
@@ -106,7 +108,7 @@ const App = () => {
           <Route path="payments" element={<StudentPayments />} />
           <Route path="settings" element={<StudentSettings />} />
           <Route path="rooms" element={<StudentRooms />} />
-          <Route path="assignments" element={<StudentAssignments />} />
+          <Route path="lobby/:id" element={<ClassroomLobby />} />
           <Route path="tests" element={<StudentTests />} />
           <Route path="tests/:testId" element={<StudentTestTaking />} />
           <Route path="tests/:testId/results" element={<StudentTestResults />} />
@@ -121,10 +123,12 @@ const App = () => {
           <Route path="students" element={<TeacherStudents />} />
           <Route path="earnings" element={<TeacherEarnings />} />
           <Route path="queries" element={<TeacherQueriesPage />} />
+          <Route path="doubts" element={<TeacherDoubtsPage />} />
+          <Route path="reports" element={<TeacherReports />} />
           <Route path="reviews" element={<TeacherReviews />} />
           <Route path="settings" element={<TeacherSettings />} />
-          <Route path="create-room" element={<TeacherRooms />} />
-          <Route path="assignments" element={<TeacherAssignments />} />
+          <Route path="classrooms" element={<TeacherClassrooms />} />
+          <Route path="classrooms/:id" element={<TeacherClassroomDetails />} />
         </Route>
 
         {/* Admin Routes */}

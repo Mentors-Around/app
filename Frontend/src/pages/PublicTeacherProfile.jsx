@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { Share2, Heart, CheckCircle2, MapPin, Star, Calendar, Monitor, Award, BookOpen, Clock, AlertCircle } from 'lucide-react';
 import { tutors } from '../data/tutors';
 import TutorCard from '../components/shared/TutorCard';
-import { useUser } from '../context/UserContext';
+import useAuth from '../hooks/useAuth';
+import TokenPurchaseModal from '../components/shared/TokenPurchaseModal';
 
 const getSubjectColor = (subject) => {
   const s = subject.toLowerCase();
@@ -41,52 +42,54 @@ const availabilityGrid = [
 const PublicTeacherProfile = () => {
   const { teacherId, id } = useParams();
   const profileId = id || teacherId;
-  const { user } = useUser();
-  const [activeTab, setActiveTab] = useState('About');
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('Classrooms');
   const [saved, setSaved] = useState(false);
-  const [showQueryModal, setShowQueryModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
-  const [queryForm, setQueryForm] = useState({ classLevel: '', mode: 'Online', days: [], time: 'Morning', message: '' });
+  const [showGeneralQueryModal, setShowGeneralQueryModal] = useState(false);
+  const [generalQueryForm, setGeneralQueryForm] = useState({ subject: '', message: '' });
   const [querySuccessToast, setQuerySuccessToast] = useState(false);
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
 
-  const handleSendQueryClick = () => {
-    const passData = localStorage.getItem('trueedu_query_pass');
-    let hasAccess = false;
-    if (passData) {
-      try {
-        const parsed = JSON.parse(passData);
-        if (parsed.active && new Date(parsed.expiry) > new Date() && parsed.used < 5) {
-          hasAccess = true;
-        }
-      } catch(e){}
-    }
-    if (hasAccess) {
-      setShowQueryModal(true);
+  const handleSendGeneralQueryClick = () => {
+    const tokens = parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10);
+    if (tokens > 0) {
+      setShowGeneralQueryModal(true);
     } else {
-      setShowPaymentModal(true);
+      setIsTokenModalOpen(true);
     }
   };
 
-  const handlePaymentConfirm = () => {
-    setShowPaymentModal(false);
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + 5);
-    localStorage.setItem('trueedu_query_pass', JSON.stringify({ active: true, used: 0, expiry }));
-    setShowQueryModal(true);
-  };
-
-  const handleQuerySubmit = (e) => {
+  const handleGeneralQuerySubmit = (e) => {
     e.preventDefault();
-    const passData = localStorage.getItem('trueedu_query_pass');
-    if (passData) {
-      const parsed = JSON.parse(passData);
-      parsed.used = (parsed.used || 0) + 1;
-      localStorage.setItem('trueedu_query_pass', JSON.stringify(parsed));
-    }
-    setShowQueryModal(false);
+    if (!generalQueryForm.subject || !generalQueryForm.message) return;
+
+    // Deduct token
+    const tokens = parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10);
+    localStorage.setItem('trueed_student_tokens', (tokens - 1).toString());
+
+    // Save Query
+    const queriesRaw = localStorage.getItem('trueed_general_queries');
+    const existing = queriesRaw ? JSON.parse(queriesRaw) : [];
+    existing.push({
+      id: Date.now(),
+      type: 'general',
+      teacherId: profileId,
+      teacherName: tutorData ? tutorData.name : 'Unknown',
+      teacherInitials: tutorData ? tutorData.initials : '?',
+      studentId: user?.id || 'student-1',
+      studentName: user?.name || 'Student User',
+      studentInitials: user?.initials || 'ST',
+      subject: generalQueryForm.subject,
+      message: generalQueryForm.message,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    });
+    localStorage.setItem('trueed_general_queries', JSON.stringify(existing));
+
+    setShowGeneralQueryModal(false);
     setQuerySuccessToast(true);
     setTimeout(() => setQuerySuccessToast(false), 5000);
+    setGeneralQueryForm({ subject: '', message: '' });
   };
 
   const tutorData = tutors.find(t => t.id.toString() === profileId);
@@ -95,7 +98,7 @@ const PublicTeacherProfile = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
     const rawName = tutorData ? tutorData.name : (teacherId ? teacherId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Teacher Name');
-    document.title = rawName + ' — TrueEdu';
+    document.title = rawName + ' — TrueEd';
   }, [profileId, tutorData, teacherId]);
 
   if (!tutorData) {
@@ -116,24 +119,45 @@ const PublicTeacherProfile = () => {
   }
 
   const teacher = {
-    name: tutorData.name,
-    initials: tutorData.initials,
-    subject: tutorData.subject,
-    location: tutorData.location,
+    name: tutorData.name || 'Unknown Teacher',
+    initials: tutorData.initials || '?',
+    subject: tutorData.subject || 'Not specified',
+    location: tutorData.location || 'Not specified',
     rating: tutorData.rating || 0,
     reviews: tutorData.reviews || 0,
-    rate: tutorData.price,
-    experience: tutorData.experience,
-    mode: tutorData.mode,
-    verified: tutorData.verified,
-    bio: tutorData.bio || "Passionate educator with a focus on building strong fundamentals.",
+    rate: tutorData.price || 0,
+    experience: tutorData.experience || 'Not specified',
+    mode: tutorData.mode || 'Not specified',
+    verified: tutorData.verified || false,
+    bio: tutorData.bio || "No description provided.",
     boards: tutorData.tags || [],
-    languages: ["English", "Hindi", "Kannada"] // Mocked languages, as not present in all tutors
+    languages: tutorData.languages || [],
+    achievements: tutorData.achievements || [],
   };
+
+  let dynamicSubjects = [];
+  let dynamicLevels = [];
+  let teacherClassrooms = [];
+  const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
+  if (classroomsRaw) {
+    try {
+      const classrooms = JSON.parse(classroomsRaw);
+      teacherClassrooms = classrooms.filter(c => c.teacherId === profileId || c.teacher === teacher.name);
+      // Only show active classrooms
+      teacherClassrooms = teacherClassrooms.filter(c => c.status !== 'inactive');
+      if (teacherClassrooms.length > 0) {
+        dynamicSubjects = [...new Set(teacherClassrooms.map(c => c.subject).filter(Boolean))];
+        dynamicLevels = [...new Set(teacherClassrooms.map(c => c.classLevel).filter(Boolean))];
+      }
+    } catch (e) {}
+  }
+
+  const displaySubjects = dynamicSubjects.length > 0 ? dynamicSubjects : [teacher.subject];
+  const displayLevels = dynamicLevels.length > 0 ? dynamicLevels : teacher.boards;
 
   const similarTeachers = tutors.filter(t => t.subject === teacher.subject).slice(0, 3);
 
-  const Tabs = ['About', 'Reviews', 'Availability', 'Achievements'];
+  const Tabs = ['Classrooms', 'About', 'Reviews', 'Availability', 'Achievements'];
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 md:pb-12">
@@ -210,17 +234,30 @@ const PublicTeacherProfile = () => {
                   <p className="font-semibold text-sm text-navy flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {teacher.experience}</p>
                 </div>
               </div>
+            </div>
 
-              {/* Desktop Fixed Button */}
-              <div className="hidden md:block">
-                <Link to={`/book/${teacherId}`} className="w-full py-3.5 bg-gradient-to-r from-navy to-blue-600 text-white rounded-xl text-sm font-bold shadow-brand hover:shadow-brand-xl transition-all flex items-center justify-center gap-2 group mb-3">
-                  Book a Session
-                  <i className="fa-solid fa-arrow-right text-[10px] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ml-1" />
-                </Link>
-                <button onClick={handleSendQueryClick} className="w-full py-3.5 bg-white border border-slate-200 text-navy rounded-xl text-sm font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-                  <i className="fa-regular fa-comment" /> Send Query
+            {/* Premium General Inquiry Card */}
+            <div className="mt-6 bg-[#F8FAFC] rounded-2xl p-5 border border-transparent hover:border-slate-100 transition-all duration-300 hover:shadow-[0_4px_24px_rgba(0,0,0,0.03)] hover:bg-white group">
+              <h3 className="font-sora font-bold text-slate-900 text-[15px] mb-2 flex items-center gap-2">
+                <span className="opacity-90">💬</span> Ask This Teacher
+              </h3>
+              <p className="text-[13px] text-slate-500 mb-5 leading-relaxed pr-2">
+                Have questions before choosing a classroom? Send a direct inquiry and discuss your learning goals.
+              </p>
+              
+              <div className="flex items-center justify-between">
+                <div className="px-2.5 py-1.5 bg-slate-100 rounded-md flex items-center gap-1.5 group-hover:bg-slate-50 transition-colors">
+                  <span className="text-[10px] leading-none opacity-80">⚡</span>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-px">
+                    Uses 1 Query Token
+                  </span>
+                </div>
+                <button 
+                  onClick={handleSendGeneralQueryClick}
+                  className="px-5 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:-translate-y-[2px] hover:shadow-[0_6px_16px_rgba(15,23,42,0.15)] transition-all duration-300 ease-out"
+                >
+                  Send Inquiry
                 </button>
-                <p className="text-center text-[11px] text-muted font-medium mt-3"><AlertCircle className="w-3 h-3 inline mr-1" /> No payment required to book</p>
               </div>
             </div>
           </div>
@@ -250,17 +287,77 @@ const PublicTeacherProfile = () => {
 
             {/* Tab Contents */}
             <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-6 md:p-8">
+
+              {/* CLASSROOMS TAB */}
+              {activeTab === 'Classrooms' && (
+                <div className="animate-fade-in">
+                  <h3 className="font-sora font-bold text-navy text-lg mb-6">Available Classrooms</h3>
+                  {teacherClassrooms.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-50 rounded-xl border border-slate-100">
+                      <p className="text-slate-500 font-medium">This teacher hasn't created any classrooms yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {teacherClassrooms.map((room) => (
+                        <div key={room.id} className="bg-white border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition-all shadow-sm group">
+                          <div className="flex justify-between items-start mb-3">
+                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-md uppercase tracking-wider">
+                              {room.subject} • {room.classLevel || 'General'}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${
+                               room.unlimitedStudents ? 'bg-green-50 text-success' : 
+                               ((room.students || room.enrolled || 0) >= (room.capacity || room.maxStudents || 0) ? 'bg-red-50 text-error' : 'bg-green-50 text-success')
+                             }`}>
+                              {room.unlimitedStudents ? 'Active' : ((room.students || room.enrolled || 0) >= (room.capacity || room.maxStudents || 0) ? 'Full' : 'Active')}
+                            </span>
+                          </div>
+                          
+                          <h4 className="font-bold text-navy text-base mb-2 line-clamp-2">{room.name}</h4>
+                          
+                          <div className="space-y-2 mb-4">
+                            <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" /> {room.scheduleDays?.length ? room.scheduleDays.join(', ') : 'TBD'} • {room.startTime || '--'} to {room.endTime || '--'}
+                            </p>
+                            <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                              <Monitor className="w-3.5 h-3.5 text-slate-400" /> {room.mode || 'Online'}
+                            </p>
+                            {!room.unlimitedStudents ? (
+                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                                <i className="fa-solid fa-users text-slate-400 w-3.5" /> 
+                                {(room.capacity || room.maxStudents || 0) - (room.students || room.enrolled || 0)} Seats Available (Max: {room.capacity || room.maxStudents || 0})
+                              </p>
+                            ) : (
+                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                                <i className="fa-solid fa-users text-slate-400 w-3.5" /> 
+                                Unlimited Seats
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex justify-between items-center pt-4 border-t border-slate-100 gap-2">
+                            <div>
+                              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Price per Student</p>
+                              <p className="font-sora font-extrabold text-navy">₹{room.price}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Link to={`/classroom/${room.id}`} className="px-4 py-2 bg-slate-100 text-navy text-xs font-bold rounded-lg shadow-sm hover:bg-slate-200 transition">
+                                View Details
+                              </Link>
+                              <Link to={`/classroom/${room.id}?query=true`} className="px-4 py-2 bg-navy text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition">
+                                Send Query
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* ABOUT TAB */}
               {activeTab === 'About' && (
                 <div className="animate-fade-in">
-                  <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 flex items-start gap-4 mb-8">
-                    <div className="text-2xl mt-1">🎁</div>
-                    <div>
-                      <h4 className="font-bold text-navy text-sm">First class is FREE</h4>
-                      <p className="text-xs font-medium text-slate-600 mt-1">Book a trial session to see if my teaching style matches your learning needs. No commitment needed!</p>
-                    </div>
-                  </div>
 
                   <h3 className="font-sora font-bold text-navy text-lg mb-3">About Me</h3>
                   <p className="text-sm text-slate-600 leading-relaxed mb-8 font-medium">
@@ -271,15 +368,25 @@ const PublicTeacherProfile = () => {
                     <div>
                       <h4 className="font-bold text-navy text-sm mb-3 flex items-center gap-2"><BookOpen className="w-4 h-4 text-slate-400" /> Subjects Taught</h4>
                       <div className="flex flex-wrap gap-2">
-                        <span className="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1.5 rounded-md">{teacher.subject}</span>
+                        {displaySubjects && displaySubjects.length > 0 ? (
+                          displaySubjects.map(s => (
+                            <span key={s} className="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1.5 rounded-md">{s}</span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">Not specified</span>
+                        )}
                       </div>
                     </div>
                     <div>
-                      <h4 className="font-bold text-navy text-sm mb-3 flex items-center gap-2"><Award className="w-4 h-4 text-slate-400" /> Classes & Boards</h4>
+                      <h4 className="font-bold text-navy text-sm mb-3 flex items-center gap-2"><Award className="w-4 h-4 text-slate-400" /> Levels / Exams Taught</h4>
                       <div className="flex flex-wrap gap-2">
-                        {teacher.boards.map(b => (
-                          <span key={b} className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-md">{b}</span>
-                        ))}
+                        {displayLevels && displayLevels.length > 0 ? (
+                          displayLevels.map(l => (
+                            <span key={l} className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-md">{l}</span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">Not specified</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -288,28 +395,30 @@ const PublicTeacherProfile = () => {
                     <div>
                       <h4 className="font-bold text-navy text-sm mb-3 flex items-center gap-2"><Monitor className="w-4 h-4 text-slate-400" /> Teaching Mode</h4>
                       <ul className="space-y-2 text-sm font-medium text-slate-600">
-                        <li className="flex items-center gap-2"><i className="fa-solid fa-circle text-[6px] text-amber" /> Online via Google Meet / Zoom</li>
-                        <li className="flex items-center gap-2"><i className="fa-solid fa-circle text-[6px] text-amber" /> In-person at student's home (Indiranagar)</li>
+                        {teacher.mode && teacher.mode !== 'Not specified' ? (
+                          <li className="flex items-center gap-2">
+                            <i className="fa-solid fa-circle text-[6px] text-amber" /> 
+                            {teacher.mode === 'Both' ? 'Online and Offline' : teacher.mode}
+                          </li>
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">Not specified</span>
+                        )}
                       </ul>
                     </div>
                     <div>
                       <h4 className="font-bold text-navy text-sm mb-3">Languages Spoken</h4>
                       <div className="flex flex-wrap gap-2">
-                        {teacher.languages.map(l => (
-                          <span key={l} className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full">{l}</span>
-                        ))}
+                        {teacher.languages && teacher.languages.length > 0 ? (
+                          teacher.languages.map(l => (
+                            <span key={l} className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full">{l}</span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">Not specified</span>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                    <h4 className="font-bold text-navy text-sm mb-3">What to expect in the first class?</h4>
-                    <ul className="space-y-3 text-sm font-medium text-slate-600">
-                      <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" /> A quick assessment of the student's current level and weak areas.</li>
-                      <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" /> Discussion of goals and timeline for the academic year.</li>
-                      <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" /> Creating a customized study plan to follow going forward.</li>
-                    </ul>
-                  </div>
                 </div>
               )}
 
@@ -506,125 +615,76 @@ const PublicTeacherProfile = () => {
         </div>
       </div>
 
-      {/* Mobile Fixed Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] md:hidden z-40 flex gap-3">
-        <button onClick={handleSendQueryClick} className="flex-1 py-3.5 bg-white border border-slate-200 text-navy rounded-xl text-sm font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-          Send Query
-        </button>
-        <Link to={`/book/${teacherId}`} className="flex-[2] py-3.5 bg-gradient-to-r from-navy to-blue-600 text-white rounded-xl text-sm font-bold shadow-brand flex items-center justify-center gap-2">
-          Book Session
-        </Link>
-      </div>
-
-      {/* Dummy Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-brand shadow-2xl animate-scale-in overflow-hidden">
-            <div className="p-6 border-b border-slate-100 text-center">
-              <h3 className="font-sora font-bold text-xl text-navy">Secure Checkout</h3>
-              <p className="text-muted text-sm mt-1">Pay <strong className="text-navy">₹19</strong> to unlock 5 direct queries</p>
-            </div>
-            <div className="p-6">
-              <div className="space-y-3 mb-6">
-                {['UPI', 'Credit/Debit Card', 'Net Banking'].map(method => (
-                  <button key={method} onClick={() => setPaymentMethod(method)} className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition ${paymentMethod === method ? 'border-navy bg-navy/5' : 'border-slate-100 hover:border-slate-300'}`}>
-                    <span className="font-semibold text-sm text-navy">{method}</span>
-                    {paymentMethod === method && <i className="fa-solid fa-circle-check text-navy" />}
-                  </button>
-                ))}
+      {/* General Inquiry Modal */}
+      {showGeneralQueryModal && (
+        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h2 className="font-sora font-bold text-xl text-navy">General Inquiry</h2>
+                <p className="text-xs font-semibold text-slate-500 mt-1">To: {teacher.name}</p>
               </div>
-              <button onClick={handlePaymentConfirm} className="w-full py-3.5 bg-success text-white rounded-lg font-sora font-semibold hover:bg-green-600 transition flex items-center justify-center gap-2">
-                <i className="fa-solid fa-lock" /> Pay ₹19 Securely
+              <button onClick={() => setShowGeneralQueryModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition">
+                <i className="fa-solid fa-xmark"></i>
               </button>
-              <button onClick={() => setShowPaymentModal(false)} className="w-full mt-3 py-2 text-muted text-sm font-medium hover:text-navy transition">Cancel</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Query Form Modal */}
-      {showQueryModal && (
-        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto pt-20 pb-10">
-          <div className="bg-white w-full max-w-lg rounded-brand shadow-2xl animate-scale-in overflow-hidden my-auto">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-sora font-bold text-xl text-navy">Send a Query to {teacher.name}</h3>
-              <button onClick={() => setShowQueryModal(false)} className="text-slate-400 hover:text-navy"><i className="fa-solid fa-xmark text-xl" /></button>
-            </div>
-            <form onSubmit={handleQuerySubmit} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleGeneralQuerySubmit} className="p-6 space-y-5">
+              <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-sky shrink-0 mt-0.5" />
                 <div>
-                  <label className="block text-xs font-semibold text-navy/70 mb-2 uppercase">Subject</label>
-                  <input type="text" readOnly value={teacher.subject} className="w-full py-2.5 px-3 bg-slate-100 border border-slate-200 rounded-md text-sm outline-none cursor-not-allowed text-slate-500 font-medium" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-navy/70 mb-2 uppercase">Your Class/Level</label>
-                  <input required type="text" value={queryForm.classLevel} onChange={e => setQueryForm({...queryForm, classLevel: e.target.value})} className="w-full py-2.5 px-3 bg-white border border-slate-200 rounded-md text-sm outline-none focus:border-navy" placeholder="e.g. Class 10" />
+                  <p className="text-sm font-bold text-navy mb-1">Uses 1 Query Token</p>
+                  <p className="text-xs font-semibold text-slate-600">You currently have {parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10)} tokens.</p>
                 </div>
               </div>
-              
               <div>
-                <label className="block text-xs font-semibold text-navy/70 mb-2 uppercase">Preferred Mode</label>
-                <div className="flex gap-2">
-                  {['Online', 'Offline', 'Both'].map(m => (
-                    <button type="button" key={m} onClick={() => setQueryForm({...queryForm, mode: m})} className={`flex-1 py-2 rounded-md text-sm font-semibold border ${queryForm.mode === m ? 'border-navy bg-navy/5 text-navy' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Subject</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. JEE Preparation Help"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:border-navy focus:ring-1 focus:ring-navy outline-none transition-all"
+                  value={generalQueryForm.subject}
+                  onChange={(e) => setGeneralQueryForm({...generalQueryForm, subject: e.target.value})}
+                />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-navy/70 mb-2 uppercase">Preferred Days</label>
-                <div className="flex flex-wrap gap-2">
-                  {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day => (
-                    <label key={day} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md cursor-pointer hover:bg-slate-100">
-                      <input type="checkbox" className="accent-navy" checked={queryForm.days.includes(day)} onChange={(e) => {
-                        const newDays = e.target.checked ? [...queryForm.days, day] : queryForm.days.filter(d => d !== day);
-                        setQueryForm({...queryForm, days: newDays});
-                      }} />
-                      <span className="text-sm font-medium text-slate-700">{day}</span>
-                    </label>
-                  ))}
-                </div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Message</label>
+                <textarea 
+                  required
+                  rows="4"
+                  placeholder="Describe your learning goals, current grade, or any questions you have..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:border-navy focus:ring-1 focus:ring-navy outline-none transition-all resize-none"
+                  value={generalQueryForm.message}
+                  onChange={(e) => setGeneralQueryForm({...generalQueryForm, message: e.target.value})}
+                />
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-navy/70 mb-2 uppercase">Preferred Time</label>
-                <div className="flex gap-2">
-                  {['Morning', 'Afternoon', 'Evening'].map(t => (
-                    <button type="button" key={t} onClick={() => setQueryForm({...queryForm, time: t})} className={`flex-1 py-2 rounded-md text-sm font-semibold border ${queryForm.time === t ? 'border-navy bg-navy/5 text-navy' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
+              <div className="pt-2">
+                <button type="submit" className="w-full py-3.5 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
+                  Send Inquiry
+                </button>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-navy/70 mb-2 uppercase flex justify-between">
-                  <span>Message</span>
-                  <span className={queryForm.message.length > 300 ? 'text-red-500' : 'text-slate-400'}>{queryForm.message.length}/300</span>
-                </label>
-                <textarea required maxLength={300} rows="3" value={queryForm.message} onChange={e => setQueryForm({...queryForm, message: e.target.value})} className="w-full py-2.5 px-3 bg-white border border-slate-200 rounded-md text-sm outline-none focus:border-navy resize-none" placeholder="What do you need help with?" />
-              </div>
-
-              <button type="submit" className="w-full py-3.5 bg-navy text-white rounded-lg font-sora font-semibold hover:bg-navy-light transition flex items-center justify-center gap-2">
-                <i className="fa-regular fa-paper-plane" /> Send Query
-              </button>
             </form>
           </div>
         </div>
       )}
 
+      <TokenPurchaseModal 
+        isOpen={isTokenModalOpen} 
+        onClose={() => setIsTokenModalOpen(false)} 
+        onSuccess={(tokens) => {
+          setIsTokenModalOpen(false);
+          setShowGeneralQueryModal(true);
+        }} 
+      />
+
       {/* Success Toast */}
       {querySuccessToast && (
-        <div className="fixed bottom-6 right-6 bg-green-500 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 z-50 animate-fade-in">
-          <i className="fa-solid fa-circle-check text-xl" />
-          <div>
-            <p className="font-bold">Query sent!</p>
-            <p className="text-xs text-green-100">{teacher.name} will respond within 24 hours.</p>
-          </div>
+        <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[60] animate-fade-in">
+          <CheckCircle2 className="w-5 h-5 text-success" />
+          General Inquiry Sent Successfully!
         </div>
       )}
+
     </div>
   );
 };

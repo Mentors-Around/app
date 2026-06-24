@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const StudentBookings = () => {
-  useEffect(() => { document.title = 'My Bookings — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'My Bookings — TrueEd'; }, []);
 
   const getFormattedDate = (daysOffset) => {
     const d = new Date();

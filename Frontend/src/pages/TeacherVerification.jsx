@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const TeacherVerification = () => {
-  useEffect(() => { document.title = 'Teacher Verification — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Teacher Verification — TrueEd'; }, []);
   const [openFaq, setOpenFaq] = useState(null);
   const faqs = [
     { q: 'How long does verification take?', a: 'Typically 3-5 working days after submitting all documents.' },

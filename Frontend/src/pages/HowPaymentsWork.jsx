@@ -23,16 +23,16 @@ const FAQItem = ({ question, answer }) => {
 
 const HowPaymentsWork = () => {
   useEffect(() => {
-    document.title = 'How Payments Work — TrueEdu';
+    document.title = 'How Payments Work — TrueEd';
     window.scrollTo(0, 0);
   }, []);
 
   const faqs = [
     { q: 'What happens if the teacher cancels the class?', a: 'If a teacher cancels or does not show up, your money is completely safe. Report the issue from your dashboard within 12 hours, and we will process a 100% refund immediately.' },
-    { q: 'Can I pay directly to the teacher?', a: 'To ensure your payment is protected by TrueEdu escrow, all payments must go through our secure platform. Direct payments are against our policy and forfeit payment protection.' },
+    { q: 'Can I pay directly to the teacher?', a: 'To ensure your payment is protected by TrueEd escrow, all payments must go through our secure platform. Direct payments are against our policy and forfeit payment protection.' },
     { q: 'How do I request a refund?', a: 'Go to your Bookings tab, select the specific class, and click "Report Issue / Request Refund". Provide a brief reason, and our admin team will resolve it within 12 hours.' },
     { q: 'What payment methods do you accept?', a: 'We accept UPI, Credit/Debit cards, Net Banking, and major mobile wallets through our secure payment gateway.' },
-    { q: 'Are there any hidden charges?', a: 'No. The amount you see at checkout (Session fee + 10% platform fee + ₹19 access fee) is exactly what you pay. There are zero hidden costs.' }
+    { q: 'Are there any hidden charges?', a: 'No. The amount you see at checkout (Session fee + 15% platform fee + ₹19 access fee) is exactly what you pay. There are zero hidden costs.' }
   ];
 
   return (
@@ -47,14 +47,14 @@ const HowPaymentsWork = () => {
             Your Money is Always Safe
           </h1>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
-            TrueEdu uses a secure escrow system. We hold your payment safely and only release it to the teacher once your learning is delivered as promised.
+            TrueEd uses a secure escrow system. We hold your payment safely and only release it to the teacher once your learning is delivered as promised.
           </p>
         </div>
       </section>
 
       {/* Escrow Visual Flow */}
       <section className="py-20 px-6 max-w-[1100px] mx-auto text-center">
-        <h2 className="font-sora text-3xl font-bold text-navy mb-4">How TrueEdu Escrow Works</h2>
+        <h2 className="font-sora text-3xl font-bold text-navy mb-4">How TrueEd Escrow Works</h2>
         <p className="text-muted mb-16">A simple, transparent process to protect both students and teachers.</p>
         
         <div className="flex flex-col md:flex-row items-center justify-between relative max-w-4xl mx-auto">
@@ -72,7 +72,7 @@ const HowPaymentsWork = () => {
             <div className="w-14 h-14 bg-white/10 text-white rounded-full flex items-center justify-center text-2xl mx-auto mb-4 border border-white/20">
               <i className="fa-solid fa-lock" />
             </div>
-            <h3 className="font-sora font-bold text-white mb-2">2. TrueEdu Holds</h3>
+            <h3 className="font-sora font-bold text-white mb-2">2. TrueEd Holds</h3>
             <p className="text-xs text-white/70">Funds are locked securely in our escrow account.</p>
           </div>
 

@@ -20,7 +20,7 @@ const Navbar = () => {
       ${scrolled ? 'bg-cream/95 backdrop-blur-md shadow-[0_1px_10px_rgba(15,43,77,0.06)]' : 'bg-transparent'}`}>
       <div className="max-w-[1100px] mx-auto px-6 flex items-center justify-between">
         <Link to="/">
-          <img src="/logo.png" alt="TrueEdu logo" className="h-10 w-auto" loading="lazy" />
+          <img src="/logo.png" alt="TrueEd logo" className="h-10 w-auto" loading="lazy" />
         </Link>
         <div className="hidden md:flex items-center gap-8">
           <Link to="/student/discover" className="text-navy font-bold text-sm hover:text-amber transition">Find a Teacher</Link>

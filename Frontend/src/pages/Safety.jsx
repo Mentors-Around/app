@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const Safety = () => {
-  useEffect(() => { document.title = 'Safety — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Safety — TrueEd'; }, []);
   return (
     <div>
       {/* Hero */}
@@ -64,7 +64,11 @@ const Safety = () => {
               </div>
               <div className="flex items-start gap-3">
                 <i className="fa-solid fa-check text-success mt-1" />
-                <p className="text-sm text-muted"><strong className="text-navy">Session Recording:</strong> Online sessions can be recorded securely for review by parents.</p>
+                <p className="text-sm text-muted"><strong className="text-navy">Verified Teachers:</strong> All teachers undergo profile verification before appearing on TrueEd, helping students and parents learn with confidence.</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <i className="fa-solid fa-check text-success mt-1" />
+                <p className="text-sm text-muted"><strong className="text-navy">Safe Communication:</strong> Students and teachers communicate through secure TrueEd platform features, helping protect privacy and maintain a safe learning environment.</p>
               </div>
               <div className="flex items-start gap-3">
                 <i className="fa-solid fa-check text-success mt-1" />

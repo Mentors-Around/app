@@ -18,7 +18,7 @@ const dummyQuestions = [
 
 const StudentTestResults = () => {
   useEffect(() => {
-    document.title = 'Test Results — TrueEdu';
+    document.title = 'Test Results — TrueEd';
     window.scrollTo(0, 0);
   }, []);
 

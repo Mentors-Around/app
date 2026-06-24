@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Alert from '../components/shared/Alert';
 import Spinner from '../components/shared/Spinner';
-import { teacherData } from '../data/teacherData';
 
 const GRADES = ['CBSE 8-10', 'CBSE 11-12', 'IIT JEE', 'NEET', 'College', 'Foundation'];
 
 const Step1 = ({ data, onChange, onNext, error }) => {
-  useEffect(() => { document.title = 'KYC Verification — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'KYC Verification — TrueEd'; }, []);
   const [local, setLocal] = useState('');
   const f = (field, val) => { onChange(field, val); };
   const next = () => {
@@ -20,8 +19,8 @@ const Step1 = ({ data, onChange, onNext, error }) => {
       <h3 className="font-sora text-xl font-bold text-navy mb-6">Personal Information</h3>
       {error && <Alert message={error} type="error" show={!!error} onDismiss={() => onChange('_err', '')} />}
       {[
-        { label: 'Full Name *', field: 'name', type: 'text', placeholder: `e.g. ${teacherData.name}` },
-        { label: 'Email Address *', field: 'email', type: 'email', placeholder: 'ravi@example.com' },
+        { label: 'Full Name *', field: 'name', type: 'text', placeholder: `e.g. John Doe` },
+        { label: 'Email Address *', field: 'email', type: 'email', placeholder: 'john@example.com' },
         { label: 'Phone Number *', field: 'phone', type: 'tel', placeholder: '+91 98765 43210' },
         { label: 'City *', field: 'city', type: 'text', placeholder: 'Bangalore' },
       ].map((f2) => (

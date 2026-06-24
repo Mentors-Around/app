@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 const StudentSettings = () => {
-  useEffect(() => { document.title = 'Settings — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Settings — TrueEd'; }, []);
   return (
     <div className="max-w-[1000px] mx-auto">
       <h1 className="font-sora text-2xl font-bold text-navy mb-6">Settings</h1>

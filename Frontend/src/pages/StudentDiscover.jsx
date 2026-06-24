@@ -7,7 +7,7 @@ import Pagination from '../components/shared/Pagination';
 
 const PER_PAGE = 6;
 const subjectsList = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Computer Science', 'Hindi'];
-const levelsList = ['Beginner', 'Intermediate', 'Advanced', 'All levels'];
+const levelsList = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'JEE', 'NEET', 'CUET', 'UPSC', 'Programming', 'Spoken English', 'Music', 'Karate'];
 const responseTimes = ['Any', 'Within 12 hours', 'Within 24 hours'];
 
 const searchSubjects = [
@@ -168,7 +168,6 @@ const StudentDiscover = () => {
     classGrades: [],
     levels: [],
     quickResponse: null,
-    freeTrial: false,
   });
 
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -178,7 +177,7 @@ const StudentDiscover = () => {
   const [locationQuery, setLocationQuery] = useState('');
   const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
 
-  useEffect(() => { document.title = 'Discover Tutors — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Discover Tutors — TrueEd'; }, []);
 
   useEffect(() => {
     const sub = searchParams.get('subject');
@@ -219,7 +218,7 @@ const StudentDiscover = () => {
 
   const handleReset = () => {
     const resetState = { 
-      subjects: [], minRating: null, minPrice: '', maxPrice: '', distance: 10, typeOfClass: [], classGrades: [], levels: [], quickResponse: null, freeTrial: false
+      subjects: [], minRating: null, minPrice: '', maxPrice: '', distance: 10, typeOfClass: [], classGrades: [], levels: [], quickResponse: null
     };
     setFilters(resetState);
     setLocalFilters(resetState);
@@ -242,11 +241,31 @@ const StudentDiscover = () => {
   const filtered = useMemo(() => {
     let list = [...allTutors];
 
+    const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
+    if (classroomsRaw) {
+      try {
+        const classrooms = JSON.parse(classroomsRaw);
+        list = list.map(tutor => {
+          const teacherClassrooms = classrooms.filter(c => c.teacher === tutor.name);
+          if (teacherClassrooms.length > 0) {
+            const subjects = [...new Set(teacherClassrooms.map(c => c.subject).filter(Boolean))];
+            const levels = [...new Set(teacherClassrooms.map(c => c.classLevel).filter(Boolean))];
+            return { ...tutor, dynamicSubjects: subjects, dynamicLevels: levels };
+          }
+          return tutor;
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       list = list.filter((t) => 
         t.name.toLowerCase().includes(q) || 
         t.subject.toLowerCase().includes(q) || 
+        (t.dynamicSubjects && t.dynamicSubjects.some(s => s.toLowerCase().includes(q))) ||
+        (t.dynamicLevels && t.dynamicLevels.some(l => l.toLowerCase().includes(q))) ||
         (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q))) ||
         (t.bio && t.bio.toLowerCase().includes(q))
       );
@@ -268,7 +287,9 @@ const StudentDiscover = () => {
     if (filters.levels && filters.levels.length > 0) {
       list = list.filter((t) => 
         filters.levels.some(l => 
-          l === 'All levels' || t.tags.some(tag => tag.toLowerCase().includes(l.toLowerCase()))
+          (t.dynamicLevels && t.dynamicLevels.some(dl => dl.toLowerCase().includes(l.toLowerCase()))) ||
+          (t.tags && t.tags.some(tag => tag.toLowerCase().includes(l.toLowerCase()))) ||
+          (t.bio && t.bio.toLowerCase().includes(l.toLowerCase()))
         )
       );
     }
@@ -293,10 +314,6 @@ const StudentDiscover = () => {
     
     if (locationQuery) {
       list = list.filter((t) => t.location && t.location.toLowerCase().includes(locationQuery.toLowerCase()));
-    }
-    
-    if (filters.freeTrial) {
-      list = list.filter((t) => t.promo && t.promo.toLowerCase().includes('free'));
     }
 
     switch (sortBy) {
@@ -491,12 +508,9 @@ const StudentDiscover = () => {
                 >
                   🏠 Offline Classes
                 </button>
-                <button 
-                  onClick={() => setFilters(prev => ({...prev, freeTrial: !prev.freeTrial}))}
-                  className={`px-4 py-2 rounded-full text-sm font-medium border transition ${filters.freeTrial ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}
-                >
-                  🎁 Free Trial Class
-                </button>
+                <div className="flex flex-wrap items-center gap-2 mt-4 max-w-[800px] w-full hide-scrollbar overflow-x-auto pb-1">
+                  {/* Free Trial Button Removed */}
+                </div>
               </div>
             </div>
             

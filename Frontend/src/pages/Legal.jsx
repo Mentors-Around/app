@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const Legal = () => {
-  useEffect(() => { document.title = 'Privacy & Terms — TrueEdu'; }, []);
+  useEffect(() => { document.title = 'Privacy & Terms — TrueEd'; }, []);
   const { pathname } = useLocation();
   const isPrivacy = pathname === '/privacy';
 

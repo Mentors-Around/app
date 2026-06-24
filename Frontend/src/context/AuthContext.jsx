@@ -3,6 +3,27 @@ import { useNavigate } from 'react-router-dom';
 
 export const AuthContext = createContext(null);
 
+const getInitials = (name) => {
+  if (!name || !name.trim()) return 'U';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length > 1) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return parts[0][0].toUpperCase();
+};
+
+const defaultMockStudent = {
+  name: 'Student User',
+  initials: 'SU',
+  email: 'student@example.com',
+  phone: '+91 9876543210',
+  location: 'Bangalore',
+  school: 'National High School',
+  class: 'Class 10',
+  subjects: ['Mathematics', 'Science'],
+  role: 'student',
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
@@ -15,11 +36,31 @@ export const AuthProvider = ({ children }) => {
     const savedToken = localStorage.getItem('trueed_token');
 
     if (savedToken && savedProfile && savedRole) {
-      setUser(JSON.parse(savedProfile));
+      const parsedUser = JSON.parse(savedProfile);
+      if (!parsedUser.initials && parsedUser.name) {
+        parsedUser.initials = getInitials(parsedUser.name);
+      }
+      setUser(parsedUser);
       setRole(savedRole);
+      setIsAuthenticated(true);
+    } else {
+      // Provide a functional UI even without login
+      setUser(defaultMockStudent);
+      setRole('student');
       setIsAuthenticated(true);
     }
   }, []);
+
+  const updateUser = (updates) => {
+    setUser((prevUser) => {
+      const newUser = { ...prevUser, ...updates };
+      if (updates.name !== undefined) {
+        newUser.initials = getInitials(updates.name);
+      }
+      localStorage.setItem('trueed_profile', JSON.stringify(newUser));
+      return newUser;
+    });
+  };
 
   // Simulate phone OTP send
   const sendPhoneOTP = (phone) => {
@@ -57,13 +98,17 @@ export const AuthProvider = ({ children }) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         if (otp === '654321') {
+          const profileWithInitials = {
+            ...profile,
+            initials: getInitials(profile.name)
+          };
           // Save to localStorage
-          localStorage.setItem('trueed_profile', JSON.stringify(profile));
+          localStorage.setItem('trueed_profile', JSON.stringify(profileWithInitials));
           localStorage.setItem('trueed_role', profile.role);
           localStorage.setItem('trueed_token', 'demo_token_' + Date.now());
           localStorage.setItem('trueed_uid', 'demo_uid_' + Date.now());
 
-          setUser(profile);
+          setUser(profileWithInitials);
           setRole(profile.role);
           setIsAuthenticated(true);
 
@@ -81,8 +126,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('trueed_role');
     localStorage.removeItem('trueed_token');
     localStorage.removeItem('trueed_uid');
-    setUser(null);
-    setRole(null);
+    
+    // Provide a generic mock student on logout instead of crashing
+    setUser(defaultMockStudent);
+    setRole('student');
     setIsAuthenticated(false);
   };
 
@@ -102,6 +149,7 @@ export const AuthProvider = ({ children }) => {
         user,
         role,
         isAuthenticated,
+        updateUser,
         sendPhoneOTP,
         verifyPhoneOTP,
         register,

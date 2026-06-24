@@ -53,7 +53,8 @@ const TutorCard = ({ tutor }) => {
             
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${colors.bg} ${colors.text} uppercase tracking-wider`}>
-                {tutor.subject}
+                {(tutor.dynamicSubjects && tutor.dynamicSubjects.length > 0) ? tutor.dynamicSubjects.join(', ') : tutor.subject}
+                {(tutor.dynamicLevels && tutor.dynamicLevels.length > 0) ? ` • ${tutor.dynamicLevels.join(', ')}` : ''}
               </span>
             </div>
             
@@ -88,7 +89,7 @@ const TutorCard = ({ tutor }) => {
           <span className="inline-flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full">
             <i className={`fa-solid ${tutor.mode.includes('Online') ? 'fa-laptop' : 'fa-house'} text-slate-400`} /> {tutor.mode}
           </span>
-          {tutor.promo && (
+          {tutor.promo && !tutor.promo.toLowerCase().includes('free trial') && !tutor.promo.toLowerCase().includes('first class') && (
             <span className="inline-flex items-center gap-1.5 text-xs bg-amber/10 border border-amber/20 text-amber-hover font-bold px-2.5 py-1 rounded-full">
               <i className="fa-solid fa-gift" /> {tutor.promo}
             </span>
@@ -116,18 +117,11 @@ const TutorCard = ({ tutor }) => {
         
         <div className="flex flex-col gap-2">
           <Link
-            to={`/book/${tutor.name.toLowerCase().replace(/\s+/g, '-')}`}
+            to={`/tutor/${tutor.id}`}
             onClick={(e) => e.stopPropagation()}
             className="w-full py-3 bg-gradient-to-r from-navy to-blue-600 text-white rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
           >
-            <i className="fa-regular fa-calendar-check" /> Book Now
-          </Link>
-          <Link
-            to={`/tutor/${tutor.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-center text-xs font-semibold text-sky hover:text-navy transition py-1"
-          >
-            View Profile
+            <i className="fa-regular fa-user" /> View Profile
           </Link>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
-
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaYoutube, FaGooglePlay, FaApple } from 'react-icons/fa';
 const Footer = () => {
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
@@ -22,7 +22,7 @@ const Footer = () => {
           <div className="space-y-3 mb-8">
             <div className="flex items-center gap-3 text-sm">
               <Mail className="w-4 h-4 text-amber" />
-              <a href="mailto:support@trueedu.in" className="hover:text-amber transition">support@trueedu.in</a>
+              <a href="mailto:support@trueed.in" className="hover:text-amber transition">support@trueed.in</a>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <Phone className="w-4 h-4 text-amber" />
@@ -35,20 +35,20 @@ const Footer = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#1877F2] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-110">
-              <i className="fa-brands fa-facebook-f text-[17px]"></i>
+            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#1877F2] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-105">
+              <FaFacebookF className="text-white text-[18px]" />
             </a>
-            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-110">
-              <i className="fa-brands fa-instagram text-[19px]"></i>
+            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-105">
+              <FaInstagram className="text-white text-[19px]" />
             </a>
-            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white hover:text-black transition-all duration-300 transform hover:-translate-y-1 hover:scale-110">
-              <FaXTwitter className="text-[18px]" />
+            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white hover:text-black transition-all duration-300 transform hover:-translate-y-1 hover:scale-105">
+              <FaXTwitter className="text-white text-[18px]" />
             </a>
-            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#0A66C2] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-110">
-              <i className="fa-brands fa-linkedin-in text-[17px]"></i>
+            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#0A66C2] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-105">
+              <FaLinkedinIn className="text-white text-[18px]" />
             </a>
-            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#FF0000] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-110">
-              <i className="fa-brands fa-youtube text-[18px]"></i>
+            <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-[#FF0000] hover:text-white transition-all duration-300 transform hover:-translate-y-1 hover:scale-105">
+              <FaYoutube className="text-white text-[19px]" />
             </a>
           </div>
         </div>
@@ -107,15 +107,15 @@ const Footer = () => {
             <p className="text-xs text-white/50">Available soon for Android and iOS</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <button className="flex items-center gap-3 bg-white/[0.08] border border-white/10 px-4 py-2.5 rounded-2xl hover:bg-white/[0.15] hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer w-full sm:w-auto justify-center sm:justify-start">
-              <i className="fa-brands fa-google-play text-[26px] text-white"></i>
+            <button className="flex items-center gap-3 bg-white/[0.08] border border-white/10 px-4 py-2.5 rounded-2xl hover:bg-white/[0.15] hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 cursor-pointer w-full sm:w-auto justify-center sm:justify-start">
+              <FaGooglePlay className="text-[28px] text-white" />
               <div className="text-left">
                 <div className="text-[10px] uppercase text-white/60 font-semibold tracking-wide leading-none mb-1">Get it on</div>
                 <div className="text-[15px] font-bold text-white leading-none">Google Play</div>
               </div>
             </button>
-            <button className="flex items-center gap-3 bg-white/[0.08] border border-white/10 px-4 py-2.5 rounded-2xl hover:bg-white/[0.15] hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer w-full sm:w-auto justify-center sm:justify-start">
-              <i className="fa-brands fa-apple text-[30px] text-white pb-0.5"></i>
+            <button className="flex items-center gap-3 bg-white/[0.08] border border-white/10 px-4 py-2.5 rounded-2xl hover:bg-white/[0.15] hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 cursor-pointer w-full sm:w-auto justify-center sm:justify-start">
+              <FaApple className="text-[32px] text-white pb-0.5" />
               <div className="text-left">
                 <div className="text-[10px] uppercase text-white/60 font-semibold tracking-wide leading-none mb-1">Download on the</div>
                 <div className="text-[15px] font-bold text-white leading-none">App Store</div>

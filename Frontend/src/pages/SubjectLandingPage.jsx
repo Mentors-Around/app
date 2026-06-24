@@ -63,7 +63,7 @@ const SubjectLandingPage = () => {
   ];
 
   useEffect(() => {
-    document.title = `${displaySubject} Classes Near Me - TrueEdu`;
+    document.title = `${displaySubject} Classes Near Me - TrueEd`;
   }, [displaySubject]);
 
   useEffect(() => {

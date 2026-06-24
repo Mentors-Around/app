@@ -1,52 +1,34 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
-import { useUser } from '../../context/UserContext';
+import { MessageSquare, MessagesSquare, FileWarning, HelpCircle } from 'lucide-react';
 
 const navConfig = {
   student: [
     {
-      section: 'Dashboard',
+      section: 'Menu',
       items: [
-        { label: 'My Dashboard', icon: 'fa-solid fa-gauge-high', to: '/student/dashboard' },
-      ]
-    },
-    {
-      section: 'Find Learning',
-      items: [
-        { label: 'Discover Tutors', icon: 'fa-solid fa-compass', to: '/student/discover' },
-        { label: 'Browse Rooms', icon: 'fa-solid fa-users-rectangle', to: '/student/rooms' },
-        { label: 'Direct Queries', icon: 'fa-regular fa-comments', to: '/student/direct-queries' },
-        { label: 'My Queries', icon: 'fa-regular fa-envelope', to: '/student/my-queries' },
-      ]
-    },
-
-    {
-      section: 'My Learning',
-      items: [
-        { label: 'My Bookings', icon: 'fa-solid fa-calendar-check', to: '/student/bookings' },
-        { label: 'Favourite Teachers', icon: 'fa-solid fa-heart', to: '/student/favourites' },
-      ]
-    },
-    {
-      section: 'Account',
-      items: [
-        { label: 'Payment History', icon: 'fa-solid fa-credit-card', to: '/student/payments' },
-        { label: 'My Profile', icon: 'fa-solid fa-user', to: '/student/profile' },
+        { label: 'Dashboard', icon: 'fa-solid fa-gauge-high', to: '/student/dashboard' },
+        { label: 'Discover Classrooms', icon: 'fa-solid fa-compass', to: '/student/discover' },
+        { label: 'My Queries', icon: MessagesSquare, to: '/student/my-queries', isLucide: true },
+        { label: 'Learning', icon: 'fa-solid fa-users-rectangle', to: '/student/rooms' },
+        { label: 'Payments', icon: 'fa-solid fa-credit-card', to: '/student/payments' },
+        { label: 'Profile', icon: 'fa-solid fa-user', to: '/student/profile' },
         { label: 'Settings', icon: 'fa-solid fa-gear', to: '/student/settings' },
       ]
     }
   ],
   teacher: [
     {
-      section: 'Menu',
+      section: '',
       items: [
         { label: 'Dashboard', icon: 'fa-solid fa-gauge-high', to: '/teacher/dashboard' },
-        { label: 'Group Rooms', icon: 'fa-solid fa-users-rectangle', to: '/teacher/create-room' },
-        { label: 'Assignment Help', icon: 'fa-solid fa-file-pen', to: '/teacher/assignments' },
+        { label: 'My Classrooms', icon: 'fa-solid fa-users-rectangle', to: '/teacher/classrooms' },
+        { label: 'Classroom Doubts', icon: HelpCircle, to: '/teacher/doubts', isLucide: true },
         { label: 'My Students', icon: 'fa-solid fa-user-group', to: '/teacher/students' },
         { label: 'Earnings', icon: 'fa-solid fa-indian-rupee-sign', to: '/teacher/earnings' },
-        { label: 'Queries', icon: 'fa-regular fa-comments', to: '/teacher/queries' },
+        { label: 'Queries', icon: MessagesSquare, to: '/teacher/queries', isLucide: true },
+        { label: 'Student Reports', icon: FileWarning, to: '/teacher/reports', isLucide: true },
         { label: 'Reviews', icon: 'fa-solid fa-star', to: '/teacher/reviews' },
         { label: 'Profile', icon: 'fa-solid fa-user', to: '/teacher/profile' },
         { label: 'Settings', icon: 'fa-solid fa-gear', to: '/teacher/settings' },
@@ -55,7 +37,7 @@ const navConfig = {
   ],
   admin: [
     {
-      section: 'Menu',
+      section: '',
       items: [
         { label: 'KYC Verification', icon: 'fa-solid fa-user-check', to: '/admin/verify' },
         { label: 'Teachers', icon: 'fa-solid fa-chalkboard-user', to: null },
@@ -73,8 +55,7 @@ const navConfig = {
 const Sidebar = ({ role, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { logout: authLogout } = useAuth();
-  const { user, resetUser } = useUser();
+  const { user, logout: authLogout } = useAuth();
   const sections = navConfig[role] || [];
 
   const initials = user?.initials || 'U';
@@ -82,8 +63,7 @@ const Sidebar = ({ role, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
-    resetUser();
-    localStorage.removeItem('trueedu_cookie_consent');
+    localStorage.removeItem('trueed_cookie_consent');
     authLogout();
     setShowLogoutModal(false);
     navigate('/login');
@@ -100,7 +80,7 @@ const Sidebar = ({ role, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
         <div className={`h-16 flex items-center border-b border-slate-100 ${isCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}>
           {!isCollapsed && (
             <Link to="/" onClick={onClose} className="transition-opacity">
-              <img src="/logo.png" alt="TrueEdu logo" className="h-8 w-auto" loading="lazy" />
+              <img src="/logo.png" alt="TrueEd logo" className="h-8 w-auto" loading="lazy" />
             </Link>
           )}
           
@@ -138,13 +118,13 @@ const Sidebar = ({ role, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
         <nav className={`flex-1 overflow-y-auto py-4 hide-scrollbar ${isCollapsed ? 'px-2' : 'px-3'}`}>
           {sections.map((sectionObj, idx) => (
             <div key={sectionObj.section} className="mb-6">
-              {!isCollapsed && (
+              {!isCollapsed && sectionObj.section && (
                 <p className="px-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                   {sectionObj.section}
                   <span className="flex-1 h-px bg-slate-100 block"></span>
                 </p>
               )}
-              {isCollapsed && idx > 0 && <div className="h-px bg-slate-100 my-4 mx-2"></div>}
+              {isCollapsed && idx > 0 && sectionObj.section && <div className="h-px bg-slate-100 my-4 mx-2"></div>}
               
               <div className="space-y-1">
                 {sectionObj.items.map((item) => {
@@ -158,7 +138,11 @@ const Sidebar = ({ role, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
                           className={`flex items-center rounded-lg text-sm font-semibold text-slate-300 cursor-not-allowed transition-all
                             ${isCollapsed ? 'justify-center py-3 px-0' : 'gap-3 px-3 py-2.5'}`}
                         >
-                          <i className={`${item.icon} text-lg flex-shrink-0 ${isCollapsed ? '' : 'w-5 text-center'}`} />
+                          {item.isLucide ? (
+                            <item.icon className={`text-xl flex-shrink-0 ${isCollapsed ? '' : 'w-5 text-center'}`} />
+                          ) : (
+                            <i className={`${item.icon} text-lg flex-shrink-0 ${isCollapsed ? '' : 'w-5 text-center'}`} />
+                          )}
                           {!isCollapsed && <span>{item.label}</span>}
                         </span>
                       </div>
@@ -177,7 +161,11 @@ const Sidebar = ({ role, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
                             : 'text-slate-500 hover:bg-slate-50 hover:text-navy'
                           }`}
                       >
-                        <i className={`${item.icon} text-lg flex-shrink-0 transition-transform duration-200 group-hover/navitem:scale-110 ${isCollapsed ? '' : 'w-5 text-center'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/navitem:text-navy'}`} />
+                        {item.isLucide ? (
+                          <item.icon className={`text-xl flex-shrink-0 transition-transform duration-200 group-hover/navitem:scale-110 ${isCollapsed ? '' : 'w-5 text-center'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/navitem:text-navy'}`} />
+                        ) : (
+                          <i className={`${item.icon} text-lg flex-shrink-0 transition-transform duration-200 group-hover/navitem:scale-110 ${isCollapsed ? '' : 'w-5 text-center'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/navitem:text-navy'}`} />
+                        )}
                         {!isCollapsed && <span>{item.label}</span>}
                       </Link>
                       {isCollapsed && (

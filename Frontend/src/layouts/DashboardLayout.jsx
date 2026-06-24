@@ -12,7 +12,7 @@ const DashboardLayout = ({ role }) => {
 
   // Route protection: redirect to /login if no user data in localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem('trueedu_user');
+    const savedUser = localStorage.getItem('trueed_user');
     const savedToken = localStorage.getItem('trueed_token');
     // If there is no auth token, redirect to login
     if (!savedToken) {

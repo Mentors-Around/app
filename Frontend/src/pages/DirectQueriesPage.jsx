@@ -8,10 +8,10 @@ const DirectQueriesPage = () => {
   const [queriesUsed, setQueriesUsed] = useState(0);
 
   useEffect(() => {
-    document.title = 'Direct Queries — TrueEdu';
+    document.title = 'Direct Queries — TrueEd';
     window.scrollTo(0, 0);
     // Check localStorage
-    const passData = localStorage.getItem('trueedu_query_pass');
+    const passData = localStorage.getItem('trueed_query_pass');
     if (passData) {
       try {
         const parsed = JSON.parse(passData);
@@ -30,7 +30,7 @@ const DirectQueriesPage = () => {
     // Update localStorage
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 5);
-    localStorage.setItem('trueedu_query_pass', JSON.stringify({ active: true, used: 0, expiry }));
+    localStorage.setItem('trueed_query_pass', JSON.stringify({ active: true, used: 0, expiry }));
   };
 
   return (
@@ -52,7 +52,7 @@ const DirectQueriesPage = () => {
                   <div className="w-8 h-8 bg-amber/10 text-amber rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"><i className="fa-solid fa-bolt" /></div>
                   <div>
                     <h4 className="font-bold text-navy">Send up to 5 queries</h4>
-                    <p className="text-sm text-muted">Message up to 5 different teachers directly on TrueEdu</p>
+                    <p className="text-sm text-muted">Message up to 5 different teachers directly on TrueEd</p>
                   </div>
                 </li>
                 <li className="flex gap-4 items-start">

@@ -26,7 +26,7 @@ const cards = [
       'Toggle availability by day & time',
       'Track earnings: Held → Released → Bank',
       'Get student details before class',
-      '10% platform commission only',
+      '15% platform commission only',
     ],
     cta: 'Start Teaching',
     to: '/login?role=teacher',

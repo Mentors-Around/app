@@ -1,52 +1,64 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // src/middlewares/sanitize.middleware.js
-// Production-grade Input Sanitation Layer for Express 5 Compliance
-// ─────────────────────────────────────────────────────────────────────────────
 import xss from "xss";
 
-// ─── XSS prevention (recursive deep sanitise) ────────────────────────────────
+// ─── Recursive NoSQL Scrubbing (Removes keys starting with $ or containing .) ───
+function deepCleanNoSQL(value) {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(deepCleanNoSQL);
 
-function deepSanitize(value) {
+  const cleanObj = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (key.startsWith("$") || key.includes(".")) {
+      continue; // Drop the injection key completely
+    }
+    cleanObj[key] = deepCleanNoSQL(val);
+  }
+  return cleanObj;
+}
+
+// ─── Recursive XSS Escape ─────────────────────────────────────────────────────
+function deepCleanXSS(value) {
   if (typeof value === "string") return xss(value);
-  if (Array.isArray(value)) return value.map(deepSanitize);
+  if (Array.isArray(value)) return value.map(deepCleanXSS);
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value)
-        // Prototype pollution prevention
         .filter(([k]) => !["__proto__", "constructor", "prototype"].includes(k))
-        .map(([k, v]) => [k, deepSanitize(v)])
+        .map(([k, v]) => [k, deepCleanXSS(v)])
     );
   }
   return value;
 }
 
 export const mongoSanitizeMiddleware = (req, _res, next) => {
-  // Clean bypass: Mongoose native 'sanitizeFilter' is handling NoSQL security on db/index.js!
+  if (req.body) req.body = deepCleanNoSQL(req.body);
+
+  // In-place assignment to comply with Express 5 read-only getters contract
+  if (req.query) {
+    const cleanQuery = deepCleanNoSQL(req.query);
+    for (const key in req.query) delete req.query[key];
+    Object.assign(req.query, cleanQuery);
+  }
+  if (req.params) {
+    const cleanParams = deepCleanNoSQL(req.params);
+    for (const key in req.params) delete req.params[key];
+    Object.assign(req.params, cleanParams);
+  }
   next();
 };
 
 export const xssSanitizeMiddleware = (req, _res, next) => {
-  // 1. Sanitize request body safely (Body is mutable plain object)
-  if (req.body) req.body = deepSanitize(req.body);
+  if (req.body) req.body = deepCleanXSS(req.body);
 
-  // 2. Sanitize query variables matching Express 5 Immutable Getters contract
   if (req.query) {
-    const sanitizedQuery = deepSanitize(req.query);
-    // Safely delete raw keys and populate fresh values inside the existing reference
-    for (const key in req.query) {
-      delete req.query[key];
-    }
-    Object.assign(req.query, sanitizedQuery);
+    const cleanQuery = deepCleanXSS(req.query);
+    for (const key in req.query) delete req.query[key];
+    Object.assign(req.query, cleanQuery);
   }
-
-  // 3. Sanitize params matching Express 5 Immutable Getters contract
   if (req.params) {
-    const sanitizedParams = deepSanitize(req.params);
-    for (const key in req.params) {
-      delete req.params[key];
-    }
-    Object.assign(req.params, sanitizedParams);
+    const cleanParams = deepCleanXSS(req.params);
+    for (const key in req.params) delete req.params[key];
+    Object.assign(req.params, cleanParams);
   }
-
   next();
 };

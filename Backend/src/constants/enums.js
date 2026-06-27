@@ -186,10 +186,10 @@ export const TOKEN_TRANSACTION_TYPE = Object.freeze({
 
 // ── OTP ───────────────────────────────────────────────────────────────────────
 export const OTP_PURPOSE = Object.freeze({
-  LOGIN:        'login',
-  REGISTER:     'register',
-  RESET:        'reset',
-  PHONE_CHANGE: 'phone_change',
+  REGISTER:     'register',    // dual signup OTP (phone + email)
+  RESET:        'reset',       // forgot password (email or phone channel)
+  PHONE_CHANGE: 'phone_change', // authenticated phone update
+  // LOGIN via OTP removed — password login only (no delivery cost per login)
 });
 
 // ── Refund ────────────────────────────────────────────────────────────────────

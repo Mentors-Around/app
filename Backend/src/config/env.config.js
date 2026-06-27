@@ -84,6 +84,29 @@ const env = cleanEnv(process.env, {
   TWILIO_AUTH_TOKEN:    str({ default: "" }),
   TWILIO_PHONE_NUMBER:  str({ default: "" }),
 
+  // ── Email (Nodemailer) ──────────────────────────────────────────────────────
+  EMAIL_PROVIDER:     str({ choices: ['gmail', 'smtp', 'mock'], default: 'mock' }),
+  EMAIL_FROM:         str({ default: '' }),
+  // Gmail provider
+  GMAIL_USER:         str({ default: '' }),
+  GMAIL_APP_PASSWORD: str({ default: '' }),
+  // SMTP provider (Brevo / SendGrid / custom)
+  SMTP_HOST:          str({ default: '' }),
+  SMTP_PORT:          num({ default: 587 }),
+  SMTP_USER:          str({ default: '' }),
+  SMTP_PASS:          str({ default: '' }),
+  // Ethereal mock (auto-catch in dev)
+  ETHEREAL_USER:      str({ default: '' }),
+  ETHEREAL_PASS:      str({ default: '' }),
+
+  // ── WhatsApp (Meta Cloud API) ────────────────────────────────────────────────
+  WHATSAPP_OTP_ENABLED:      str({ default: 'false' }),
+  WHATSAPP_TOKEN:            str({ default: '' }),          // System User token from Meta
+  WHATSAPP_PHONE_NUMBER_ID:  str({ default: '' }),          // From Meta App dashboard
+  WHATSAPP_OTP_TEMPLATE:     str({ default: 'trueed_otp' }),
+  WHATSAPP_TEMPLATE_LANG:    str({ default: 'en' }),
+  WHATSAPP_VERIFY_TOKEN:     str({ default: '' }),          // Your own random string for webhook verify
+
   // ── Firebase (Push notifications) ───────────────────────────────────────────
   FIREBASE_PROJECT_ID:    str({ default: "" }),
   FIREBASE_CLIENT_EMAIL:  str({ default: "" }),

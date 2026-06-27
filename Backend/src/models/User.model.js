@@ -23,11 +23,15 @@ const userSchema = new Schema(
     // ── Identity ──────────────────────────────────────────────────────────────
     phone: {
       type:     String,
-      required: [true, 'Phone is required'],
+      required: false,       // optional — email is primary identifier
       unique:   true,
+      sparse:   true,        // allows multiple null values with unique index
       trim:     true,
-      validate: phoneValidator,
-      index:    true,
+      default:  null,
+      validate: {
+        validator: (v) => !v || /^\+?[1-9]\d{9,14}$/.test(v),
+        message:   (props) => `${props.value} is not a valid phone number`,
+      },
     },
     role: {
       type:     String,

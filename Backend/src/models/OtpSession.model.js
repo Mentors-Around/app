@@ -3,18 +3,31 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import mongoose from 'mongoose';
 import { OTP_PURPOSE } from '../constants/enums.js';
-import { phoneValidator, jsonTransform, toObjectOptions } from '../utils/schema.util.js';
+import { jsonTransform } from '../utils/schema.util.js';
 
 const { Schema } = mongoose;
 
 const otpSessionSchema = new Schema(
   {
+    // phone is optional — null when channel is email-only
     phone: {
       type:     String,
-      required: true,
       trim:     true,
-      validate: phoneValidator,
+      default:  null,
+      validate: {
+        validator: (v) => !v || /^\+?[1-9]\d{9,14}$/.test(v),
+        message:   (props) => `${props.value} is not a valid phone number`,
+      },
       index:    true,
+    },
+    // email is optional — null when channel is phone-only
+    email: {
+      type:      String,
+      trim:      true,
+      lowercase: true,
+      default:   null,
+      select:    false,
+      index:     true,
     },
     purpose: {
       type:    String,
@@ -22,22 +35,26 @@ const otpSessionSchema = new Schema(
       default: OTP_PURPOSE.LOGIN,
       index:   true,
     },
-    // OTP stored hashed (bcrypt) in service layer — never plaintext
+    // Primary OTP hash — phone OTP in dual mode, single OTP in single-channel mode
     otpHash: {
       type:     String,
       required: true,
       select:   false,
     },
+    // Secondary OTP hash — email OTP in dual signup mode only
+    emailOtpHash: {
+      type:    String,
+      default: null,
+      select:  false,
+    },
     expiresAt: {
       type:     Date,
       required: true,
     },
-    verified:   { type: Boolean, default: false },
-    verifiedAt: { type: Date,    default: null  },
-    // Brute-force protection
-    attemptCount: { type: Number, default: 0, min: 0, max: 10 },
-    lockedUntil:  { type: Date,   default: null },
-    // One-time session token issued post-OTP verify, consumed by auth middleware
+    verified:     { type: Boolean, default: false },
+    verifiedAt:   { type: Date,    default: null  },
+    attemptCount: { type: Number,  default: 0, min: 0, max: 10 },
+    lockedUntil:  { type: Date,    default: null },
     sessionToken: {
       type:   String,
       unique: true,
@@ -45,18 +62,16 @@ const otpSessionSchema = new Schema(
       select: false,
     },
     sessionTokenUsed: { type: Boolean, default: false },
-    // Delivery tracking
     deliveryChannel: {
       type:    String,
-      enum:    ['sms', 'whatsapp'],
-      default: 'sms',
+      enum:    ['sms', 'whatsapp', 'email', 'dual'],
+      default: 'email',
     },
     deliveryStatus: {
       type:    String,
       enum:    ['pending', 'sent', 'failed'],
       default: 'pending',
     },
-    // Rate-limit helpers
     ipAddress: { type: String, trim: true, default: null },
     userAgent: { type: String, trim: true, default: null, select: false },
   },
@@ -67,10 +82,10 @@ const otpSessionSchema = new Schema(
   },
 );
 
-// TTL index — MongoDB auto-deletes expired OTPs
+// TTL — MongoDB auto-deletes expired OTP sessions
 otpSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 otpSessionSchema.index({ phone: 1, purpose: 1, verified: 1 });
-otpSessionSchema.index({ phone: 1, createdAt: -1 });
+otpSessionSchema.index({ email: 1, purpose: 1, verified: 1 });
 
 // ── Instance methods ──────────────────────────────────────────────────────────
 otpSessionSchema.methods.isLocked = function () {
@@ -98,22 +113,22 @@ otpSessionSchema.methods.consumeSessionToken = async function () {
 };
 
 // ── Static methods ─────────────────────────────────────────────────────────────
-otpSessionSchema.statics.findValid = function (phone, purpose = OTP_PURPOSE.LOGIN) {
-  return this.findOne({
-    phone,
-    purpose,
-    verified:  false,
-    expiresAt: { $gt: new Date() },
-  })
-    .select('+otpHash')
+otpSessionSchema.statics.findValid = function (identifier, purpose) {
+  const isEmail = typeof identifier === 'string' && identifier.includes('@');
+  const query   = isEmail
+    ? { email: identifier, purpose, verified: false, expiresAt: { $gt: new Date() } }
+    : { phone: identifier, purpose, verified: false, expiresAt: { $gt: new Date() } };
+  return this.findOne(query)
+    .select('+otpHash +emailOtpHash +email')
     .sort({ createdAt: -1 });
 };
 
-otpSessionSchema.statics.countRecentSends = function (phone, windowMs = 3600000) {
-  return this.countDocuments({
-    phone,
-    createdAt: { $gte: new Date(Date.now() - windowMs) },
-  });
+otpSessionSchema.statics.countRecentSends = function (identifier, windowMs = 3600000) {
+  const isEmail = typeof identifier === 'string' && identifier.includes('@');
+  const query   = isEmail
+    ? { email: identifier, createdAt: { $gte: new Date(Date.now() - windowMs) } }
+    : { phone: identifier, createdAt: { $gte: new Date(Date.now() - windowMs) } };
+  return this.countDocuments(query);
 };
 
 export const OtpSession = mongoose.model('OtpSession', otpSessionSchema);

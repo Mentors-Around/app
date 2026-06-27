@@ -4,17 +4,31 @@ import app                         from './app.js';
 import env                         from './config/env.config.js';
 import logger                      from './config/logger.config.js';
 import { initCronJobs }            from './cron.js';
+import { EmailService }            from './services/email.service.js';
 
 const port = env.PORT;
 let server;
 
 connectDB()
-  .then(() => {
+  .then(async () => {
+    if (env.EMAIL_PROVIDER !== 'mock') {
+      const emailOk = await EmailService.verifyConnection();
+      if (!emailOk) {
+        logger.warn(
+          '⚠️  Email transport NOT configured correctly — OTPs will NOT be delivered.\n' +
+          '   Check your GMAIL_USER / GMAIL_APP_PASSWORD in .env and restart.',
+        );
+      }
+    } else {
+      logger.info('[Email] Running in MOCK mode — OTPs logged to console, not emailed');
+    }
+
+    // ── Start HTTP server ───────────────────────────────────────────────────
     server = app.listen(port, () => {
       logger.info(`🚀 TrueEd Server running at port ${port} in ${env.NODE_ENV} mode`);
     });
 
-    // Start background automation workers after DB is connected
+    // ── Start background cron workers ───────────────────────────────────────
     initCronJobs();
   })
   .catch((error) => {
@@ -44,7 +58,7 @@ const shutdown = async (signal) => {
     process.exit(0);
   }
 
-  // Force exit after 10 s if connections hang
+  // Force-exit if graceful shutdown hangs
   setTimeout(() => {
     logger.error('💥 Forced shutdown after 10 s timeout');
     process.exit(1);

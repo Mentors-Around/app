@@ -1,47 +1,33 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // src/models/Classroom.model.js
-//
-// Central entity. A teacher creates a classroom with subject, stream/topic,
-// schedule, fees, mode (online/offline). Students request to enroll via queries.
-// ─────────────────────────────────────────────────────────────────────────────
 import mongoose                  from 'mongoose';
 import mongoosePaginate          from 'mongoose-paginate-v2';
 import mongooseAggregatePaginate from 'mongoose-aggregate-paginate-v2';
 import mongooseLeanVirtuals      from 'mongoose-lean-virtuals';
 import {
-  CLASSROOM_STATUS,
-  CLASSROOM_MODE,
-  VERIFICATION_STATUS,
+  CLASSROOM_STATUS, CLASSROOM_MODE, CLASSROOM_TYPE, SKILL_LEVEL,
 } from '../constants/enums.js';
 import {
-  jsonTransform,
-  toObjectOptions,
-  moneyField,
-  urlValidator,
-  enumField,
-  geoPointSchema,
-  defaultPaginateOptions,
+  jsonTransform, toObjectOptions, moneyField, urlValidator,
+  enumField, geoPointSchema, defaultPaginateOptions,
 } from '../utils/schema.util.js';
 
 const { Schema } = mongoose;
 
-// ── Schedule slot sub-doc ─────────────────────────────────────────────────────
-// Recurring weekly schedule entry
+// ── Schedule slot ─────────────────────────────────────────────────────────────
 const scheduleSlotSchema = new Schema(
   {
-    day:       { type: Number, required: true, min: 0, max: 6 }, // 0=Sun…6=Sat
-    startTime: { type: String, required: true, match: /^([01]\d|2[0-3]):([0-5]\d)$/ }, // HH:MM
-    endTime:   { type: String, required: true, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
+    day:             { type: Number, required: true, min: 0, max: 6 },
+    startTime:       { type: String, required: true, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
+    endTime:         { type: String, required: true, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
     durationMinutes: { type: Number, required: true, min: 15 },
-    // Actual conducted class linked here by cron after session ends
-    conductedAt: { type: Date, default: null },
-    isConducted: { type: Boolean, default: false },
-    gmeetLink:   { type: String, trim: true, default: null }, // per-class link for online
+    conductedAt:     { type: Date,    default: null },
+    isConducted:     { type: Boolean, default: false },
+    gmeetLink:       { type: String,  trim: true, default: null },
   },
   { _id: true },
 );
 
-// ── Offline classroom facility sub-doc ────────────────────────────────────────
+// ── Offline facility ──────────────────────────────────────────────────────────
 const offlineFacilitySchema = new Schema(
   {
     address:     { type: String, trim: true },
@@ -50,7 +36,7 @@ const offlineFacilitySchema = new Schema(
     state:       { type: String, trim: true, lowercase: true },
     pincode:     { type: String, trim: true },
     description: { type: String, trim: true, maxlength: 1000 },
-    photoUrls:   {
+    photoUrls: {
       type:    [String],
       default: [],
       validate: {
@@ -66,13 +52,13 @@ const offlineFacilitySchema = new Schema(
         message:   'Max 3 videos, all must be valid URLs',
       },
     },
-    facilities: { type: [String], default: [] }, // e.g. ['AC', 'Projector', 'Whiteboard']
+    facilities: { type: [String], default: [] },
     capacity:   { type: Number, min: 1, default: null },
   },
   { _id: false },
 );
 
-// ── Stats sub-doc ─────────────────────────────────────────────────────────────
+// ── Stats ─────────────────────────────────────────────────────────────────────
 const classroomStatsSchema = new Schema(
   {
     totalQueries:       { type: Number, default: 0, min: 0 },
@@ -80,13 +66,13 @@ const classroomStatsSchema = new Schema(
     enrolledStudents:   { type: Number, default: 0, min: 0 },
     avgRating:          { type: Number, default: 0, min: 0, max: 5 },
     reviewCount:        { type: Number, default: 0, min: 0 },
-    hoursCompleted:     { type: Number, default: 0, min: 0 }, // actual hours conducted
+    hoursCompleted:     { type: Number, default: 0, min: 0 },
     totalEarningsPaise: { type: Number, default: 0, min: 0 },
   },
   { _id: false },
 );
 
-// ── Main Classroom schema ──────────────────────────────────────────────────────
+// ── Main schema ───────────────────────────────────────────────────────────────
 const classroomSchema = new Schema(
   {
     teacherId: {
@@ -95,24 +81,23 @@ const classroomSchema = new Schema(
       required: [true, 'Teacher ID is required'],
       index:    true,
     },
-    // ── Core identity ─────────────────────────────────────────────────────────
+
+    // ── Core identity ──────────────────────────────────────────────────────────
     title: {
       type:      String,
       required:  [true, 'Classroom title is required'],
       trim:      true,
       minlength: [5, 'Title must be at least 5 characters'],
       maxlength: [150, 'Title cannot exceed 150 characters'],
-      // e.g. "Kinematics for JEE Advanced", "Guitar for Beginners", "10th Maths CBSE"
     },
     subject: {
       type:     String,
       required: [true, 'Subject is required'],
       trim:     true,
     },
-    // Stream/level/target e.g. "JEE Advanced", "Beginners", "CBSE Grade 10"
     stream: {
-      type:  String,
-      trim:  true,
+      type:    String,
+      trim:    true,
       default: null,
     },
     description: {
@@ -135,13 +120,57 @@ const classroomSchema = new Schema(
       validate: urlValidator,
       default:  null,
     },
+
+    // ── Classroom type: academic vs hobby ──────────────────────────────────────
+    classroomType: {
+      type:    String,
+      enum:    Object.values(CLASSROOM_TYPE),
+      default: CLASSROOM_TYPE.ACADEMIC,
+      index:   true,
+    },
+
+    // ── Academic-specific fields ───────────────────────────────────────────────
+    // Required for academic; ignored / optional for hobby
+    academicLevel: {
+      type:    String,
+      trim:    true,
+      default: null,
+      // e.g. "Class 10", "Class 12", "JEE Advanced", "NEET", "UG"
+    },
+    minimumQualification: {
+      type:    String,
+      trim:    true,
+      default: null,
+      // e.g. "Class 10 pass", "Basic algebra"  — optional even for academic
+    },
+    prerequisites: {
+      type:    [String],
+      default: [],
+      // e.g. ["Trigonometry", "Basic calculus"] — optional
+    },
+
+    // ── Hobby-specific fields ──────────────────────────────────────────────────
+    minimumAge: {
+      type:    Number,
+      min:     [0, 'Minimum age cannot be negative'],
+      default: null,
+      // e.g. 10 (years) — optional
+    },
+
+    // ── Level (optional for both types) ───────────────────────────────────────
+    skillLevel: {
+      type:    String,
+      enum:    [...Object.values(SKILL_LEVEL), null],
+      default: null,
+      // Shown in classroom description so students can filter before querying
+    },
+
     // ── Course duration & scheduling ──────────────────────────────────────────
     totalHoursPlanned: {
       type:     Number,
       required: [true, 'Total planned hours is required'],
       min:      [1, 'At least 1 hour required'],
     },
-    // Start and end date of the course (fixed at creation, cannot be extended/reduced)
     startDate: {
       type:     Date,
       required: [true, 'Start date is required'],
@@ -158,20 +187,22 @@ const classroomSchema = new Schema(
         message:   'At least one schedule slot is required',
       },
     },
-    // gmeetLink is the default room for the teacher (host); can override per slot
     gmeetLink: {
-      type:  String,
-      trim:  true,
+      type:    String,
+      trim:    true,
       default: null,
     },
-    // ── Mode ─────────────────────────────────────────────────────────────────
-    mode: enumField(CLASSROOM_MODE, CLASSROOM_MODE.ONLINE),
+
+    // ── Mode ──────────────────────────────────────────────────────────────────
+    mode:            enumField(CLASSROOM_MODE, CLASSROOM_MODE.ONLINE),
     offlineFacility: { type: offlineFacilitySchema, default: null },
+
     // ── Pricing ───────────────────────────────────────────────────────────────
     feesPaise: {
       ...moneyField({ required: [true, 'Fees is required'] }),
       min: [100, 'Minimum fee is ₹1'],
     },
+
     // ── Capacity ──────────────────────────────────────────────────────────────
     maxStudents: {
       type:     Number,
@@ -179,20 +210,24 @@ const classroomSchema = new Schema(
       min:      [1, 'At least 1 student required'],
       max:      [500, 'Cannot exceed 500 students per classroom'],
     },
+
     // ── Status ────────────────────────────────────────────────────────────────
     status: enumField(CLASSROOM_STATUS, CLASSROOM_STATUS.DRAFT),
-    // ── Early completion (70% vote) ───────────────────────────────────────────
-    earlyEndRequestedAt:   { type: Date,    default: null },
-    earlyEndApprovedAt:    { type: Date,    default: null },
-    earlyEndPollId:        { type: Schema.Types.ObjectId, ref: 'Poll', default: null },
-    // ── Completion tracking ───────────────────────────────────────────────────
-    completedAt:     { type: Date, default: null },
-    completionCase:  { type: String, enum: ['case_1', 'case_2', 'case_3'], default: null },
-    // ── Stats (denormalised) ──────────────────────────────────────────────────
+
+    // ── Early completion ──────────────────────────────────────────────────────
+    earlyEndRequestedAt: { type: Date, default: null },
+    earlyEndApprovedAt:  { type: Date, default: null },
+    earlyEndPollId:      { type: Schema.Types.ObjectId, ref: 'Poll', default: null },
+
+    // ── Completion ────────────────────────────────────────────────────────────
+    completedAt:    { type: Date, default: null },
+    completionCase: { type: String, enum: ['case_1', 'case_2', 'case_3'], default: null },
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
     stats: { type: classroomStatsSchema, default: () => ({}) },
+
     // ── Admin ─────────────────────────────────────────────────────────────────
-    adminNotes: { type: String, trim: true, default: null, select: false },
-    // ── Search keywords ───────────────────────────────────────────────────────
+    adminNotes:     { type: String, trim: true, default: null, select: false },
     searchKeywords: { type: [String], default: [], select: false },
   },
   {
@@ -214,13 +249,14 @@ classroomSchema.index(
 classroomSchema.index({ teacherId: 1, status: 1 });
 classroomSchema.index({ status: 1, 'stats.avgRating': -1 });
 classroomSchema.index({ subject: 1, status: 1 });
+classroomSchema.index({ classroomType: 1, status: 1 });      // NEW
+classroomSchema.index({ skillLevel: 1, status: 1 });          // NEW
 classroomSchema.index({ status: 1, feesPaise: 1 });
 classroomSchema.index({ tags: 1, status: 1 });
 classroomSchema.index({ status: 1, startDate: 1 });
-// For offline classroom location search
 classroomSchema.index({ 'offlineFacility.location': '2dsphere' }, { sparse: true });
 
-// ── Virtuals ───────────────────────────────────────────────────────────────────
+// ── Virtuals ──────────────────────────────────────────────────────────────────
 classroomSchema.virtual('feesRupees').get(function () {
   return this.feesPaise / 100;
 });
@@ -235,20 +271,23 @@ classroomSchema.virtual('isPastHalfway').get(function () {
   return this.stats.hoursCompleted >= this.totalHoursPlanned / 2;
 });
 
-// ── Pre-save: build search keywords ───────────────────────────────────────────
+// ── Pre-save ──────────────────────────────────────────────────────────────────
 classroomSchema.pre('save', function (next) {
-  if (this.isModified('title') || this.isModified('subject') || this.isModified('stream') || this.isModified('tags')) {
+  if (
+    this.isModified('title') || this.isModified('subject') ||
+    this.isModified('stream') || this.isModified('tags') ||
+    this.isModified('classroomType') || this.isModified('skillLevel') ||
+    this.isModified('academicLevel')
+  ) {
     const kw = [
-      this.title,
-      this.subject,
-      this.stream,
-      ...this.tags,
+      this.title, this.subject, this.stream,
+      this.classroomType, this.skillLevel, this.academicLevel,
+      ...this.tags, ...this.prerequisites,
     ]
       .filter(Boolean)
       .flatMap((s) => s.toLowerCase().trim().split(/\s+/));
     this.searchKeywords = [...new Set(kw)];
   }
-  // Validate endDate > startDate
   if (this.startDate && this.endDate && this.endDate <= this.startDate) {
     return next(new Error('End date must be after start date'));
   }
@@ -264,31 +303,22 @@ classroomSchema.methods.canAcceptStudents = function () {
 };
 
 classroomSchema.methods.canScheduleUpdate = function () {
-  // Teacher can update schedule anytime but cannot reduce hours or extend duration
   return [CLASSROOM_STATUS.ACTIVE, CLASSROOM_STATUS.DRAFT].includes(this.status);
 };
 
 // ── Static methods ─────────────────────────────────────────────────────────────
-/**
- * Search classrooms by topic/subject/stream with pagination.
- * Returns max 20 results as per product spec.
- */
 classroomSchema.statics.search = function ({
-  query,
-  subject,
-  mode,
-  minFee,
-  maxFee,
-  minRating = 0,
-  page  = 1,
-  limit = 20,
-  sort  = 'rating',
+  query, subject, mode, classroomType, skillLevel,
+  minFee, maxFee, minRating = 0,
+  page = 1, limit = 20, sort = 'rating',
 } = {}) {
   const filter = { status: CLASSROOM_STATUS.ACTIVE };
 
-  if (subject)          filter.subject = subject;
-  if (mode)             filter.mode    = mode;
-  if (minRating > 0)    filter['stats.avgRating'] = { $gte: minRating };
+  if (subject)       filter.subject       = subject;
+  if (mode)          filter.mode          = mode;
+  if (classroomType) filter.classroomType = classroomType;
+  if (skillLevel)    filter.skillLevel    = skillLevel;
+  if (minRating > 0) filter['stats.avgRating'] = { $gte: minRating };
   if (minFee || maxFee) {
     filter.feesPaise = {};
     if (minFee) filter.feesPaise.$gte = minFee * 100;
@@ -301,42 +331,81 @@ classroomSchema.statics.search = function ({
     price_asc:  { feesPaise: 1 },
     price_desc: { feesPaise: -1 },
     new:        { createdAt: -1 },
+    popular:    { 'stats.enrolledStudents': -1 },
   };
 
   return this.paginate(filter, {
     ...defaultPaginateOptions,
-    sort:     sortMap[sort] || sortMap.rating,
+    sort:       sortMap[sort] || sortMap.rating,
     page,
-    limit:    Math.min(limit, 20), // cap at 20 per product spec
-    populate: { path: 'teacherId', select: 'name avatarUrl' },
-    lean:     true,
+    limit:      Math.min(limit, 20),
+    populate:   { path: 'teacherId', select: 'name avatarUrl' },
+    lean:       true,
     leanWithId: true,
   });
 };
 
 /**
- * Teacher's classrooms with their statuses.
+ * Personalised discover feed for a student.
+ * Finds classrooms similar to their enrolled ones, excluding already queried/enrolled.
  */
-classroomSchema.statics.byTeacher = function (teacherId, options = {}) {
-  return this.paginate(
-    { teacherId },
-    {
-      ...defaultPaginateOptions,
-      sort: { createdAt: -1 },
-      ...options,
-    },
-  );
+classroomSchema.statics.discoverForStudent = async function (studentId, { page = 1, limit = 10 } = {}) {
+  const [enrolledClassrooms, activeQueries] = await Promise.all([
+    mongoose.model('Enrollment')
+      .find({ studentId, status: { $in: ['active', 'completed'] } })
+      .select('classroomId').lean(),
+    mongoose.model('EnrollmentQuery')
+      .find({ studentId, status: { $in: ['pending', 'accepted', 'enrolled'] } })
+      .select('classroomId').lean(),
+  ]);
+
+  const excludeIds = [
+    ...enrolledClassrooms.map((e) => e.classroomId),
+    ...activeQueries.map((q) => q.classroomId),
+  ];
+
+  // Get subjects/streams from prior classrooms for relevance scoring
+  const priorClassrooms = excludeIds.length
+    ? await this.find({ _id: { $in: excludeIds } })
+        .select('subject stream tags teacherId classroomType skillLevel').lean()
+    : [];
+
+  const subjects    = [...new Set(priorClassrooms.map((c) => c.subject))];
+  const streams     = [...new Set(priorClassrooms.map((c) => c.stream).filter(Boolean))];
+  const teacherIds  = [...new Set(priorClassrooms.map((c) => c.teacherId?.toString()))];
+  const tags        = [...new Set(priorClassrooms.flatMap((c) => c.tags))];
+  const types       = [...new Set(priorClassrooms.map((c) => c.classroomType).filter(Boolean))];
+
+  const filter = {
+    status: CLASSROOM_STATUS.ACTIVE,
+    _id:    { $nin: excludeIds },
+    ...(subjects.length > 0 && {
+      $or: [
+        { subject:       { $in: subjects } },
+        { stream:        { $in: streams } },
+        { tags:          { $in: tags } },
+        { teacherId:     { $in: teacherIds } },
+        { classroomType: { $in: types } },
+      ],
+    }),
+  };
+
+  return this.paginate(filter, {
+    page,
+    limit:      Math.min(limit, 20),
+    sort:       { 'stats.avgRating': -1, 'stats.enrolledStudents': -1 },
+    populate:   { path: 'teacherId', select: 'name avatarUrl' },
+    lean:       true,
+    leanWithId: true,
+  });
 };
 
-/**
- * Classrooms nearing or past their endDate without being marked completed.
- * Used by cron to auto-close.
- */
+classroomSchema.statics.byTeacher = function (teacherId, options = {}) {
+  return this.paginate({ teacherId }, { ...defaultPaginateOptions, sort: { createdAt: -1 }, ...options });
+};
+
 classroomSchema.statics.overdueActive = function () {
-  return this.find({
-    status:  CLASSROOM_STATUS.ACTIVE,
-    endDate: { $lt: new Date() },
-  }).lean();
+  return this.find({ status: CLASSROOM_STATUS.ACTIVE, endDate: { $lt: new Date() } }).lean();
 };
 
 classroomSchema.query.active = function () {

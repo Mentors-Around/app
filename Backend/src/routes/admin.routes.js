@@ -11,7 +11,7 @@ import {
   getAllClassrooms, cancelClassroom,
   getAllUsers, banUser, unbanUser,
   hideReview,
-  getPlatformStats,
+  getPlatformStats, getTopTeachers, getReportsDashboard,
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -57,5 +57,11 @@ router.patch('/reviews/:reviewId/hide', hideReview);
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 router.get('/stats', getPlatformStats);
+
+// ── Top Teachers ──────────────────────────────────────────────────────────────
+router.get('/top-teachers', getTopTeachers);
+
+// ── Reports Dashboard ─────────────────────────────────────────────────────────
+router.get('/reports/dashboard', getReportsDashboard);
 
 export default router;

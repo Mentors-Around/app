@@ -1,11 +1,11 @@
 // src/routes/enrollment.routes.js
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth.middleware.js';
-import { requireStudent } from '../middlewares/student.middleware.js';
-import { requireTeacher } from '../middlewares/teacher.middleware.js';
+import { authenticate }                from '../middlewares/auth.middleware.js';
+import { requireStudent }             from '../middlewares/student.middleware.js';
+import { requireTeacher }             from '../middlewares/teacher.middleware.js';
 import { requireParentalConsentIfMinor } from '../middlewares/minorConsent.middleware.js';
-import { requireIdempotencyKey } from '../middlewares/idempotency.middleware.js';
-import { paymentLimiter } from '../middlewares/rateLimit.middleware.js';
+import { requireIdempotencyKey }      from '../middlewares/idempotency.middleware.js';
+import { paymentLimiter }             from '../middlewares/rateLimit.middleware.js';
 import {
   sendQuery, acceptQuery, rejectQuery,
   enrollInClassroom, verifyEnrollmentPayment,
@@ -15,14 +15,14 @@ import {
 const router = Router();
 router.use(authenticate);
 
-// ── Student: send query (costs 1 token) ──────────────────────────────────────
+// ── Student: send enrollment query (costs 1 token) ────────────────────────────
 router.post(
   '/queries',
   requireStudent, requireParentalConsentIfMinor, requireIdempotencyKey,
   sendQuery,
 );
 
-// ── Teacher: accept / reject query ───────────────────────────────────────────
+// ── Teacher: accept / reject query (with optional teacherMessage) ─────────────
 router.patch('/queries/:queryId/accept', requireTeacher, acceptQuery);
 router.patch('/queries/:queryId/reject', requireTeacher, rejectQuery);
 
@@ -38,11 +38,15 @@ router.post(
   verifyEnrollmentPayment,
 );
 
-// ── Student: dashboard + query history ───────────────────────────────────────
-router.get('/',        requireStudent, getStudentEnrollments);
-router.get('/queries', requireStudent, getMyQueries);
+// ── Query history — works for BOTH student and teacher (tab-based filtering) ──
+// Student tabs: active | accepted | enrolled | rejected | expired
+// Teacher tabs: active | accepted | enrolled | rejected | expired | refunded
+router.get('/queries', getMyQueries);
 
-// ── Student: post review on completed classroom ───────────────────────────────
+// ── Student: enrolled classrooms dashboard (active | completed) ───────────────
+router.get('/', requireStudent, getStudentEnrollments);
+
+// ── Student: review a completed classroom ────────────────────────────────────
 router.post('/:enrollmentId/review', requireStudent, submitReview);
 
 export default router;

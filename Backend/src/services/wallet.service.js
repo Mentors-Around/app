@@ -101,6 +101,22 @@ export const WalletService = {
    * immediately fall back to the Razorpay checkout flow without a page
    * reload, per the front-end's error-code contract.
    */
+  // Credit cash to student wallet (from Razorpay deposit)
+  async creditCash(studentId, amountPaise, session = null) {
+    const wallet = await StudentWallet.findOneAndUpdate(
+      { studentId },
+      {
+        $inc: {
+          cashBalancePaise:         amountPaise,
+          totalCashDepositedPaise:  amountPaise,
+        },
+      },
+      { new: true, upsert: true, session },
+    );
+    logger.info('Cash credited to student wallet', { studentId, amountPaise, newBalance: wallet.cashBalancePaise });
+    return wallet;
+  },
+
   async debitCashOrThrow(studentId, amountPaise, session = null) {
     const wallet = await StudentWallet.findOneAndUpdate(
       { studentId, cashBalancePaise: { $gte: amountPaise } },

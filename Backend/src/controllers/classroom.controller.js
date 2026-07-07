@@ -8,97 +8,121 @@ import { CloudinaryService } from '../services/cloudinary.service.js';
 import { asyncHandler }      from '../utils/AsyncHandler.js';
 import ApiError              from '../utils/ApiError.js';
 import ApiResponse           from '../utils/ApiResponse.js';
-import { CLASSROOM_STATUS, CLASSROOM_MODE, POLL_TYPE } from '../constants/enums.js';
-import { CLOUDINARY_FOLDERS } from '../constants/app.constants.js';
-import logger                from '../config/logger.config.js';
+import {
+  CLASSROOM_STATUS, CLASSROOM_MODE, CLASSROOM_TYPE, SKILL_LEVEL, POLL_TYPE,
+} from '../constants/enums.js';
+import logger from '../config/logger.config.js';
 
 // ── POST / — Create classroom ─────────────────────────────────────────────────
 export const createClassroom = asyncHandler(async (req, res) => {
   const {
     title, subject, stream, description, tags,
     feesPaise, totalHoursPlanned, startDate, endDate,
-    schedule, maxStudents, mode,
-    offlineFacility,
+    schedule, maxStudents, mode, offlineFacility,
+    // New fields
+    classroomType = CLASSROOM_TYPE.ACADEMIC,
+    skillLevel    = null,
+    // Academic-specific (required for academic, optional for hobby)
+    academicLevel, minimumQualification, prerequisites = [],
+    // Hobby-specific
+    minimumAge,
   } = req.body;
 
-  // Validate required fields
   if (!title || !subject || !feesPaise || !totalHoursPlanned || !startDate || !endDate || !schedule || !maxStudents) {
     throw ApiError.badRequest('title, subject, feesPaise, totalHoursPlanned, startDate, endDate, schedule, maxStudents are required');
   }
 
-  // Validate schedule slots
+  // Validate classroomType
+  if (!Object.values(CLASSROOM_TYPE).includes(classroomType)) {
+    throw ApiError.badRequest(`classroomType must be one of: ${Object.values(CLASSROOM_TYPE).join(', ')}`);
+  }
+
+  // Academic classrooms require academicLevel
+  if (classroomType === CLASSROOM_TYPE.ACADEMIC && !academicLevel) {
+    throw ApiError.badRequest('academicLevel is required for academic classrooms (e.g. "Class 10", "JEE Advanced")');
+  }
+
+  // Validate skillLevel if provided
+  if (skillLevel && !Object.values(SKILL_LEVEL).includes(skillLevel)) {
+    throw ApiError.badRequest(`skillLevel must be one of: ${Object.values(SKILL_LEVEL).join(', ')}`);
+  }
+
+  // Validate minimumAge for hobby
+  if (minimumAge !== undefined && minimumAge !== null && (isNaN(minimumAge) || minimumAge < 0)) {
+    throw ApiError.badRequest('minimumAge must be a non-negative number');
+  }
+
   ClassroomService.validateScheduleSlots(schedule);
 
-  // Offline validation
   if (mode === CLASSROOM_MODE.OFFLINE) {
     ClassroomService.validateOfflineFields({ mode, offlineAddress: offlineFacility?.address });
   }
 
-  // Parse and validate dates
   const start = new Date(startDate);
   const end   = new Date(endDate);
   if (end <= start) throw ApiError.badRequest('End date must be after start date');
   if (start < new Date()) throw ApiError.badRequest('Start date cannot be in the past');
 
-  // Map schedule day field name (frontend may send dayOfWeek vs day)
   const normalizedSchedule = schedule.map((slot) => ({
     day:             slot.day ?? slot.dayOfWeek,
     startTime:       slot.startTime,
-    endTime:         slot.endTime || slot.startTime, // fallback
+    endTime:         slot.endTime || slot.startTime,
     durationMinutes: slot.durationMinutes,
   }));
 
-  // Generate GMeet link for online classrooms
-  const tempId   = new mongoose.Types.ObjectId();
+  const tempId    = new mongoose.Types.ObjectId();
   const gmeetLink = mode !== CLASSROOM_MODE.OFFLINE
     ? ClassroomService.generateMeetLink(tempId.toString())
     : null;
 
   const classroom = await Classroom.create({
-    _id:              tempId,
-    teacherId:        req.user._id,
-    title:            title.trim(),
-    subject:          subject.trim(),
-    stream:           stream?.trim()      || null,
-    description:      description?.trim() || '',
-    tags:             tags                || [],
-    feesPaise:        Math.round(Number(feesPaise)),
-    totalHoursPlanned: Number(totalHoursPlanned),
-    startDate:        start,
-    endDate:          end,
-    schedule:         normalizedSchedule,
-    maxStudents:      Number(maxStudents),
-    mode:             mode || CLASSROOM_MODE.ONLINE,
-    offlineFacility:  mode === CLASSROOM_MODE.OFFLINE ? offlineFacility : null,
+    _id:                  tempId,
+    teacherId:            req.user._id,
+    title:                title.trim(),
+    subject:              subject.trim(),
+    stream:               stream?.trim() || null,
+    description:          description?.trim() || '',
+    tags:                 tags || [],
+    feesPaise:            Math.round(Number(feesPaise)),
+    totalHoursPlanned:    Number(totalHoursPlanned),
+    startDate:            start,
+    endDate:              end,
+    schedule:             normalizedSchedule,
+    maxStudents:          Number(maxStudents),
+    mode:                 mode || CLASSROOM_MODE.ONLINE,
+    offlineFacility:      mode === CLASSROOM_MODE.OFFLINE ? offlineFacility : null,
     gmeetLink,
-    status:           CLASSROOM_STATUS.ACTIVE,
+    status:               CLASSROOM_STATUS.ACTIVE,
+    // New fields
+    classroomType,
+    skillLevel:           skillLevel || null,
+    academicLevel:        classroomType === CLASSROOM_TYPE.ACADEMIC ? (academicLevel?.trim() || null) : null,
+    minimumQualification: minimumQualification?.trim() || null,
+    prerequisites:        Array.isArray(prerequisites) ? prerequisites.filter(Boolean) : [],
+    minimumAge:           classroomType === CLASSROOM_TYPE.HOBBY && minimumAge ? Number(minimumAge) : null,
   });
 
-  // Update teacher stats
   await TeacherProfile.findOneAndUpdate(
     { userId: req.user._id },
     { $inc: { 'stats.totalClassrooms': 1, 'stats.activeClassrooms': 1 } },
   );
 
-  logger.info('Classroom created', { classroomId: classroom._id, teacherId: req.user._id });
+  logger.info('Classroom created', { classroomId: classroom._id, teacherId: req.user._id, classroomType });
   res.status(201).json(new ApiResponse(201, classroom, 'Classroom created'));
 });
 
-// ── PATCH /:classroomId — Update classroom ────────────────────────────────────
+// ── PATCH /:classroomId — Update classroom ─────────────────────────────────────
 export const updateClassroom = asyncHandler(async (req, res) => {
-  const classroom = req.resource; // set by checkOwnership middleware
+  const classroom = req.resource;
 
   const {
     title, description, tags, schedule,
-    totalHoursPlanned, endDate, maxStudents,
-    offlineFacility,
+    totalHoursPlanned, endDate, maxStudents, offlineFacility,
+    skillLevel, minimumQualification, prerequisites, minimumAge,
+    academicLevel,
   } = req.body;
 
-  // Enforce immutable constraints
-  ClassroomService.validateScheduleUpdate(classroom, {
-    totalPlannedHours: totalHoursPlanned,
-    endDate,
-  });
+  ClassroomService.validateScheduleUpdate(classroom, { totalPlannedHours: totalHoursPlanned, endDate });
 
   if (!classroom.canScheduleUpdate()) {
     throw ApiError.badRequest(`Cannot update classroom in status: ${classroom.status}`);
@@ -106,13 +130,22 @@ export const updateClassroom = asyncHandler(async (req, res) => {
 
   if (schedule) ClassroomService.validateScheduleSlots(schedule);
 
+  if (skillLevel && !Object.values(SKILL_LEVEL).includes(skillLevel)) {
+    throw ApiError.badRequest(`skillLevel must be one of: ${Object.values(SKILL_LEVEL).join(', ')}`);
+  }
+
   const updates = {};
-  if (title)             updates.title             = title.trim();
-  if (description !== undefined) updates.description = description.trim();
-  if (tags)              updates.tags               = tags;
-  if (schedule)          updates.schedule           = schedule;
-  if (offlineFacility)   updates.offlineFacility    = offlineFacility;
-  if (maxStudents)       updates.maxStudents        = Number(maxStudents);
+  if (title !== undefined)                updates.title                = title.trim();
+  if (description !== undefined)          updates.description          = description.trim();
+  if (tags !== undefined)                 updates.tags                 = tags;
+  if (schedule !== undefined)             updates.schedule             = schedule;
+  if (offlineFacility !== undefined)      updates.offlineFacility      = offlineFacility;
+  if (maxStudents !== undefined)          updates.maxStudents          = Number(maxStudents);
+  if (skillLevel !== undefined)           updates.skillLevel           = skillLevel || null;
+  if (minimumQualification !== undefined) updates.minimumQualification = minimumQualification?.trim() || null;
+  if (prerequisites !== undefined)        updates.prerequisites        = prerequisites;
+  if (minimumAge !== undefined)           updates.minimumAge           = minimumAge ? Number(minimumAge) : null;
+  if (academicLevel !== undefined)        updates.academicLevel        = academicLevel?.trim() || null;
 
   const updated = await Classroom.findByIdAndUpdate(
     classroom._id,
@@ -123,14 +156,19 @@ export const updateClassroom = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, updated, 'Classroom updated'));
 });
 
-// ── GET /search — Marketplace search ─────────────────────────────────────────
+// ── GET /search — Marketplace search ──────────────────────────────────────────
 export const searchClassrooms = asyncHandler(async (req, res) => {
-  const { query, subject, mode, minFee, maxFee, minRating, sort, page = 1 } = req.query;
+  const {
+    query, subject, mode, classroomType, skillLevel,
+    minFee, maxFee, minRating, sort, page = 1,
+  } = req.query;
 
   const result = await Classroom.search({
     query,
     subject,
     mode,
+    classroomType,
+    skillLevel,
     minFee:    minFee    ? Number(minFee)    : undefined,
     maxFee:    maxFee    ? Number(maxFee)    : undefined,
     minRating: minRating ? Number(minRating) : 0,
@@ -142,7 +180,19 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, result, 'Search results'));
 });
 
-// ── GET /:classroomId — Classroom detail ──────────────────────────────────────
+// ── GET /discover — Personalised feed for logged-in students ──────────────────
+export const discoverClassrooms = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+
+  const result = await Classroom.discoverForStudent(req.user._id, {
+    page:  Number(page),
+    limit: Math.min(Number(limit), 20),
+  });
+
+  res.status(200).json(new ApiResponse(200, result, 'Discover classrooms'));
+});
+
+// ── GET /:classroomId — Full classroom detail (public) ────────────────────────
 export const getClassroomDetail = asyncHandler(async (req, res) => {
   const { classroomId } = req.params;
 
@@ -158,31 +208,38 @@ export const getClassroomDetail = asyncHandler(async (req, res) => {
 
   // Hide GMeet link from unauthenticated / non-enrolled users
   let enrollmentStatus = null;
-  if (req.user) {
-    if (req.user.role === 'student') {
-      const enrollment = await Enrollment.findOne({
-        studentId:   req.user._id,
-        classroomId,
-        status:      'active',
-      }).lean();
-      enrollmentStatus = enrollment ? 'enrolled' : null;
+  let studentProgress  = null;
 
-      if (!enrollment) {
-        classroom.gmeetLink = undefined;
-        classroom.schedule?.forEach((s) => { s.gmeetLink = undefined; });
-      }
+  if (req.user?.role === 'student') {
+    const enrollment = await Enrollment.findOne({
+      studentId:   req.user._id,
+      classroomId,
+      status:      'active',
+    }).lean();
+
+    if (enrollment) {
+      enrollmentStatus = 'enrolled';
+      // Surface student progress for the "my learning" detail view
+      studentProgress = {
+        classesAttended:      enrollment.classesAttended || 0,
+        assignmentsCompleted: enrollment.assignmentsCompleted || 0,
+      };
+    } else {
+      // Not enrolled — hide meeting link
+      classroom.gmeetLink = undefined;
+      classroom.schedule?.forEach((s) => { s.gmeetLink = undefined; });
     }
-  } else {
+  } else if (!req.user) {
     classroom.gmeetLink = undefined;
     classroom.schedule?.forEach((s) => { s.gmeetLink = undefined; });
   }
 
   res.status(200).json(new ApiResponse(200, {
-    classroom, reviews, ratingBreakdown, enrollmentStatus,
+    classroom, reviews, ratingBreakdown, enrollmentStatus, studentProgress,
   }, 'Classroom detail'));
 });
 
-// ── POST /:classroomId/early-end ──────────────────────────────────────────────
+// ── POST /:classroomId/early-end ────────────────────────────────────────────────
 export const requestEarlyEnd = asyncHandler(async (req, res) => {
   const classroom = req.resource;
 
@@ -198,14 +255,10 @@ export const requestEarlyEnd = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Cannot request early end before completing 50% of planned hours', [], 'MIDPOINT_NOT_REACHED');
   }
 
-  const enrolledStudents = await Enrollment.countDocuments({
-    classroomId: classroom._id, status: 'active',
-  });
-  if (enrolledStudents === 0) {
-    throw ApiError.badRequest('No enrolled students to vote');
-  }
+  const enrolledStudents = await Enrollment.countDocuments({ classroomId: classroom._id, status: 'active' });
+  if (enrolledStudents === 0) throw ApiError.badRequest('No enrolled students to vote');
 
-  const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
+  const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
   const poll = await Poll.create({
     classroomId:   classroom._id,
@@ -217,16 +270,16 @@ export const requestEarlyEnd = asyncHandler(async (req, res) => {
   });
 
   await Classroom.findByIdAndUpdate(classroom._id, {
-    status:               CLASSROOM_STATUS.COMPLETION_PENDING,
-    earlyEndRequestedAt:  new Date(),
-    earlyEndPollId:       poll._id,
+    status:              CLASSROOM_STATUS.COMPLETION_PENDING,
+    earlyEndRequestedAt: new Date(),
+    earlyEndPollId:      poll._id,
   });
 
   logger.info('Early end requested', { classroomId: classroom._id, pollId: poll._id });
   res.status(201).json(new ApiResponse(201, { poll }, 'Early-end vote initiated'));
 });
 
-// ── POST /:classroomId/media — Upload offline classroom media ─────────────────
+// ── POST /:classroomId/media ────────────────────────────────────────────────────
 export const uploadClassroomMedia = asyncHandler(async (req, res) => {
   const classroom = req.resource;
   if (classroom.mode !== CLASSROOM_MODE.OFFLINE) {
@@ -237,12 +290,10 @@ export const uploadClassroomMedia = asyncHandler(async (req, res) => {
   const photos = req.files.photos || [];
   const videos = req.files.videos || [];
 
-  const uploadedPhotos = await Promise.all(
-    photos.map((f, i) => CloudinaryService.uploadClassroomMedia(f.buffer, classroom._id, `photo_${i}`))
-  );
-  const uploadedVideos = await Promise.all(
-    videos.map((f, i) => CloudinaryService.uploadClassroomMedia(f.buffer, classroom._id, `video_${i}`))
-  );
+  const [uploadedPhotos, uploadedVideos] = await Promise.all([
+    Promise.all(photos.map((f, i) => CloudinaryService.uploadClassroomMedia(f.buffer, classroom._id, `photo_${i}`))),
+    Promise.all(videos.map((f, i) => CloudinaryService.uploadClassroomMedia(f.buffer, classroom._id, `video_${i}`))),
+  ]);
 
   const photoUrls = uploadedPhotos.map((r) => r.secure_url);
   const videoUrls = uploadedVideos.map((r) => r.secure_url);
@@ -257,21 +308,14 @@ export const uploadClassroomMedia = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, { photoUrls, videoUrls }, 'Media uploaded'));
 });
 
-// ── POST /:classroomId/vote-early-end — Student votes on early end ────────────
+// ── POST /:classroomId/vote-early-end ──────────────────────────────────────────
 export const voteEarlyEnd = asyncHandler(async (req, res) => {
   const { classroomId } = req.params;
   const { approve }     = req.body;
 
-  if (typeof approve !== 'boolean') {
-    throw ApiError.badRequest('approve must be a boolean');
-  }
+  if (typeof approve !== 'boolean') throw ApiError.badRequest('approve must be a boolean');
 
-  // Verify student is enrolled
-  const enrollment = await Enrollment.findOne({
-    studentId:   req.user._id,
-    classroomId,
-    status:      'active',
-  });
+  const enrollment = await Enrollment.findOne({ studentId: req.user._id, classroomId, status: 'active' });
   if (!enrollment) throw ApiError.forbidden('You are not enrolled in this classroom');
 
   if (enrollment.earlyEndVote !== null && enrollment.earlyEndVote !== undefined) {
@@ -280,29 +324,24 @@ export const voteEarlyEnd = asyncHandler(async (req, res) => {
 
   await enrollment.castEarlyEndVote(approve);
 
-  // Check if threshold reached
-  const summary = await Enrollment.earlyEndVoteSummary(classroomId);
+  const summary  = await Enrollment.earlyEndVoteSummary(classroomId);
   const approved = ClassroomService.isEarlyEndApproved(summary.approveCount, summary.total);
 
   if (approved) {
     await Classroom.findByIdAndUpdate(classroomId, {
-      status:            CLASSROOM_STATUS.COMPLETED,
-      completedAt:       new Date(),
-      completionCase:    'case_1',
+      status:             CLASSROOM_STATUS.COMPLETED,
+      completedAt:        new Date(),
+      completionCase:     'case_1',
       earlyEndApprovedAt: new Date(),
     });
-    // Close the poll
-    const classroom = await Classroom.findById(classroomId);
+    const classroom = await Classroom.findById(classroomId).select('earlyEndPollId');
     if (classroom?.earlyEndPollId) {
       const poll = await Poll.findById(classroom.earlyEndPollId);
-      if (poll) await poll.close();
+      if (poll?.close) await poll.close();
     }
   }
 
-  res.status(200).json(new ApiResponse(200, {
-    voteSummary: summary,
-    earlyEndApproved: approved,
-  }, 'Vote recorded'));
+  res.status(200).json(new ApiResponse(200, { voteSummary: summary, earlyEndApproved: approved }, 'Vote recorded'));
 });
 
 // ── GET /:classroomId/students — Teacher views enrolled students ───────────────
@@ -313,11 +352,64 @@ export const getEnrolledStudents = asyncHandler(async (req, res) => {
   const result = await Enrollment.paginate(
     { classroomId, status: 'active' },
     {
-      page: Number(page), limit: Math.min(Number(limit), 50),
+      page:     Number(page),
+      limit:    Math.min(Number(limit), 50),
       populate: { path: 'studentId', select: 'name phone avatarUrl isMinor' },
-      select: 'studentId classesAttended feesPaidPaise createdAt earlyEndVote',
+      select:   'studentId classesAttended assignmentsCompleted feesPaidPaise createdAt earlyEndVote',
     },
   );
 
   res.status(200).json(new ApiResponse(200, result, 'Enrolled students'));
+});
+// ── POST /:classroomId/report — Report from classroom context ─────────────────
+// Both enrolled students AND the classroom teacher can file a report.
+// Students report teachers; teachers report students.
+export const reportFromClassroom = asyncHandler(async (req, res) => {
+  const { classroomId } = req.params;
+  const { targetType, targetId, reportType, description, evidenceUrls = [] } = req.body;
+
+  if (!targetType || !targetId || !reportType || !description?.trim()) {
+    throw ApiError.badRequest('targetType, targetId, reportType and description are required');
+  }
+
+  // Validate reporter's connection to this classroom
+  const classroom = await Classroom.findById(classroomId).select('teacherId status').lean();
+  if (!classroom) throw ApiError.notFound('Classroom');
+
+  const isClassroomTeacher = classroom.teacherId.toString() === req.user._id.toString();
+
+  if (!isClassroomTeacher) {
+    // Must be an enrolled student
+    const enrolled = await Enrollment.findOne({ studentId: req.user._id, classroomId }).lean();
+    if (!enrolled) throw ApiError.forbidden('You must be enrolled or be the teacher to report from this classroom');
+  }
+
+  const { Report } = await import('../models/index.js');
+
+  const report = await Report.create({
+    reporterId:   req.user._id,
+    reportType,
+    targetType,
+    targetId,
+    classroomId,
+    description:  description.trim(),
+    evidenceUrls,
+  });
+
+  logger.warn('CLASSROOM_REPORT_FILED', {
+    reportId:   report._id,
+    reporterId: req.user._id,
+    classroomId,
+    targetType,
+    targetId,
+  });
+
+  // Non-blocking admin alert
+  const adminPhones = (process.env.ADMIN_ALERT_PHONES || '').split(',').filter(Boolean);
+  if (adminPhones.length) {
+    const { NotificationService } = await import('../services/notification.service.js');
+    NotificationService.notifyAdminReport(adminPhones, reportType, report._id).catch(() => {});
+  }
+
+  res.status(201).json(new ApiResponse(201, { reportId: report._id }, 'Report submitted. Our team will review it.'));
 });

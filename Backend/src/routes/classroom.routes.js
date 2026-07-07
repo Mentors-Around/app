@@ -15,7 +15,7 @@ import { Classroom } from '../models/index.js';
 import {
   createClassroom, updateClassroom, searchClassrooms,
   getClassroomDetail, requestEarlyEnd, uploadClassroomMedia,
-  voteEarlyEnd, getEnrolledStudents,
+  voteEarlyEnd, getEnrolledStudents, discoverClassrooms, reportFromClassroom,
 } from '../controllers/classroom.controller.js';
 
 import {
@@ -158,5 +158,11 @@ router.patch('/:classroomId/polls/:pollId/close', authenticate, requireTeacher, 
 
 router.post('/:classroomId/extra-classes', authenticate, requireTeacher, requestExtraClass);
 router.get('/:classroomId/extra-classes',  authenticate, getExtraClasses);
+
+// ── Discover feed (personalised for authenticated students, public for guests) ──
+router.get('/discover', optionalAuthenticate, discoverClassrooms);
+
+// ── Report from classroom (enrolled student → report teacher; teacher → report student) ──
+router.post('/:classroomId/report', authenticate, reportFromClassroom);
 
 export default router;

@@ -1,6 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/constants/enums.js
-// Central registry for every enum used across models.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const ROLES = Object.freeze({
@@ -36,12 +35,12 @@ export const ALLOWED_DOCUMENT_TYPES = Object.values(DOCUMENT_TYPE);
 
 // ── Classroom ─────────────────────────────────────────────────────────────────
 export const CLASSROOM_STATUS = Object.freeze({
-  DRAFT:              'draft',           // being configured
-  ACTIVE:             'active',          // accepting students / running
-  PAUSED:             'paused',          // temporarily paused
-  COMPLETION_PENDING: 'completion_pending', // early-end vote in progress
-  COMPLETED:          'completed',       // officially done
-  CANCELLED:          'cancelled',       // admin/teacher cancelled
+  DRAFT:              'draft',
+  ACTIVE:             'active',
+  PAUSED:             'paused',
+  COMPLETION_PENDING: 'completion_pending',
+  COMPLETED:          'completed',
+  CANCELLED:          'cancelled',
 });
 
 export const CLASSROOM_MODE = Object.freeze({
@@ -49,25 +48,42 @@ export const CLASSROOM_MODE = Object.freeze({
   OFFLINE: 'offline',
 });
 
-// ── Enrollment Query (the "request to enroll" flow) ───────────────────────────
+// NEW: academic = school/competitive/college subjects
+//      hobby    = music, art, sports, coding etc.
+export const CLASSROOM_TYPE = Object.freeze({
+  ACADEMIC: 'academic',
+  HOBBY:    'hobby',
+});
+
+// NEW: skill level — optional for both academic and hobby classrooms
+export const SKILL_LEVEL = Object.freeze({
+  AMATEUR:      'amateur',
+  INTERMEDIATE: 'intermediate',
+  ADVANCED:     'advanced',
+});
+
+// ── Enrollment Query ──────────────────────────────────────────────────────────
+// Teacher tabs:  enrolled | accepted | active(pending) | rejected | expired | refunded(lapsed)
+// Student tabs:  enrolled | accepted | active(pending) | rejected | expired(lapsed)
 export const QUERY_STATUS = Object.freeze({
-  PENDING:  'pending',   // waiting for teacher response
-  ACCEPTED: 'accepted',  // teacher accepted — student can enroll
-  REJECTED: 'rejected',  // teacher rejected — token refunded
-  EXPIRED:  'expired',   // no response in 5 days — treated as rejected, token refunded
-  ENROLLED: 'enrolled',  // student paid and enrolled after acceptance
-  LAPSED:   'lapsed',    // accepted but student didn't enroll within 5 days
+  PENDING:  'pending',   // waiting for teacher — counts as "active" in UI tabs
+  ACCEPTED: 'accepted',  // teacher accepted — student can enroll (teacher tab: accepted)
+  REJECTED: 'rejected',  // teacher rejected — token refunded to student
+  EXPIRED:  'expired',   // no teacher response in 24h — token refunded to student
+  ENROLLED: 'enrolled',  // student paid and enrolled
+  LAPSED:   'lapsed',    // accepted but student didn't enroll in 24h — teacher gets 4% back
+                         // teacher tab: "refunded" | student tab: "expired"
 });
 
 // ── Enrollment ────────────────────────────────────────────────────────────────
 export const ENROLLMENT_STATUS = Object.freeze({
   ACTIVE:    'active',
   COMPLETED: 'completed',
-  DROPPED:   'dropped',   // student dropped
-  EXPELLED:  'expelled',  // admin/teacher action
+  DROPPED:   'dropped',
+  EXPELLED:  'expelled',
 });
 
-// ── Payment (enrollment fee) ──────────────────────────────────────────────────
+// ── Payment ───────────────────────────────────────────────────────────────────
 export const PAYMENT_STATUS = Object.freeze({
   CREATED:             'created',
   AUTHORIZED:          'authorized',
@@ -78,9 +94,11 @@ export const PAYMENT_STATUS = Object.freeze({
 });
 
 export const PAYMENT_PURPOSE = Object.freeze({
-  TOKEN_PURCHASE: 'token_purchase',   // ₹19 for 3 tokens
-  ENROLLMENT_FEE: 'enrollment_fee',   // classroom enrollment
-  TEACHER_DEPOSIT:'teacher_deposit',  // 4% deposit when accepting query
+  TOKEN_PURCHASE:   'token_purchase',   // ₹19 for 3 tokens via Razorpay
+  ENROLLMENT_FEE:   'enrollment_fee',   // classroom enrollment via Razorpay
+  TEACHER_DEPOSIT:  'teacher_deposit',  // 4% deposit when accepting query
+  CASH_DEPOSIT:     'cash_deposit',     // student/teacher topping up wallet via Razorpay
+  CASH_WITHDRAWAL:  'cash_withdrawal',  // wallet payout to bank via Razorpay X
 });
 
 export const ESCROW_STATUS = Object.freeze({
@@ -90,7 +108,7 @@ export const ESCROW_STATUS = Object.freeze({
   PARTIAL_REFUND: 'partial_refund',
 });
 
-// ── Payout (teacher earnings) ─────────────────────────────────────────────────
+// ── Payout ────────────────────────────────────────────────────────────────────
 export const PAYOUT_STATUS = Object.freeze({
   QUEUED:     'queued',
   PROCESSING: 'processing',
@@ -105,20 +123,19 @@ export const PAYOUT_STAGE = Object.freeze({
   PAYOUT_SETTLED:   'payout_settled',
 });
 
-// ── Course completion case (drives refund math) ───────────────────────────────
+// ── Completion case ───────────────────────────────────────────────────────────
 export const COMPLETION_CASE = Object.freeze({
-  CASE_1: 'case_1', // completed fully or ≥70% student vote → teacher gets 89%, platform 15%
-  CASE_2: 'case_2', // teacher left before 50% hours → full refund to student, platform keeps 4%
-  CASE_3: 'case_3', // teacher left after 50% hours → pro-rata split
+  CASE_1: 'case_1',
+  CASE_2: 'case_2',
+  CASE_3: 'case_3',
 });
 
 // ── Doubt ─────────────────────────────────────────────────────────────────────
 export const DOUBT_VISIBILITY = Object.freeze({
-  PUBLIC:  'public',   // visible to all students in classroom
-  PRIVATE: 'private',  // visible only to teacher
+  PUBLIC:  'public',
+  PRIVATE: 'private',
 });
 
-// ── Dynamic Badges / Trust Enums ──────────────────────────────────────────────
 export const DOUBT_STATUS = Object.freeze({
   OPEN:     'open',
   ANSWERED: 'answered',
@@ -127,12 +144,12 @@ export const DOUBT_STATUS = Object.freeze({
 
 // ── Material ──────────────────────────────────────────────────────────────────
 export const MATERIAL_TYPE = Object.freeze({
-  PDF:         'pdf',
-  PPT:         'ppt',
-  VIDEO:       'video',
-  LINK:        'link',
-  IMAGE:       'image',
-  DOCUMENT:    'document',
+  PDF:      'pdf',
+  PPT:      'ppt',
+  VIDEO:    'video',
+  LINK:     'link',
+  IMAGE:    'image',
+  DOCUMENT: 'document',
 });
 
 // ── Assignment ────────────────────────────────────────────────────────────────
@@ -151,8 +168,8 @@ export const SUBMISSION_STATUS = Object.freeze({
 
 // ── Poll ──────────────────────────────────────────────────────────────────────
 export const POLL_TYPE = Object.freeze({
-  GENERAL:    'general',
-  EARLY_END:  'early_end',  // the 70% vote to end course early
+  GENERAL:   'general',
+  EARLY_END: 'early_end',
 });
 
 export const POLL_STATUS = Object.freeze({
@@ -161,7 +178,7 @@ export const POLL_STATUS = Object.freeze({
   EXPIRED: 'expired',
 });
 
-// ── Extra class request ───────────────────────────────────────────────────────
+// ── Extra class ───────────────────────────────────────────────────────────────
 export const EXTRA_CLASS_STATUS = Object.freeze({
   PENDING:  'pending',
   APPROVED: 'approved',
@@ -170,26 +187,26 @@ export const EXTRA_CLASS_STATUS = Object.freeze({
 
 // ── Notification ──────────────────────────────────────────────────────────────
 export const NOTIFICATION_CHANNEL = Object.freeze({
-  SMS:       'sms',
-  EMAIL:     'email',
-  PUSH:      'push',
-  WHATSAPP:  'whatsapp',
+  SMS:      'sms',
+  EMAIL:    'email',
+  PUSH:     'push',
+  WHATSAPP: 'whatsapp',
 });
 
 // ── Token wallet ──────────────────────────────────────────────────────────────
 export const TOKEN_TRANSACTION_TYPE = Object.freeze({
-  PURCHASED: 'purchased',  // bought via ₹19 payment
-  USED:      'used',       // spent on a query
-  REFUNDED:  'refunded',   // returned on rejection/expiry
-  BONUS:     'bonus',      // admin grant
+  PURCHASED: 'purchased',
+  USED:      'used',
+  REFUNDED:  'refunded',
+  BONUS:     'bonus',
 });
 
 // ── OTP ───────────────────────────────────────────────────────────────────────
 export const OTP_PURPOSE = Object.freeze({
-  REGISTER:     'register',    // dual signup OTP (phone + email)
-  RESET:        'reset',       // forgot password (email or phone channel)
-  PHONE_CHANGE: 'phone_change', // authenticated phone update
-  // LOGIN via OTP removed — password login only (no delivery cost per login)
+  REGISTER:     'register',
+  RESET:        'reset',
+  PHONE_CHANGE: 'phone_change',
+  EMAIL_CHANGE: 'email_change',   // NEW: verify new email before updating
 });
 
 // ── Refund ────────────────────────────────────────────────────────────────────
@@ -211,15 +228,9 @@ export const REFUND_REASON = Object.freeze({
   OTHER:              'other',
 });
 
-// NOTE: AGE_LIMITS lives in app.constants.js (single source of truth) —
-// do not redefine it here; importing it from two files caused a silent
-// duplicate that would diverge over time. Import { AGE_LIMITS } from
-// '../constants/app.constants.js' everywhere (middlewares included).
-
-// ── Idempotency (For Preventing Anti-DDoS Duplicate Form Submissions) ─────────
 export const IDEMPOTENCY = Object.freeze({
   HEADER: 'Idempotency-Key',
-  TTL_MS: 24 * 60 * 60 * 1000, 
+  TTL_MS: 24 * 60 * 60 * 1000,
 });
 
 // ── Static data ───────────────────────────────────────────────────────────────
@@ -243,12 +254,12 @@ export const CLASS_GRADES = Object.freeze([
 
 // ── Platform financial constants ──────────────────────────────────────────────
 export const PLATFORM_FEE = Object.freeze({
-  TOKEN_PRICE_PAISE:        1900,  
-  TOKENS_PER_PURCHASE:      3,
-  TEACHER_DEPOSIT_PERCENT:  4,     
-  PLATFORM_CUT_CASE1:       15,    
-  TEACHER_SHARE_CASE1:      89,    
-  PLATFORM_CUT_CASE2:       4,     
-  PLATFORM_CUT_CASE3:       14,    
-  STUDENT_FIXED_REFUND_CASE3: 30,  
+  TOKEN_PRICE_PAISE:            1900,
+  TOKENS_PER_PURCHASE:          3,
+  TEACHER_DEPOSIT_PERCENT:      4,
+  PLATFORM_CUT_CASE1:           15,
+  TEACHER_SHARE_CASE1:          89,
+  PLATFORM_CUT_CASE2:           4,
+  PLATFORM_CUT_CASE3:           14,
+  STUDENT_FIXED_REFUND_CASE3:   30,
 });

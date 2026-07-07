@@ -5,25 +5,27 @@ import {
   EnrollmentQuery, ExtraClass, Review, Enrollment,
 } from '../models/index.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
+import { PaymentService }    from '../services/payment.service.js';
+import { EmailService }      from '../services/email.service.js';
 import { asyncHandler }      from '../utils/AsyncHandler.js';
 import ApiError              from '../utils/ApiError.js';
 import ApiResponse           from '../utils/ApiResponse.js';
-import { DOCUMENT_TYPE, DOCUMENT_STATUS, VERIFICATION_STATUS } from '../constants/enums.js';
-import { CLOUDINARY_FOLDERS } from '../constants/app.constants.js';
-import logger                from '../config/logger.config.js';
+import {
+  DOCUMENT_TYPE, DOCUMENT_STATUS, VERIFICATION_STATUS, PAYMENT_PURPOSE, PAYMENT_STATUS,
+} from '../constants/enums.js';
+import logger from '../config/logger.config.js';
 
-// ── POST /onboarding/profile ──────────────────────────────────────────────────
+// ── POST /onboarding/profile ────────────────────────────────────────────────────
 export const submitProfile = asyncHandler(async (req, res) => {
   const {
     bio, headline, subjects, languages, city, state, country,
     experienceYears, education, bankAccount, portfolioUrls,
+    // hourlyRate is intentionally NOT accepted — each classroom has its own fee
   } = req.body;
 
   if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
     throw ApiError.badRequest('At least one subject is required');
   }
-
-  // Validate IFSC format if bank account provided
   if (bankAccount?.ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankAccount.ifsc)) {
     throw ApiError.badRequest('Invalid IFSC code format');
   }
@@ -34,7 +36,7 @@ export const submitProfile = asyncHandler(async (req, res) => {
       $set: {
         bio:             bio?.trim()      || '',
         headline:        headline?.trim() || '',
-        subjects:        subjects.map(s => s.trim()),
+        subjects:        subjects.map((s) => s.trim()),
         languages:       languages        || ['Hindi', 'English'],
         city:            city?.toLowerCase().trim(),
         state:           state?.toLowerCase().trim(),
@@ -46,36 +48,26 @@ export const submitProfile = asyncHandler(async (req, res) => {
       },
     },
     { new: true, upsert: true, runValidators: true },
-  ).select('-adminNotes -searchKeywords');
+  ).select('-adminNotes -searchKeywords -bankAccount.accountNumber');
 
   res.status(200).json(new ApiResponse(200, profile, 'Teacher profile updated'));
 });
 
-// ── POST /onboarding/kyc ──────────────────────────────────────────────────────
+// ── POST /onboarding/kyc ────────────────────────────────────────────────────────
 export const uploadKYC = asyncHandler(async (req, res) => {
-  if (!req.files || req.files.length === 0) {
-    throw ApiError.badRequest('At least one document file is required');
-  }
+  if (!req.files || req.files.length === 0) throw ApiError.badRequest('At least one document file is required');
 
   const documentType = req.body.documentType || DOCUMENT_TYPE.AADHAAR;
-  if (!Object.values(DOCUMENT_TYPE).includes(documentType)) {
-    throw ApiError.badRequest('Invalid document type');
-  }
+  if (!Object.values(DOCUMENT_TYPE).includes(documentType)) throw ApiError.badRequest('Invalid document type');
 
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
     const docIds = [];
-
     for (let i = 0; i < req.files.length; i++) {
       const file   = req.files[i];
-      const result = await CloudinaryService.uploadKYCDocument(
-        file.buffer,
-        req.user._id.toString(),
-        `${documentType}_${i}`,
-      );
-
-      const [doc] = await Document.create([{
+      const result = await CloudinaryService.uploadKYCDocument(file.buffer, req.user._id.toString(), `${documentType}_${i}`);
+      const [doc]  = await Document.create([{
         teacherId:     req.user._id,
         type:          documentType,
         fileUrl:       result.secure_url,
@@ -84,23 +76,13 @@ export const uploadKYC = asyncHandler(async (req, res) => {
         fileSizeBytes: file.size,
         status:        DOCUMENT_STATUS.UPLOADED,
       }], { session });
-
       docIds.push(doc._id);
     }
 
-    await TeacherProfile.findOneAndUpdate(
-      { userId: req.user._id },
-      { $push: { kycDocumentIds: { $each: docIds } } },
-      { session },
-    );
-
-    await User.findByIdAndUpdate(
-      req.user._id,
-      { kycStatus: 'under_review' },
-      { session },
-    );
-
+    await TeacherProfile.findOneAndUpdate({ userId: req.user._id }, { $push: { kycDocumentIds: { $each: docIds } } }, { session });
+    await User.findByIdAndUpdate(req.user._id, { kycStatus: 'under_review' }, { session });
     await session.commitTransaction();
+
     logger.info('KYC documents uploaded', { userId: req.user._id, count: docIds.length });
     res.status(200).json(new ApiResponse(200, { uploaded: docIds.length }, 'Documents uploaded. Under review.'));
   } catch (err) {
@@ -111,53 +93,55 @@ export const uploadKYC = asyncHandler(async (req, res) => {
   }
 });
 
-// ── GET /me/dashboard ─────────────────────────────────────────────────────────
+// ── GET /me/dashboard ────────────────────────────────────────────────────────────
 export const getDashboard = asyncHandler(async (req, res) => {
   const teacherId = req.user._id;
 
   const [
-    classroomStats,
-    pendingQueries,
-    pendingDoubts,
-    pendingExtraClasses,
-    upcomingSchedule,
+    classroomStats, pendingQueries, pendingDoubts, pendingExtraClasses, profile,
   ] = await Promise.all([
     Classroom.aggregate([
       { $match: { teacherId: new mongoose.Types.ObjectId(teacherId) } },
       {
         $group: {
-          _id:                null,
-          total:              { $sum: 1 },
-          active:             { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
-          completed:          { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-          totalStudents:      { $sum: '$stats.enrolledStudents' },
-          totalEarningsPaise: { $sum: '$stats.totalEarningsPaise' },
+          _id:              null,
+          total:            { $sum: 1 },
+          active:           { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
+          completed:        { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+          totalStudents:    { $sum: '$stats.enrolledStudents' },
+          totalEarnings:    { $sum: '$stats.totalEarningsPaise' },
         },
       },
     ]),
     EnrollmentQuery.countDocuments({ teacherId, status: 'pending' }),
     Doubt.countDocuments({ teacherId, status: 'open' }),
     ExtraClass.countDocuments({ teacherId, status: 'pending' }),
-    // Next 7 days of scheduled classrooms
-    Classroom.find({
-      teacherId,
-      status: 'active',
-      endDate: { $gte: new Date() },
-    }).select('title subject schedule mode gmeetLink stats').limit(10).lean(),
+    TeacherProfile.findOne({ userId: teacherId })
+      .select('walletPaise walletRupees stats verificationStatus bio headline subjects')
+      .lean({ virtuals: true }),
   ]);
 
-  const profile = await TeacherProfile.findOne({ userId: teacherId })
-    .select('walletPaise stats verificationStatus bio headline subjects')
-    .lean({ virtuals: true });
+  // ── Upcoming classes (next 7 days based on weekly schedule) ──────────────────
+  const activeClassrooms = await Classroom.find({
+    teacherId,
+    status:  'active',
+    endDate: { $gte: new Date() },
+  }).select('title subject schedule mode gmeetLink offlineFacility.address classroomType').lean();
+
+  const upcomingClasses = _buildUpcomingSchedule(activeClassrooms, 7);
 
   res.status(200).json(new ApiResponse(200, {
-    classroomStats: classroomStats[0] || { total: 0, active: 0, completed: 0, totalStudents: 0, totalEarningsPaise: 0 },
+    classroomStats: classroomStats[0] || {
+      total: 0, active: 0, completed: 0, totalStudents: 0, totalEarnings: 0,
+    },
     pendingQueries,
     pendingDoubts,
     pendingExtraClasses,
-    upcomingSchedule,
-    walletPaise: profile?.walletPaise || 0,
+    upcomingClasses,                       // next 7 days of scheduled sessions
+    walletPaise:       profile?.walletPaise       || 0,
+    walletRupees:      profile?.walletRupees      || 0,
     verificationStatus: profile?.verificationStatus,
+    // Note: platformFees NOT returned — removed per product requirement
   }, 'Dashboard data'));
 });
 
@@ -167,42 +151,142 @@ export const getEarnings = asyncHandler(async (req, res) => {
 
   const [profile, payouts] = await Promise.all([
     TeacherProfile.findOne({ userId: req.user._id })
-      .select('walletPaise stats.totalEarningsPaise stats.withdrawnPaise stats.pendingPayoutPaise')
-      .lean(),
-    Payout.find({ teacherId: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean(),
+      .select('walletPaise walletRupees stats.totalEarningsPaise stats.withdrawnPaise stats.pendingPayoutPaise')
+      .lean({ virtuals: true }),
+    Payout.find({ teacherId: req.user._id }).sort({ createdAt: -1 }).limit(20).lean(),
   ]);
 
   res.status(200).json(new ApiResponse(200, {
-    walletPaise:         profile?.walletPaise || 0,
-    totalEarningsPaise:  profile?.stats?.totalEarningsPaise || 0,
-    withdrawnPaise:      profile?.stats?.withdrawnPaise || 0,
-    pendingPayoutPaise:  profile?.stats?.pendingPayoutPaise || 0,
-    recentPayouts:       payouts,
+    walletPaise:        profile?.walletPaise                  || 0,
+    walletRupees:       profile?.walletRupees                 || 0,
+    totalEarningsPaise: profile?.stats?.totalEarningsPaise    || 0,
+    withdrawnPaise:     profile?.stats?.withdrawnPaise        || 0,
+    pendingPayoutPaise: profile?.stats?.pendingPayoutPaise    || 0,
+    recentPayouts:      payouts,
   }, 'Earnings data'));
 });
 
-// ── GET /me/queries ───────────────────────────────────────────────────────────
+// ── GET /me/wallet — Teacher wallet balance ────────────────────────────────────
+export const getTeacherWallet = asyncHandler(async (req, res) => {
+  const profile = await TeacherProfile.findOne({ userId: req.user._id })
+    .select('walletPaise stats.totalEarningsPaise stats.withdrawnPaise')
+    .lean({ virtuals: true });
+
+  res.status(200).json(new ApiResponse(200, {
+    walletPaise:        profile?.walletPaise             || 0,
+    walletRupees:       (profile?.walletPaise || 0) / 100,
+    totalEarningsPaise: profile?.stats?.totalEarningsPaise || 0,
+    withdrawnPaise:     profile?.stats?.withdrawnPaise     || 0,
+  }, 'Teacher wallet balance'));
+});
+
+// ── POST /me/wallet/deposit — Initiate cash deposit via Razorpay ───────────────
+export const initiateTeacherDeposit = asyncHandler(async (req, res) => {
+  const { amountPaise } = req.body;
+  if (!amountPaise || amountPaise < 100) throw ApiError.badRequest('amountPaise must be at least ₹1 (100 paise)');
+
+  const { Payment } = await import('../models/index.js');
+
+  const order = await PaymentService.createOrder({
+    amountPaise: Math.round(Number(amountPaise)),
+    receipt:     `tdep_${req.user._id.toString().slice(-8)}_${Date.now()}`,
+    notes:       { purpose: PAYMENT_PURPOSE.CASH_DEPOSIT, userId: req.user._id.toString(), role: 'teacher' },
+  });
+
+  await Payment.create({
+    purpose:          PAYMENT_PURPOSE.CASH_DEPOSIT,
+    payerId:          req.user._id,
+    totalAmountPaise: Math.round(Number(amountPaise)),
+    status:           PAYMENT_STATUS.CREATED,
+    razorpayOrderId:  order.id,
+  });
+
+  res.status(200).json(new ApiResponse(200, { razorpayOrder: order, amountPaise }, 'Deposit order created'));
+});
+
+// ── POST /me/wallet/deposit/verify — Verify and credit teacher wallet ──────────
+export const verifyTeacherDeposit = asyncHandler(async (req, res) => {
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    throw ApiError.badRequest('razorpayOrderId, razorpayPaymentId and razorpaySignature are required');
+  }
+
+  const isValid = PaymentService.verifyPaymentSignature({
+    orderId:   razorpayOrderId,
+    paymentId: razorpayPaymentId,
+    signature: razorpaySignature,
+  });
+  if (!isValid) throw new ApiError(400, 'Invalid payment signature', [], 'PAYMENT_SIGNATURE_INVALID');
+
+  const { Payment } = await import('../models/index.js');
+  const payment = await Payment.findOne({
+    razorpayOrderId,
+    payerId:  req.user._id,
+    purpose:  PAYMENT_PURPOSE.CASH_DEPOSIT,
+    status:   PAYMENT_STATUS.CREATED,
+  });
+  if (!payment) throw ApiError.notFound('Payment record');
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    await payment.capture({ razorpayPaymentId, razorpaySignature });
+    await TeacherProfile.findOneAndUpdate(
+      { userId: req.user._id },
+      { $inc: { walletPaise: payment.totalAmountPaise } },
+      { session },
+    );
+    await session.commitTransaction();
+
+    const [profile, teacher] = await Promise.all([
+      TeacherProfile.findOne({ userId: req.user._id }).select('walletPaise').lean(),
+      User.findById(req.user._id).select('name email'),
+    ]);
+
+    if (teacher?.email) {
+      EmailService.sendPaymentReceipt(teacher.email, {
+        recipientName:    teacher.name,
+        transactionId:    razorpayPaymentId,
+        description:      'Wallet top-up (deposit)',
+        type:             'cash_deposit',
+        amountPaise:      payment.totalAmountPaise,
+        date:             new Date().toISOString(),
+        balanceAfterPaise: profile?.walletPaise || 0,
+      });
+    }
+
+    res.status(200).json(new ApiResponse(200, {
+      depositedPaise: payment.totalAmountPaise,
+      walletPaise:    profile?.walletPaise || 0,
+    }, 'Wallet topped up successfully'));
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
+});
+
+// ── GET /me/queries ────────────────────────────────────────────────────────────
 export const getMyQueries = asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 20 } = req.query;
   const filter = { teacherId: req.user._id };
   if (status) filter.status = status;
 
   const result = await EnrollmentQuery.paginate(filter, {
-    page: Number(page), limit: Math.min(Number(limit), 50),
-    sort: { createdAt: -1 },
+    page:     Number(page),
+    limit:    Math.min(Number(limit), 50),
+    sort:     { createdAt: -1 },
     populate: [
       { path: 'studentId',   select: 'name phone avatarUrl' },
-      { path: 'classroomId', select: 'title subject feesPaise' },
+      { path: 'classroomId', select: 'title subject feesPaise classroomType skillLevel' },
     ],
   });
 
   res.status(200).json(new ApiResponse(200, result, 'Queries fetched'));
 });
 
-// ── GET /:teacherId/public ────────────────────────────────────────────────────
+// ── GET /:teacherId/public — Enhanced public profile with full stats ────────────
 export const getPublicProfile = asyncHandler(async (req, res) => {
   const { teacherId } = req.params;
 
@@ -214,41 +298,55 @@ export const getPublicProfile = asyncHandler(async (req, res) => {
       .select('-adminNotes -searchKeywords -bankAccount -aadhaarNumber -kycDocumentIds -razorpayContactId -razorpayFundId')
       .lean({ virtuals: true }),
     Classroom.find({ teacherId, status: 'active' })
-      .select('title subject stream mode feesPaise maxStudents stats schedule startDate endDate')
+      .select('title subject stream mode feesPaise maxStudents stats schedule startDate endDate classroomType skillLevel academicLevel')
       .limit(10).lean(),
     Review.ratingBreakdown(teacherId),
   ]);
 
   if (!user || !profile) throw ApiError.notFound('Teacher');
 
+  // Surface comprehensive stats for public profile
+  const stats = {
+    avgRating:          profile.stats?.avgRating          || 0,
+    totalReviews:       profile.stats?.totalReviews       || 0,
+    totalClassrooms:    profile.stats?.totalClassrooms    || 0,
+    activeClassrooms:   profile.stats?.activeClassrooms   || 0,
+    completedClassrooms:profile.stats?.completedClassrooms || 0,
+    totalStudentsTaught:profile.stats?.totalStudentsTaught || 0,
+  };
+
+  // hourlyRate intentionally excluded from response
+
   res.status(200).json(new ApiResponse(200, {
-    user, profile, classrooms, ratingBreakdown,
+    user, profile, classrooms, ratingBreakdown, stats,
   }, 'Teacher public profile'));
 });
 
-// ── GET /me/classrooms ────────────────────────────────────────────────────────
+// ── GET /me/classrooms ─────────────────────────────────────────────────────────
 export const getMyClassrooms = asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 10 } = req.query;
   const filter = { teacherId: req.user._id };
   if (status) filter.status = status;
 
   const result = await Classroom.paginate(filter, {
-    page: Number(page), limit: Math.min(Number(limit), 30),
-    sort: { createdAt: -1 },
+    page:  Number(page),
+    limit: Math.min(Number(limit), 30),
+    sort:  { createdAt: -1 },
   });
 
   res.status(200).json(new ApiResponse(200, result, 'My classrooms'));
 });
 
-// ── GET /me/doubts ────────────────────────────────────────────────────────────
+// ── GET /me/doubts ─────────────────────────────────────────────────────────────
 export const getMyDoubts = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, status = 'open' } = req.query;
 
   const result = await Doubt.paginate(
     { teacherId: req.user._id, status },
     {
-      page: Number(page), limit: Math.min(Number(limit), 50),
-      sort: { createdAt: -1 },
+      page:     Number(page),
+      limit:    Math.min(Number(limit), 50),
+      sort:     { createdAt: -1 },
       populate: [
         { path: 'studentId',   select: 'name avatarUrl' },
         { path: 'classroomId', select: 'title subject' },
@@ -259,17 +357,61 @@ export const getMyDoubts = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, result, 'Doubts inbox'));
 });
 
-// ── PATCH /me/availability ────────────────────────────────────────────────────
+// ── PATCH /me/availability ─────────────────────────────────────────────────────
 export const updateAvailability = asyncHandler(async (req, res) => {
   const { isAvailableForNewClassrooms } = req.body;
   if (typeof isAvailableForNewClassrooms !== 'boolean') {
     throw ApiError.badRequest('isAvailableForNewClassrooms must be a boolean');
   }
-
-  await TeacherProfile.findOneAndUpdate(
-    { userId: req.user._id },
-    { isAvailableForNewClassrooms },
-  );
-
+  await TeacherProfile.findOneAndUpdate({ userId: req.user._id }, { isAvailableForNewClassrooms });
   res.status(200).json(new ApiResponse(200, null, 'Availability updated'));
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERNAL HELPER — build upcoming class schedule from weekly recurring slots
+// ─────────────────────────────────────────────────────────────────────────────
+function _buildUpcomingSchedule(classrooms, daysAhead = 7) {
+  const now     = new Date();
+  const ceiling = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+  const results = [];
+
+  for (const classroom of classrooms) {
+    if (!Array.isArray(classroom.schedule)) continue;
+
+    for (const slot of classroom.schedule) {
+      // Find the next occurrence of this day-of-week within the window
+      const nextDate = _nextOccurrence(slot.day, slot.startTime, now);
+      if (nextDate && nextDate <= ceiling) {
+        results.push({
+          classroomId:    classroom._id,
+          classroomTitle: classroom.title,
+          subject:        classroom.subject,
+          mode:           classroom.mode,
+          gmeetLink:      classroom.mode === 'online' ? classroom.gmeetLink : null,
+          offlineAddress: classroom.offlineFacility?.address || null,
+          scheduledAt:    nextDate.toISOString(),
+          day:            slot.day,
+          startTime:      slot.startTime,
+          endTime:        slot.endTime,
+          durationMinutes: slot.durationMinutes,
+        });
+      }
+    }
+  }
+
+  return results.sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+}
+
+function _nextOccurrence(dayOfWeek, startTime, from) {
+  if (dayOfWeek < 0 || dayOfWeek > 6) return null;
+  const [h, m]   = startTime.split(':').map(Number);
+  const candidate = new Date(from);
+  candidate.setHours(h, m, 0, 0);
+
+  let diff = dayOfWeek - candidate.getDay();
+  if (diff < 0 || (diff === 0 && candidate <= from)) diff += 7;
+  else if (diff === 0 && candidate > from) diff = 0;
+
+  candidate.setDate(candidate.getDate() + diff);
+  return candidate;
+}

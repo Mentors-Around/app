@@ -1,28 +1,17 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/models/EnrollmentQuery.model.js
-//
-// A student spends 1 token to send an enrollment query to a classroom.
-// Teacher has 5 days to accept/reject. No response = auto-expired (token refunded).
-// If accepted, teacher's 4% deposit is charged. Student has 5 days to enroll.
-// If student doesn't enroll, teacher gets 4% back; student loses nothing extra.
-// ─────────────────────────────────────────────────────────────────────────────
+// src/models/Enrollmentquery.model.js
 import mongoose             from 'mongoose';
 import mongoosePaginate     from 'mongoose-paginate-v2';
 import mongooseLeanVirtuals from 'mongoose-lean-virtuals';
 import { QUERY_STATUS }     from '../constants/enums.js';
 import {
-  jsonTransform,
-  toObjectOptions,
-  moneyField,
-  enumField,
-  defaultPaginateOptions,
+  jsonTransform, toObjectOptions, moneyField, enumField, defaultPaginateOptions,
 } from '../utils/schema.util.js';
 
 const { Schema } = mongoose;
 
-// Auto-expire deadlines (in days) per product spec
-const TEACHER_RESPONSE_DEADLINE_DAYS = 5;
-const STUDENT_ENROLL_DEADLINE_DAYS   = 5;
+// Updated: 24-hour deadlines (was 5 days)
+const TEACHER_RESPONSE_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const STUDENT_ENROLL_DEADLINE_MS   = 24 * 60 * 60 * 1000; // 24 hours
 
 const enrollmentQuerySchema = new Schema(
   {
@@ -44,39 +33,51 @@ const enrollmentQuerySchema = new Schema(
       required: [true, 'Teacher ID is required'],
       index:    true,
     },
-    // ── Status ────────────────────────────────────────────────────────────────
+
     status: enumField(QUERY_STATUS, QUERY_STATUS.PENDING),
-    // ── Token tracking ────────────────────────────────────────────────────────
-    tokensSpent:   { type: Number, default: 1, min: 1 },  // currently always 1
+
+    // ── Token tracking ─────────────────────────────────────────────────────────
+    tokensSpent:   { type: Number, default: 1, min: 1 },
     tokenRefunded: { type: Boolean, default: false },
-    // ── Message from student to teacher ───────────────────────────────────────
+
+    // ── Student's message to teacher (optional, PII-filtered) ─────────────────
     message: {
       type:      String,
       trim:      true,
       maxlength: [500, 'Message cannot exceed 500 characters'],
       default:   '',
     },
-    // ── Deadlines ────────────────────────────────────────────────────────────
-    // Teacher must respond by this date or query auto-expires
+
+    // ── Teacher's optional response message (PII-filtered on write) ────────────
+    teacherMessage: {
+      type:      String,
+      trim:      true,
+      maxlength: [500, 'Teacher message cannot exceed 500 characters'],
+      default:   null,
+    },
+
+    // ── Deadlines (24-hour windows) ────────────────────────────────────────────
     teacherResponseDeadline: {
       type:    Date,
-      default: () => new Date(Date.now() + TEACHER_RESPONSE_DEADLINE_DAYS * 86400000),
+      default: () => new Date(Date.now() + TEACHER_RESPONSE_DEADLINE_MS),
       index:   true,
     },
-    // Student must enroll by this date after acceptance (set on acceptance)
     studentEnrollDeadline: {
       type:    Date,
       default: null,
       index:   true,
     },
-    // ── Teacher response ──────────────────────────────────────────────────────
-    respondedAt:      { type: Date, default: null },
-    rejectionReason:  { type: String, trim: true, default: null },
-    // ── Teacher deposit (4% of classroom fee) charged when query is accepted ──
-    teacherDepositPaise:  { ...moneyField() }, // 4% of classroom fees
-    teacherDepositPaid:   { type: Boolean, default: false },
+
+    // ── Response tracking ──────────────────────────────────────────────────────
+    respondedAt:     { type: Date, default: null },
+    rejectionReason: { type: String, trim: true, default: null },
+
+    // ── Teacher deposit (4% of classroom fee) ─────────────────────────────────
+    teacherDepositPaise:    { ...moneyField() },
+    teacherDepositPaid:     { type: Boolean, default: false },
     teacherDepositRefunded: { type: Boolean, default: false },
-    // ── Enrollment link (set when student enrolls) ─────────────────────────────
+
+    // ── Enrollment link ────────────────────────────────────────────────────────
     enrollmentId: {
       type:    Schema.Types.ObjectId,
       ref:     'Enrollment',
@@ -95,22 +96,19 @@ enrollmentQuerySchema.plugin(mongoosePaginate);
 enrollmentQuerySchema.plugin(mongooseLeanVirtuals);
 
 // ── Indexes ───────────────────────────────────────────────────────────────────
-// Prevent duplicate query from same student to same classroom
 enrollmentQuerySchema.index(
   { studentId: 1, classroomId: 1 },
   {
     unique: true,
-    partialFilterExpression: {
-      status: { $in: ['pending', 'accepted'] },
-    },
+    partialFilterExpression: { status: { $in: ['pending', 'accepted'] } },
   },
 );
 enrollmentQuerySchema.index({ teacherId: 1, status: 1, createdAt: -1 });
 enrollmentQuerySchema.index({ studentId: 1, status: 1, createdAt: -1 });
-enrollmentQuerySchema.index({ status: 1, teacherResponseDeadline: 1 });  // cron: auto-expire
-enrollmentQuerySchema.index({ status: 1, studentEnrollDeadline: 1 });    // cron: lapse accepted
+enrollmentQuerySchema.index({ status: 1, teacherResponseDeadline: 1 });
+enrollmentQuerySchema.index({ status: 1, studentEnrollDeadline: 1 });
 
-// ── Virtuals ───────────────────────────────────────────────────────────────────
+// ── Virtuals ──────────────────────────────────────────────────────────────────
 enrollmentQuerySchema.virtual('isTeacherResponseOverdue').get(function () {
   return this.status === QUERY_STATUS.PENDING && this.teacherResponseDeadline < new Date();
 });
@@ -121,38 +119,48 @@ enrollmentQuerySchema.virtual('isStudentEnrollOverdue').get(function () {
     this.studentEnrollDeadline < new Date()
   );
 });
+// Time remaining for teacher to respond (ms, negative = overdue)
+enrollmentQuerySchema.virtual('teacherResponseTimeRemaining').get(function () {
+  if (this.status !== QUERY_STATUS.PENDING) return null;
+  return this.teacherResponseDeadline - new Date();
+});
+// Time remaining for student to enroll (ms, negative = overdue)
+enrollmentQuerySchema.virtual('studentEnrollTimeRemaining').get(function () {
+  if (this.status !== QUERY_STATUS.ACCEPTED || !this.studentEnrollDeadline) return null;
+  return this.studentEnrollDeadline - new Date();
+});
 
 // ── Instance methods ──────────────────────────────────────────────────────────
-enrollmentQuerySchema.methods.accept = async function (teacherDepositPaise) {
+enrollmentQuerySchema.methods.accept = async function (teacherDepositPaise, teacherMessage = null) {
   if (this.status !== QUERY_STATUS.PENDING) {
     throw new Error(`Cannot accept query in status: ${this.status}`);
   }
-  this.status               = QUERY_STATUS.ACCEPTED;
-  this.respondedAt          = new Date();
-  this.teacherDepositPaise  = teacherDepositPaise;
-  this.teacherDepositPaid   = true;
-  this.studentEnrollDeadline = new Date(Date.now() + STUDENT_ENROLL_DEADLINE_DAYS * 86400000);
+  this.status                = QUERY_STATUS.ACCEPTED;
+  this.respondedAt           = new Date();
+  this.teacherDepositPaise   = teacherDepositPaise;
+  this.teacherDepositPaid    = true;
+  this.teacherMessage        = teacherMessage;
+  this.studentEnrollDeadline = new Date(Date.now() + STUDENT_ENROLL_DEADLINE_MS);
   return this.save();
 };
 
-enrollmentQuerySchema.methods.reject = async function (reason = '') {
+enrollmentQuerySchema.methods.reject = async function (reason = '', teacherMessage = null) {
   if (this.status !== QUERY_STATUS.PENDING) {
     throw new Error(`Cannot reject query in status: ${this.status}`);
   }
   this.status          = QUERY_STATUS.REJECTED;
   this.respondedAt     = new Date();
   this.rejectionReason = reason;
+  this.teacherMessage  = teacherMessage;
   return this.save();
 };
 
 enrollmentQuerySchema.methods.expire = async function () {
-  // Called by cron when teacher doesn't respond in 5 days
   this.status = QUERY_STATUS.EXPIRED;
   return this.save();
 };
 
 enrollmentQuerySchema.methods.lapse = async function () {
-  // Called by cron when student doesn't enroll in 5 days after acceptance
   this.status = QUERY_STATUS.LAPSED;
   return this.save();
 };
@@ -164,9 +172,6 @@ enrollmentQuerySchema.methods.markEnrolled = async function (enrollmentId) {
 };
 
 // ── Static methods ─────────────────────────────────────────────────────────────
-/**
- * Cron: find pending queries past their teacher response deadline.
- */
 enrollmentQuerySchema.statics.overdueForTeacher = function () {
   return this.find({
     status:                  QUERY_STATUS.PENDING,
@@ -174,26 +179,70 @@ enrollmentQuerySchema.statics.overdueForTeacher = function () {
   }).lean();
 };
 
-/**
- * Cron: find accepted queries where student hasn't enrolled yet past deadline.
- */
 enrollmentQuerySchema.statics.overdueForStudent = function () {
   return this.find({
-    status:               QUERY_STATUS.ACCEPTED,
-    studentEnrollDeadline:{ $lt: new Date() },
-    enrollmentId:         null,
+    status:                QUERY_STATUS.ACCEPTED,
+    studentEnrollDeadline: { $lt: new Date() },
+    enrollmentId:          null,
   }).lean();
 };
 
-/**
- * Student's query history for a classroom (to check if already queried).
- */
 enrollmentQuerySchema.statics.findActiveQuery = function (studentId, classroomId) {
   return this.findOne({
     studentId,
     classroomId,
     status: { $in: [QUERY_STATUS.PENDING, QUERY_STATUS.ACCEPTED] },
   });
+};
+
+/**
+ * Teacher query tab counts.
+ * Maps internal statuses to UI tab names:
+ *   active   = pending (waiting for teacher response)
+ *   accepted = accepted (student yet to enroll)
+ *   enrolled = enrolled
+ *   rejected = rejected
+ *   expired  = expired (teacher didn't respond in 24h)
+ *   refunded = lapsed  (student didn't enroll in 24h → teacher got 4% back)
+ */
+enrollmentQuerySchema.statics.teacherQueryCounts = async function (teacherId) {
+  const counts = await this.aggregate([
+    { $match: { teacherId: new mongoose.Types.ObjectId(teacherId) } },
+    { $group: { _id: '$status', count: { $sum: 1 } } },
+  ]);
+  const map = { active: 0, accepted: 0, enrolled: 0, rejected: 0, expired: 0, refunded: 0 };
+  counts.forEach(({ _id, count }) => {
+    const label = _id === 'pending' ? 'active' : _id === 'lapsed' ? 'refunded' : _id;
+    if (label in map) map[label] = count;
+  });
+  return map;
+};
+
+/**
+ * Student query tab counts.
+ *   active   = pending
+ *   accepted = accepted (yet to enroll)
+ *   enrolled = enrolled
+ *   rejected = rejected by teacher OR teacher didn't respond in 24h (status: expired)
+ *   expired  = lapsed — accepted by teacher but student didn't enroll in 24h
+ */
+enrollmentQuerySchema.statics.studentQueryCounts = async function (studentId) {
+  const counts = await this.aggregate([
+    { $match: { studentId: new mongoose.Types.ObjectId(studentId) } },
+    { $group: { _id: '$status', count: { $sum: 1 } } },
+  ]);
+  const map = { active: 0, accepted: 0, enrolled: 0, rejected: 0, expired: 0 };
+  counts.forEach(({ _id, count }) => {
+    // NOTE: internal status "expired" (teacher no-response) maps to student tab "rejected";
+    // internal status "lapsed" (student didn't enroll in time) maps to student tab "expired".
+    const label =
+      _id === 'pending' ? 'active' :
+      _id === 'lapsed'  ? 'expired' :
+      _id === 'expired' ? 'rejected' :
+      _id;
+    if (label in map) map[label] = count;
+  });
+  return map;
 };
 
 export const EnrollmentQuery = mongoose.model('EnrollmentQuery', enrollmentQuerySchema);

@@ -348,3 +348,42 @@ export const getPlatformStats = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, { userStats, classroomStats, paymentStats }, 'Platform stats'));
 });
+// ── Top Teachers ──────────────────────────────────────────────────────────────
+// Returns teachers ranked by average rating, total students, and total classrooms
+export const getTopTeachers = asyncHandler(async (req, res) => {
+  const { limit = 20, page = 1 } = req.query;
+
+  const result = await TeacherProfile.paginate(
+    { verificationStatus: VERIFICATION_STATUS.APPROVED },
+    {
+      page:     Number(page),
+      limit:    Math.min(Number(limit), 50),
+      sort:     { 'stats.avgRating': -1, 'stats.totalStudentsTaught': -1, 'stats.totalClassrooms': -1 },
+      populate: { path: 'userId', select: 'name avatarUrl email phone createdAt' },
+      select:   '-adminNotes -bankAccount -aadhaarNumber -kycDocumentIds',
+    },
+  );
+
+  res.status(200).json(new ApiResponse(200, result, 'Top teachers'));
+});
+
+// ── Reports Dashboard ─────────────────────────────────────────────────────────
+export const getReportsDashboard = asyncHandler(async (req, res) => {
+  auditLog(req, 'VIEW_REPORTS_DASHBOARD', {});
+
+  const [byStatus, byType, recent] = await Promise.all([
+    Report.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+    Report.aggregate([
+      { $group: { _id: '$reportType', count: { $sum: 1 } } },
+    ]),
+    Report.find({ status: { $in: ['open', 'under_review'] } })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('reporterId', 'name role')
+      .lean(),
+  ]);
+
+  res.status(200).json(new ApiResponse(200, { byStatus, byType, recent }, 'Reports dashboard'));
+});

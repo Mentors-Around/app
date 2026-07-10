@@ -26,6 +26,7 @@ import walletRoutes     from './routes/wallet.routes.js';
 import payoutRoutes     from './routes/payout.routes.js';
 import adminRoutes      from './routes/admin.routes.js';
 import reportRoutes     from './routes/report.routes.js';
+import testRoutes       from './routes/test.routes.js';
 import webhookRoutes    from './routes/webhook.routes.js';
 
 const app = express();
@@ -75,6 +76,7 @@ app.use('/api/v1/wallet',      walletRoutes);
 app.use('/api/v1/payouts',     payoutRoutes);
 app.use('/api/v1/admin',       adminRoutes);
 app.use('/api/v1/reports',     reportRoutes);
+app.use('/api/v1/tests',       testRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) =>

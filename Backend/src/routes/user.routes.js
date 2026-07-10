@@ -11,9 +11,14 @@ import {
   requestPhoneChange, confirmPhoneChange,
   requestEmailChange, confirmEmailChange,
   updateParentPhone, getSupport,
+  saveTeacher, unsaveTeacher, getSavedTeachers,
 } from '../controllers/user.controller.js';
 
 const router = Router();
+
+// ── Help & Support (public — no auth required, needed pre-login too) ─────────
+router.get('/support', getSupport);
+
 router.use(authenticate);
 
 // ── Profile ───────────────────────────────────────────────────────────────────
@@ -46,10 +51,12 @@ router.get('/me/saved-classrooms',               getSavedClassrooms);
 router.post('/me/saved-classrooms/:classroomId',   saveClassroom);
 router.delete('/me/saved-classrooms/:classroomId', unsaveClassroom);
 
+// ── Favourite teachers (students) ─────────────────────────────────────────────
+router.get('/me/saved-teachers',            getSavedTeachers);
+router.post('/me/saved-teachers/:teacherId',   saveTeacher);
+router.delete('/me/saved-teachers/:teacherId', unsaveTeacher);
+
 // ── Payment history ───────────────────────────────────────────────────────────
 router.get('/me/payments', getPaymentHistory);
-
-// ── Help & Support (no auth needed — public endpoint) ────────────────────────
-router.get('/support', getSupport);
 
 export default router;

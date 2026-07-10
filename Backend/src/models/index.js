@@ -22,6 +22,8 @@ import { Poll } from './Poll.model.js';
 import { ExtraClass } from './ExtraClass.model.js';
 import { RefundRequest } from './RefundRequest.model.js';
 import { Report } from './Report.model.js';
+import { Test } from './Test.model.js';
+import { TestAttempt } from './TestAttempt.model.js';
 
 export {
   User,
@@ -43,5 +45,7 @@ export {
   Poll,
   ExtraClass,
   RefundRequest,
-  Report
+  Report,
+  Test,
+  TestAttempt,
 };

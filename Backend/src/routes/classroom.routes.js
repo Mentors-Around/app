@@ -44,6 +44,10 @@ import {
   requestExtraClass, getExtraClasses,
 } from '../controllers/extraClass.controller.js';
 
+import {
+  createTest, listClassroomTests,
+} from '../controllers/test.controller.js';
+
 const router = Router();
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,6 +55,11 @@ const router = Router();
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/search', searchLimiter, searchClassrooms);
+
+// NOTE: literal-path routes (/search, /discover) MUST be registered before the
+// '/:classroomId' param route below, otherwise Express matches them as an ID.
+router.get('/discover', optionalAuthenticate, discoverClassrooms);
+
 router.get('/:classroomId', optionalAuthenticate, getClassroomDetail);
 router.post('/', authenticate, requireTeacher, createClassroom);
 
@@ -159,8 +168,12 @@ router.patch('/:classroomId/polls/:pollId/close', authenticate, requireTeacher, 
 router.post('/:classroomId/extra-classes', authenticate, requireTeacher, requestExtraClass);
 router.get('/:classroomId/extra-classes',  authenticate, getExtraClasses);
 
-// ── Discover feed (personalised for authenticated students, public for guests) ──
-router.get('/discover', optionalAuthenticate, discoverClassrooms);
+// ─────────────────────────────────────────────────────────────────────────────
+// MONTHLY SUBJECT TESTS (teacher-authored, classroom-scoped)
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.post('/:classroomId/tests', authenticate, requireTeacher, createTest);
+router.get('/:classroomId/tests',  authenticate, requireTeacher, listClassroomTests);
 
 // ── Report from classroom (enrolled student → report teacher; teacher → report student) ──
 router.post('/:classroomId/report', authenticate, reportFromClassroom);

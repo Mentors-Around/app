@@ -162,6 +162,10 @@ const userSchema = new Schema(
     savedClassrooms: [
       { type: Schema.Types.ObjectId, ref: 'Classroom' },
     ],
+    // ── Student: favourite teachers ────────────────────────────────────────────
+    savedTeachers: [
+      { type: Schema.Types.ObjectId, ref: 'User' },
+    ],
     // ── Admin meta ────────────────────────────────────────────────────────────
     onboardedAt: { type: Date, default: null },
     deletedAt:   { type: Date, default: null },

@@ -261,6 +261,45 @@ export const getSavedClassrooms = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, user.savedClassrooms || [], 'Saved classrooms'));
 });
 
+// ── Favourite teachers ──────────────────────────────────────────────────────────
+export const saveTeacher = asyncHandler(async (req, res) => {
+  const { teacherId } = req.params;
+  const teacher = await User.findOne({ _id: teacherId, role: 'teacher', deletedAt: null }).select('_id');
+  if (!teacher) throw ApiError.notFound('Teacher');
+
+  await User.findByIdAndUpdate(req.user._id, { $addToSet: { savedTeachers: teacherId } });
+  res.status(200).json(new ApiResponse(200, null, 'Teacher added to favourites'));
+});
+
+export const unsaveTeacher = asyncHandler(async (req, res) => {
+  const { teacherId } = req.params;
+  await User.findByIdAndUpdate(req.user._id, { $pull: { savedTeachers: teacherId } });
+  res.status(200).json(new ApiResponse(200, null, 'Teacher removed from favourites'));
+});
+
+export const getSavedTeachers = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id)
+    .populate({
+      path:   'savedTeachers',
+      select: 'name avatarUrl city state kycStatus',
+      match:  { deletedAt: null },
+    })
+    .lean();
+
+  const teacherIds = (user.savedTeachers || []).map((t) => t._id);
+  const profiles = await TeacherProfile.find({ userId: { $in: teacherIds } })
+    .select('userId stats subjects')
+    .lean();
+  const profileMap = new Map(profiles.map((p) => [String(p.userId), p]));
+
+  const result = (user.savedTeachers || []).map((t) => ({
+    ...t,
+    profile: profileMap.get(String(t._id)) || null,
+  }));
+
+  res.status(200).json(new ApiResponse(200, result, 'Favourite teachers'));
+});
+
 export const getPaymentHistory = asyncHandler(async (req, res) => {
   const { Payment } = await import('../models/index.js');
   const { page = 1, limit = 20 } = req.query;

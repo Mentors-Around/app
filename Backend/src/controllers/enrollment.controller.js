@@ -16,7 +16,7 @@ import {
   QUERY_STATUS, PAYMENT_PURPOSE, PAYMENT_STATUS, ENROLLMENT_STATUS,
 } from '../constants/enums.js';
 import { calcTeacherDeposit } from '../utils/finance.util.js';
-import { blockAllPII }        from '../utils/pil.util.js';
+import { blockAllPII }        from '../utils/pii.util.js';
 import logger                 from '../config/logger.config.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -371,6 +371,103 @@ export const verifyEnrollmentPayment = asyncHandler(async (req, res) => {
     session.endSession();
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /me/dashboard — Student dashboard summary
+// ─────────────────────────────────────────────────────────────────────────────
+export const getStudentDashboard = asyncHandler(async (req, res) => {
+  const { Announcement } = await import('../models/index.js');
+  const studentId = req.user._id;
+
+  const [activeEnrollments, completedCount, wallet, tabCounts] = await Promise.all([
+    Enrollment.find({ studentId, status: ENROLLMENT_STATUS.ACTIVE })
+      .populate({
+        path:   'classroomId',
+        select: 'title subject stream mode schedule gmeetLink offlineFacility teacherId',
+        populate: { path: 'teacherId', select: 'name avatarUrl' },
+      })
+      .lean(),
+    Enrollment.countDocuments({ studentId, status: ENROLLMENT_STATUS.COMPLETED }),
+    StudentWallet.findOne({ studentId }).lean(),
+    EnrollmentQuery.studentQueryCounts(studentId),
+  ]);
+
+  const classroomIds = activeEnrollments
+    .map((e) => e.classroomId?._id)
+    .filter(Boolean);
+
+  const [upcomingClasses, recentNotices] = await Promise.all([
+    _buildStudentUpcomingSchedule(activeEnrollments, 7),
+    classroomIds.length
+      ? Announcement.find({ classroomId: { $in: classroomIds } })
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select('title content classroomId createdAt')
+          .lean()
+      : [],
+  ]);
+
+  res.status(200).json(new ApiResponse(200, {
+    classroomCounts: {
+      active:    activeEnrollments.length,
+      completed: completedCount,
+    },
+    upcomingClasses,
+    recentNotices,
+    wallet: {
+      tokenBalance:      wallet?.tokenBalance || 0,
+      cashBalancePaise:  wallet?.cashBalancePaise || 0,
+    },
+    queryTabCounts: tabCounts,
+  }, 'Student dashboard data'));
+});
+
+// INTERNAL HELPER — build upcoming session list for a student's active enrollments
+function _buildStudentUpcomingSchedule(enrollments, daysAhead = 7) {
+  const now     = new Date();
+  const ceiling = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+  const results = [];
+
+  for (const enrollment of enrollments) {
+    const classroom = enrollment.classroomId;
+    if (!classroom || !Array.isArray(classroom.schedule)) continue;
+
+    for (const slot of classroom.schedule) {
+      const nextDate = _nextOccurrence(slot.day, slot.startTime, now);
+      if (nextDate && nextDate <= ceiling) {
+        results.push({
+          classroomId:     classroom._id,
+          classroomTitle:  classroom.title,
+          subject:         classroom.subject,
+          teacherName:     classroom.teacherId?.name || null,
+          teacherAvatar:   classroom.teacherId?.avatarUrl || null,
+          mode:            classroom.mode,
+          gmeetLink:       classroom.mode === 'online' ? classroom.gmeetLink : null,
+          offlineAddress:  classroom.offlineFacility?.address || null,
+          scheduledAt:     nextDate.toISOString(),
+          day:             slot.day,
+          startTime:       slot.startTime,
+          endTime:         slot.endTime,
+        });
+      }
+    }
+  }
+  return results.sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+}
+
+function _nextOccurrence(dayOfWeek, startTime, from) {
+  if (dayOfWeek < 0 || dayOfWeek > 6) return null;
+  const [h, m]    = startTime.split(':').map(Number);
+  const candidate = new Date(from);
+  candidate.setHours(h, m, 0, 0);
+
+  let diff = dayOfWeek - candidate.getDay();
+  if (diff < 0 || (diff === 0 && candidate <= from)) diff += 7;
+  else if (diff === 0 && candidate > from) diff = 0;
+
+  candidate.setDate(candidate.getDate() + diff);
+  return candidate;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET / — Student's enrolled classrooms  (tab: active | completed | all)

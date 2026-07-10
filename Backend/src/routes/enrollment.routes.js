@@ -9,7 +9,7 @@ import { paymentLimiter }             from '../middlewares/rateLimit.middleware.
 import {
   sendQuery, acceptQuery, rejectQuery,
   enrollInClassroom, verifyEnrollmentPayment,
-  getStudentEnrollments, getMyQueries, submitReview,
+  getStudentEnrollments, getMyQueries, submitReview, getStudentDashboard,
 } from '../controllers/enrollment.controller.js';
 
 const router = Router();
@@ -44,6 +44,7 @@ router.post(
 router.get('/queries', getMyQueries);
 
 // ── Student: enrolled classrooms dashboard (active | completed) ───────────────
+router.get('/me/dashboard', requireStudent, getStudentDashboard);
 router.get('/', requireStudent, getStudentEnrollments);
 
 // ── Student: review a completed classroom ────────────────────────────────────

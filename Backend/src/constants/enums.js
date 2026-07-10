@@ -178,6 +178,19 @@ export const POLL_STATUS = Object.freeze({
   EXPIRED: 'expired',
 });
 
+// ── Monthly subject test ──────────────────────────────────────────────────────
+export const TEST_STATUS = Object.freeze({
+  DRAFT:     'draft',
+  PUBLISHED: 'published',
+  CLOSED:    'closed',
+});
+
+export const TEST_ATTEMPT_STATUS = Object.freeze({
+  IN_PROGRESS:    'in_progress',
+  SUBMITTED:      'submitted',
+  AUTO_SUBMITTED: 'auto_submitted', // timer ran out
+});
+
 // ── Extra class ───────────────────────────────────────────────────────────────
 export const EXTRA_CLASS_STATUS = Object.freeze({
   PENDING:  'pending',

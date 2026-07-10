@@ -8,7 +8,10 @@ import {
   submitProfile, uploadKYC, getDashboard, getEarnings,
   getMyQueries, getPublicProfile, getMyClassrooms,
   getMyDoubts, updateAvailability,
+  getTeacherWallet, initiateTeacherDeposit, verifyTeacherDeposit,
 } from '../controllers/teacher.controller.js';
+import { paymentLimiter }       from '../middlewares/rateLimit.middleware.js';
+import { requireIdempotencyKey } from '../middlewares/idempotency.middleware.js';
 
 const router = Router();
 
@@ -26,5 +29,10 @@ router.patch('/me/availability', authenticate, requireTeacher, updateAvailabilit
 
 // ── Public profile (no auth required) ────────────────────────────────────────
 router.get('/:teacherId/public', optionalAuthenticate, getPublicProfile);
+
+// ── Teacher wallet — balance, deposit (Razorpay), earnings ───────────────────
+router.get('/me/wallet',                authenticate, requireTeacher, getTeacherWallet);
+router.post('/me/wallet/deposit',        authenticate, requireTeacher, paymentLimiter, requireIdempotencyKey, initiateTeacherDeposit);
+router.post('/me/wallet/deposit/verify', authenticate, requireTeacher, paymentLimiter, verifyTeacherDeposit);
 
 export default router;

@@ -6,13 +6,23 @@ import { AuthProvider } from './context/AuthContext';
 import App from './App';
 import ScrollToTop from './components/ScrollToTop';
 import './index.css';
+import Logo from './components/shared/Logo';
 
 // Initialize Sentry error monitoring
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  environment: import.meta.env.MODE,
-  tracesSampleRate: 1.0,
-});
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN || "";
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    tracePropagationTargets: ["localhost", /^\//],
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+  });
+}
 
 // Mark Sentry as initialized for the ErrorBoundary component
 window.__SENTRY_INITIALIZED__ = true;
@@ -20,7 +30,7 @@ window.__SENTRY_INITIALIZED__ = true;
 const SentryFallback = () => (
   <div className="min-h-screen bg-cream flex items-center justify-center p-6">
     <div className="bg-white rounded-brand-xl shadow-brand-xl p-10 max-w-md w-full text-center">
-      <img src="/logo.png" alt="TrueEd" className="h-10 w-auto mx-auto mb-6" loading="lazy" />
+      <Logo variant="light" className="h-14 w-auto mx-auto mb-6" loading="lazy" />
       <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
         <i className="fa-solid fa-triangle-exclamation text-red-500 text-2xl" />
       </div>

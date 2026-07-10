@@ -1,430 +1,254 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { Camera, Edit2, Mail, Phone, MapPin, BookOpen, User, CheckCircle, X, Shield, ArrowRight, Target, LayoutGrid, ChevronRight, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
-import Spinner from '../components/shared/Spinner';
-import TokenPurchaseModal from '../components/shared/TokenPurchaseModal';
+import StudentAvatar from '../components/shared/StudentAvatar';
+import ProfileCompletionCard from '../components/shared/ProfileCompletionCard';
 
-const MAX_SUBJECTS = 8;
+export default function StudentProfile() {
+  const { user } = useAuth();
 
-const suggestionGroups = [
-  {
-    label: 'Popular Subjects',
-    items: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Computer Science', 'Hindi', 'Social Science', 'Sanskrit', 'Economics'],
-  },
-  {
-    label: 'Competitive Exams',
-    items: ['JEE Mains', 'JEE Advanced', 'NEET', 'UPSC', 'CAT', 'GATE', 'NDA', 'CUET'],
-  },
-  {
-    label: 'Hobbies and Skills',
-    items: ['Guitar', 'Piano', 'Drawing', 'Chess', 'Dance', 'Coding', 'Photography', 'Spoken English', 'Yoga', 'Cricket Coaching'],
-  },
-];
-
-const StudentProfile = () => {
-  const { user, updateUser } = useAuth();
-  
-  const [profileForm, setProfileForm] = useState(() => {
-    let studentProfile = {};
-    try {
-      const raw = localStorage.getItem('trueed_student_profile');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          studentProfile = parsed;
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    
-    const profile = studentProfile || {};
-    const tokenBalance = profile.tokenBalance ?? 0;
-    const subjects = profile.subjects || [];
-    const interests = profile.interests || [];
-    const enrolledClassrooms = profile.enrolledClassrooms || [];
-    
-    return {
-      name: profile.name || user?.name || 'Student Name',
-      class: profile.class || user?.class || 'Class 10',
-      location: profile.location || user?.location || 'Bangalore',
-      subjects: subjects.length > 0 ? subjects : (user?.subjects || ['Mathematics', 'Science']),
-      interests: interests,
-      enrolledClassrooms: enrolledClassrooms,
-      tokenBalance: tokenBalance,
-    };
+  const [profile, setProfile] = useState({
+    fullName: user?.name || 'Aarav Sharma',
+    email: user?.email || 'aarav.sharma@example.com',
+    phone: '+91 98765 43210',
+    parentPhone: '',
+    city: 'Bangalore, Karnataka',
+    educationLevel: 'Class 12 - CBSE',
+    learningGoals: 'Improve Math scores',
+    preferredSubjects: 'Mathematics, Physics',
+    joinedSince: 'January 2026',
+    studentId: 'STU-9481'
   });
 
-  const [saving, setSaving] = useState(false);
-  const [successToast, setSuccessToast] = useState(false);
-  const [nameError, setNameError] = useState('');
-  const [cityError, setCityError] = useState('');
+  const [hasPhoto, setHasPhoto] = useState(!!localStorage.getItem(`trueed_student_photo_${user?.id || 'student-1'}`));
 
-  // Subject dropdown state
-  const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
-  const [subjectSearch, setSubjectSearch] = useState('');
-  const dropdownRef = useRef(null);
 
-  // Query Tokens
-  const [queryTokens, setQueryTokens] = useState(0);
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
-  const [tokenSuccessToast, setTokenSuccessToast] = useState(false);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+
+  const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
-    let tokens = 0;
-    try {
-      tokens = parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10);
-      if (isNaN(tokens)) tokens = 0;
-    } catch {
-      tokens = 0;
-    }
-    setQueryTokens(tokens);
-  }, []);
+    document.title = 'My Profile — TrueEd';
+    window.scrollTo(0, 0);
+    
+    const handleStorageChange = () => {
+      setHasPhoto(!!localStorage.getItem(`trueed_student_photo_${user?.id || 'student-1'}`));
+    };
+    window.addEventListener('trueed_student_avatar_updated', handleStorageChange);
+    return () => window.removeEventListener('trueed_student_avatar_updated', handleStorageChange);
+  }, [user]);
 
-  const handleTokenPurchaseSuccess = (newTokens) => {
-    setQueryTokens(newTokens);
-    setIsTokenModalOpen(false);
-    setTokenSuccessToast(true);
-    setTimeout(() => setTokenSuccessToast(false), 3000);
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  useEffect(() => { document.title = 'My Profile — TrueEd'; }, []);
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowSubjectDropdown(false);
-        setSubjectSearch('');
-      }
-    };
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        setShowSubjectDropdown(false);
-        setSubjectSearch('');
-      }
-    };
-    if (showSubjectDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [showSubjectDropdown]);
 
-  const lettersAndSpaces = /^[a-zA-Z\s]*$/;
-
-  const handleNameChange = (e) => {
-    const val = e.target.value;
-    if (!lettersAndSpaces.test(val)) {
-      setNameError('Only letters and spaces allowed');
-      return;
-    }
-    if (val.length > 50) {
-      setNameError('Maximum 50 characters');
-      return;
-    }
-    setProfileForm({ ...profileForm, name: val });
-    setNameError('');
-  };
-
-  const handleCityChange = (e) => {
-    const val = e.target.value;
-    if (!lettersAndSpaces.test(val)) {
-      setCityError('Only letters and spaces allowed');
-      return;
-    }
-    if (val.length > 30) {
-      setCityError('Maximum 30 characters');
-      return;
-    }
-    setProfileForm({ ...profileForm, location: val });
-    setCityError('');
+  const handleEditProfileClick = () => {
+    setEditForm({
+      fullName: profile.fullName, city: profile.city, educationLevel: profile.educationLevel,
+      learningGoals: profile.learningGoals, preferredSubjects: profile.preferredSubjects,
+      parentPhone: profile.parentPhone
+    });
+    setIsEditing(true);
   };
 
   const handleSaveProfile = () => {
-    setNameError('');
-    setCityError('');
-    if (!profileForm.name.trim()) {
-      setNameError('Name cannot be empty');
-      return;
-    }
-    
-    setSaving(true);
-    setTimeout(() => {
-      updateUser(profileForm);
-      try {
-        localStorage.setItem('trueed_student_profile', JSON.stringify(profileForm));
-      } catch (e) {
-        console.error(e);
+    setProfile(prev => ({ ...prev, ...editForm }));
+    setIsEditing(false);
+    showToast("Profile updated successfully.");
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        showToast("Image must be smaller than 5MB");
+        return;
       }
-      setSaving(false);
-      setSuccessToast(true);
-      setTimeout(() => setSuccessToast(false), 3000);
-    }, 1000);
-  };
-
-  const safeSubjects = profileForm.subjects || [];
-  const atLimit = safeSubjects.length >= MAX_SUBJECTS;
-
-  const addSubject = (sub) => {
-    if (atLimit) return;
-    if (!safeSubjects.includes(sub)) {
-      setProfileForm({ ...profileForm, subjects: [...safeSubjects, sub] });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        localStorage.setItem(`trueed_student_photo_${user?.id || 'student-1'}`, reader.result);
+        window.dispatchEvent(new Event('trueed_student_avatar_updated'));
+        setHasPhoto(true);
+        showToast("Profile picture updated.");
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const addCustomSubject = () => {
-    const trimmed = subjectSearch.trim();
-    if (!trimmed || atLimit) return;
-    if (!safeSubjects.includes(trimmed)) {
-      setProfileForm({ ...profileForm, subjects: [...safeSubjects, trimmed] });
+  const handleRemoveImage = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    localStorage.removeItem(`trueed_student_photo_${user?.id || 'student-1'}`);
+    window.dispatchEvent(new Event('trueed_student_avatar_updated'));
+    setHasPhoto(false);
+    showToast("Profile picture removed.");
+  };
+
+
+
+  const completionFields = [
+    { name: 'Name', isComplete: !!profile.fullName, id: 'personal-info' },
+    { name: 'Email', isComplete: !!profile.email, id: 'personal-info' },
+    { name: 'Phone', isComplete: !!profile.phone, id: 'personal-info' },
+    { name: 'Class', isComplete: !!profile.educationLevel, id: 'personal-info' },
+    { name: 'City', isComplete: !!profile.city, id: 'personal-info' },
+    { name: 'Profile Photo', isComplete: hasPhoto, id: 'avatar-section' },
+    { name: 'Learning Goals', isComplete: !!profile.learningGoals, id: 'personal-info' },
+    { name: 'Preferred Subjects', isComplete: !!profile.preferredSubjects, id: 'personal-info' }
+  ];
+
+  const handleFieldClick = (id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-sky', 'ring-offset-4');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-sky', 'ring-offset-4'), 2000);
     }
-    setSubjectSearch('');
   };
-
-  const removeSubject = (sub) => {
-    setProfileForm({ ...profileForm, subjects: safeSubjects.filter(s => s !== sub) });
-  };
-
-  // Filter suggestions: exclude already selected, then filter by search query
-  const getFilteredGroups = () => {
-    const query = subjectSearch.toLowerCase().trim();
-    return suggestionGroups.map(group => ({
-      ...group,
-      items: group.items.filter(item =>
-        !safeSubjects.includes(item) &&
-        (query === '' || item.toLowerCase().includes(query))
-      ),
-    })).filter(group => group.items.length > 0);
-  };
-
-  const filteredGroups = getFilteredGroups();
-  const hasAnyResult = filteredGroups.some(g => g.items.length > 0);
-  const searchMatchesExact = subjectSearch.trim() && !suggestionGroups.some(g => g.items.some(i => i.toLowerCase() === subjectSearch.trim().toLowerCase()));
 
   return (
-    <div className="max-w-[800px] mx-auto relative">
-      <h1 className="font-sora text-2xl font-bold text-navy mb-6">Student Profile</h1>
-      
-      {/* Success Toast */}
-      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${successToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        <div className="bg-success text-white px-6 py-3 rounded-full font-semibold shadow-brand-xl flex items-center gap-2">
-          <i className="fa-solid fa-circle-check" /> Profile updated successfully!
+    <div className="max-w-4xl mx-auto pb-12 space-y-8 animate-fadeIn relative">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-xl shadow-xl font-bold flex items-center gap-2 z-[100] animate-slide-up-sm">
+          <CheckCircle className="w-5 h-5 text-emerald-400" />
+          {toastMessage}
         </div>
-      </div>
+      )}
 
-      {/* Token Success Toast */}
-      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${tokenSuccessToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        <div className="bg-success text-white px-6 py-3 rounded-full font-semibold shadow-brand-xl flex items-center gap-2">
-          <i className="fa-solid fa-circle-check" /> Tokens added successfully
-        </div>
-      </div>
 
-      <div className="bg-white rounded-brand shadow-brand p-6 md:p-8 mb-8">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div>
-            <h2 className="font-sora text-xl font-bold text-navy mb-1">Query Tokens</h2>
-            <p className="text-slate-500 text-sm font-medium">Use tokens to send queries to classrooms before enrolling.</p>
-          </div>
-          <div className="flex items-center gap-4 bg-slate-50 border border-slate-100 p-4 rounded-xl">
-            <div className="text-center">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Balance</p>
-              <p className="font-sora font-extrabold text-2xl text-navy">{queryTokens}</p>
-            </div>
-            <div className="w-px h-10 bg-slate-200 mx-2"></div>
-            <button 
-              onClick={() => setIsTokenModalOpen(true)}
-              className="px-5 py-2.5 bg-navy text-white text-sm font-bold rounded-lg shadow-sm hover:shadow-md transition whitespace-nowrap flex items-center gap-2"
-            >
-              <i className="fa-solid fa-cart-shopping"></i> Buy Tokens
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-brand shadow-brand p-6 md:p-8">
-        <h2 className="font-sora text-xl font-bold text-navy mb-6">My Profile</h2>
-        <div className="space-y-5 max-w-md">
-          <div>
-            <label className="block text-sm font-semibold text-navy mb-1.5">Full Name</label>
-            <input 
-              type="text" 
-              value={profileForm.name} 
-              onChange={handleNameChange} 
-              className={`w-full py-2.5 px-3 border-2 ${nameError ? 'border-error/50 bg-error/5' : 'border-slate-200'} rounded-lg text-sm outline-none focus:border-sky font-medium text-navy transition`} 
-            />
-            {nameError && <p className="text-error text-xs mt-1.5 font-medium flex items-center gap-1"><i className="fa-solid fa-circle-exclamation" /> {nameError}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-navy mb-1.5">Class / Grade</label>
-            <select 
-              value={profileForm.class} 
-              onChange={e => setProfileForm({...profileForm, class: e.target.value})} 
-              className="w-full py-2.5 px-3 border-2 border-slate-200 rounded-lg text-sm outline-none focus:border-sky bg-white font-medium text-navy cursor-pointer transition"
-            >
-              {[6,7,8,9,10,11,12].map(c => <option key={c}>Class {c}</option>)}
-              <option>College</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-navy mb-1.5">City</label>
-            <input 
-              type="text" 
-              value={profileForm.location} 
-              onChange={handleCityChange} 
-              className={`w-full py-2.5 px-3 border-2 ${cityError ? 'border-error/50 bg-error/5' : 'border-slate-200'} rounded-lg text-sm outline-none focus:border-sky font-medium text-navy transition`} 
-            />
-            {cityError && <p className="text-error text-xs mt-1.5 font-medium flex items-center gap-1"><i className="fa-solid fa-circle-exclamation" /> {cityError}</p>}
-          </div>
-
-          {/* Subjects of Interest — Smart Suggestions */}
-          <div ref={dropdownRef} className="relative">
-            <label className="block text-sm font-semibold text-navy mb-1.5">
-              Subjects of Interest
-              <span className="text-slate-400 font-normal ml-1">({safeSubjects.length}/{MAX_SUBJECTS})</span>
-            </label>
-
-            {/* Selected subject chips */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {safeSubjects.map(s => (
-                <span key={s} className="bg-navy text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 shadow-sm">
-                  {s}
-                  <button onClick={() => removeSubject(s)} className="hover:bg-white/20 transition w-4 h-4 rounded-full flex items-center justify-center text-white/70 hover:text-white">
-                    <i className="fa-solid fa-xmark text-[10px]" />
+      {/* Profile Header */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-r from-navy to-sky-600"></div>
+        
+        <div className="relative pt-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
+            {/* Avatar Section */}
+            <div id="avatar-section" className="relative group transition-all duration-300 rounded-full">
+              <div className="w-32 h-32 rounded-full border-4 border-white bg-slate-100 flex items-center justify-center text-4xl font-bold text-navy shadow-lg overflow-hidden relative z-10">
+                <StudentAvatar 
+                  studentId={user?.id || 'student-1'} 
+                  name={profile.fullName} 
+                  className="w-full h-full text-4xl" 
+                />
+                <label className="absolute inset-0 bg-navy/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 text-white cursor-pointer backdrop-blur-sm">
+                  <Camera className="w-6 h-6" />
+                  <span className="text-xs font-semibold">Update Photo</span>
+                  <input type="file" accept="image/jpeg, image/png, image/webp" className="hidden" onChange={handleImageUpload} />
+                </label>
+              </div>
+              
+              <div className="absolute top-0 right-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                {hasPhoto && (
+                  <button onClick={handleRemoveImage} className="w-8 h-8 rounded-full bg-error text-white flex items-center justify-center shadow hover:scale-105 transition" title="Remove Photo">
+                    <X className="w-4 h-4" />
                   </button>
-                </span>
-              ))}
-
-              {/* Add Subject button */}
-              {!showSubjectDropdown && (
-                <button
-                  onClick={() => { if (!atLimit) setShowSubjectDropdown(true); }}
-                  disabled={atLimit}
-                  className={`border-2 border-dashed text-xs font-bold px-3 py-1.5 rounded-full transition ${
-                    atLimit
-                      ? 'border-slate-100 text-slate-300 cursor-not-allowed'
-                      : 'border-slate-200 text-slate-400 hover:border-navy hover:text-navy'
-                  }`}
-                >
-                  + Add Subject
-                </button>
-              )}
+                )}
+              </div>
             </div>
 
-            {atLimit && !showSubjectDropdown && (
-              <p className="text-amber-600 text-xs font-medium flex items-center gap-1 mb-2">
-                <i className="fa-solid fa-circle-info" /> Maximum {MAX_SUBJECTS} subjects reached
-              </p>
-            )}
+            <div className="text-center md:text-left mb-2">
+              <h1 className="font-sora text-3xl font-extrabold text-slate-900">{profile.fullName}</h1>
+              <p className="text-slate-500 font-medium">Joined {profile.joinedSince} • ID: {profile.studentId}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Suggestions Dropdown */}
-            {showSubjectDropdown && (
-              <div className="bg-white border-2 border-slate-200 rounded-xl shadow-lg overflow-hidden animate-fadeIn">
-                {/* Search input */}
-                <div className="p-3 border-b border-slate-100">
-                  <div className="relative">
-                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
-                    <input
-                      type="text"
-                      autoFocus
-                      value={subjectSearch}
-                      onChange={(e) => setSubjectSearch(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addCustomSubject();
-                        }
-                      }}
-                      placeholder="Search or type a subject..."
-                      className="w-full py-2 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-sky font-medium text-navy transition placeholder:text-slate-400"
-                    />
-                  </div>
-                </div>
+      <ProfileCompletionCard type="student" fields={completionFields} onFieldClick={handleFieldClick} />
 
-                {atLimit ? (
-                  <div className="px-4 py-6 text-center">
-                    <p className="text-amber-600 text-sm font-semibold">Maximum {MAX_SUBJECTS} subjects reached</p>
-                    <p className="text-slate-400 text-xs mt-1">Remove a subject to add a new one</p>
-                  </div>
-                ) : (
-                  <div className="max-h-[280px] overflow-y-auto p-3 space-y-4">
-                    {filteredGroups.map(group => (
-                      <div key={group.label}>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">{group.label}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {group.items.map(item => {
-                            const query = subjectSearch.toLowerCase().trim();
-                            const isHighlighted = query && item.toLowerCase().includes(query);
-                            return (
-                              <button
-                                key={item}
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => addSubject(item)}
-                                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                                  isHighlighted
-                                    ? 'bg-amber/20 text-amber-700 border border-amber/30 shadow-sm'
-                                    : 'bg-slate-100 text-slate-600 border border-transparent hover:bg-amber/10 hover:text-amber-700'
-                                }`}
-                              >
-                                {item}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+      {/* Personal Information */}
+      <div id="personal-info" className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm transition-all duration-300 rounded-xl">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-sora text-xl font-bold text-slate-900 flex items-center gap-2">
+            <User className="w-5 h-5 text-sky-500" />
+            Personal Information
+          </h2>
+          {!isEditing && (
+            <button onClick={handleEditProfileClick} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-bold rounded-lg transition border border-slate-200 flex items-center gap-2">
+              <Edit2 className="w-4 h-4" /> Edit Profile
+            </button>
+          )}
+        </div>
 
-                    {/* No results + custom add */}
-                    {!hasAnyResult && subjectSearch.trim() && (
-                      <div className="text-center py-3">
-                        <p className="text-slate-400 text-sm mb-3">No suggestions found for "{subjectSearch}"</p>
-                        <button
-                          onClick={addCustomSubject}
-                          className="text-xs font-bold px-4 py-2 bg-navy text-white rounded-full hover:bg-navy-light transition shadow-sm"
-                        >
-                          + Add "{subjectSearch.trim()}" as custom subject
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Custom add button when search term exists and isn't already a suggestion */}
-                    {hasAnyResult && searchMatchesExact && subjectSearch.trim() && !safeSubjects.includes(subjectSearch.trim()) && (
-                      <div className="pt-2 border-t border-slate-100">
-                        <button
-                          onClick={addCustomSubject}
-                          className="text-xs font-bold px-4 py-2 bg-slate-100 text-navy rounded-full hover:bg-amber/10 hover:text-amber-700 transition w-full"
-                        >
-                          + Add custom subject "{subjectSearch.trim()}"
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+          <div className="group">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Full Name</p>
+            {isEditing ? (
+              <input type="text" value={editForm.fullName} onChange={e => setEditForm({...editForm, fullName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
+            ) : (
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <p className="font-semibold text-slate-800">{profile.fullName}</p>
               </div>
             )}
           </div>
 
-          <button 
-            onClick={handleSaveProfile}
-            disabled={saving}
-            className="py-3 px-6 bg-navy text-white rounded-lg text-sm font-bold hover:bg-navy-light transition shadow-brand hover:shadow-brand-xl disabled:opacity-70 disabled:cursor-not-allowed mt-4 flex items-center justify-center min-w-[140px]"
-          >
-            {saving ? (
-              <><Spinner size="sm" /> <span className="ml-2">Saving...</span></>
-            ) : 'Save Changes'}
-          </button>
-        </div>
-      </div>
+          <div className="group">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> City</p>
+            {isEditing ? (
+              <input type="text" value={editForm.city} onChange={e => setEditForm({...editForm, city: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
+            ) : (
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <p className="font-semibold text-slate-800">{profile.city || <span className="text-slate-400 italic">Not set</span>}</p>
+              </div>
+            )}
+          </div>
 
-      <TokenPurchaseModal 
-        isOpen={isTokenModalOpen}
-        onClose={() => setIsTokenModalOpen(false)}
-        onSuccess={handleTokenPurchaseSuccess}
-        currentBalance={queryTokens}
-      />
+          <div className="group">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> Education Level (Class)</p>
+            {isEditing ? (
+              <input type="text" value={editForm.educationLevel} onChange={e => setEditForm({...editForm, educationLevel: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
+            ) : (
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <p className="font-semibold text-slate-800">{profile.educationLevel || <span className="text-slate-400 italic">Not set</span>}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="group">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><Target className="w-3.5 h-3.5" /> Learning Goals</p>
+            {isEditing ? (
+              <input type="text" value={editForm.learningGoals} onChange={e => setEditForm({...editForm, learningGoals: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
+            ) : (
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <p className="font-semibold text-slate-800">{profile.learningGoals || <span className="text-slate-400 italic">Not set</span>}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="group">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Preferred Subjects</p>
+            {isEditing ? (
+              <input type="text" value={editForm.preferredSubjects} onChange={e => setEditForm({...editForm, preferredSubjects: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
+            ) : (
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <p className="font-semibold text-slate-800">{profile.preferredSubjects || <span className="text-slate-400 italic">Not set</span>}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isEditing && (
+          <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-end gap-4">
+            <button onClick={handleCancelEdit} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition">
+              Cancel
+            </button>
+            <button onClick={handleSaveProfile} className="px-6 py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-sm">
+              Save Changes
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
-};
-export default StudentProfile;
+}

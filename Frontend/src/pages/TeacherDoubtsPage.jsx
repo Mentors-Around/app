@@ -54,6 +54,7 @@ export default function TeacherDoubtsPage() {
 
   const [selectedDoubt, setSelectedDoubt] = useState(null);
   const [responseText, setResponseText] = useState('');
+  const [replyError, setReplyError] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   const showToast = (msg) => {
@@ -82,6 +83,7 @@ export default function TeacherDoubtsPage() {
   const handleOpenResponse = (doubt) => {
     setSelectedDoubt(doubt);
     setResponseText(doubt.response || '');
+    setReplyError(null);
   };
 
   const handlePostAnswer = (e) => {
@@ -328,11 +330,17 @@ export default function TeacherDoubtsPage() {
                   <textarea 
                     required
                     value={responseText}
-                    onChange={e => setResponseText(e.target.value)}
+                    onChange={e => {
+                      setResponseText(e.target.value);
+                      if (replyError) setReplyError(null);
+                    }}
                     placeholder="Provide a detailed explanation to help the student..."
                     rows="6"
-                    className="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm font-medium text-navy outline-none focus:border-sky focus:ring-1 focus:ring-sky transition resize-none shadow-sm"
+                    className={`w-full bg-white border rounded-xl p-4 text-sm font-medium text-navy outline-none focus:ring-1 transition resize-none shadow-sm ${
+                      replyError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:border-sky focus:ring-sky'
+                    }`}
                   ></textarea>
+                  {replyError && <p className="text-xs text-red-500 mt-2 font-medium">{replyError}</p>}
                 </form>
               </div>
 

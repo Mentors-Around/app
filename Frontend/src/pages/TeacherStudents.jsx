@@ -102,11 +102,6 @@ export default function TeacherStudents() {
             {mockStudents.length} Total
           </span>
         </div>
-        <div className="flex gap-3">
-          <button className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition shadow-sm flex items-center gap-2">
-            <i className="fa-solid fa-download"></i> Export
-          </button>
-        </div>
       </div>
 
       {/* Filters */}
@@ -136,67 +131,52 @@ export default function TeacherStudents() {
 
       {/* Grid */}
       {filteredStudents.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
           {filteredStudents.map(student => (
             <div key={student.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-sky/30 transition-all duration-300 group flex flex-col h-full">
               
               {/* Header */}
               <div className="flex justify-between items-start mb-4">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-sky/20 to-sky/5 flex items-center justify-center text-sky font-extrabold text-xl border border-sky/10">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky/20 to-sky/5 flex items-center justify-center text-sky font-extrabold text-lg border border-sky/10 shrink-0">
                   {student.initials}
                 </div>
-                <span className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-md tracking-wider ${student.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                <span className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-md tracking-wider shrink-0 ${student.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                   {student.status}
                 </span>
               </div>
               
-              <h3 className="font-sora font-bold text-navy text-lg mb-1 group-hover:text-sky transition-colors">{student.name}</h3>
-              <div className="flex items-center gap-1.5 text-sm text-slate-500 mb-4 font-medium">
-                <GraduationCap className="w-4 h-4" /> {student.grade} <span className="mx-1">•</span> <MapPin className="w-4 h-4" /> {student.city}
+              <h3 className="font-sora font-bold text-navy text-lg mb-1 group-hover:text-sky transition-colors truncate">{student.name}</h3>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-4 font-medium truncate">
+                {student.grade} <span className="mx-1">•</span> {student.city}
               </div>
               
               <div className="flex flex-wrap gap-1.5 mb-5">
-                {student.subjects.map((sub, i) => (
-                  <span key={i} className="text-[11px] font-bold bg-slate-50 border border-slate-100 text-slate-500 px-2.5 py-1 rounded-md uppercase tracking-wider">
+                {student.subjects.slice(0, 2).map((sub, i) => (
+                  <span key={i} className="text-[10px] font-bold bg-slate-50 border border-slate-100 text-slate-500 px-2.5 py-1 rounded-md uppercase tracking-wider">
                     {sub}
                   </span>
                 ))}
               </div>
 
-              {/* Enrolled Classrooms Section */}
-              <div className="mb-5 flex-1">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5" /> Enrolled Classrooms
-                </p>
+              {/* Classroom Preview */}
+              <div className="mb-5 flex-1 min-h-[40px]">
                 {student.classrooms.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {student.classrooms.map((room, idx) => (
-                      <span key={idx} className="text-xs font-bold bg-sky/10 text-sky border border-sky/20 px-2.5 py-1 rounded-full flex items-center gap-1.5">
-                        <i className="fa-solid fa-book text-[10px]"></i> {room.name}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-navy flex items-center gap-2 truncate" title={student.classrooms[0].name}>
+                      <i className="fa-solid fa-book text-sky shrink-0"></i> 
+                      <span className="truncate">{student.classrooms[0].name}</span>
+                    </span>
+                    {student.classrooms.length > 1 && (
+                      <span className="text-xs font-bold text-slate-400">
+                        +{student.classrooms.length - 1} more classrooms
                       </span>
-                    ))}
+                    )}
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-slate-400 italic bg-slate-50 py-1.5 px-3 rounded-lg inline-block border border-slate-100">
+                  <span className="text-xs font-semibold text-slate-400 italic">
                     No Active Classroom
-                  </p>
+                  </span>
                 )}
-              </div>
-
-              {/* Stats Footer */}
-              <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 mb-5">
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Sessions</p>
-                  <p className="font-sora font-bold text-navy text-sm">{student.totalSessions}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Last Session</p>
-                  <p className="font-sora font-bold text-navy text-sm">{student.lastSession}</p>
-                </div>
-                <div className="col-span-2 pt-2 border-t border-slate-50">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Active Classrooms</p>
-                  <p className="font-sora font-bold text-navy text-sm">{student.classrooms.length}</p>
-                </div>
               </div>
 
               <button 

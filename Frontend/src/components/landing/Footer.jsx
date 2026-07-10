@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaYoutube, FaGooglePlay, FaApple } from 'react-icons/fa';
+import Logo from '../shared/Logo';
+
 const Footer = () => {
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
@@ -12,9 +14,7 @@ const Footer = () => {
         
         {/* Brand & Contact */}
         <div className="lg:col-span-3">
-          <span className="font-sora text-3xl font-bold inline-block mb-4">
-            <span className="text-white">True</span><span className="text-amber">Ed</span>
-          </span>
+          <Logo variant="dark" className="h-14 w-auto mb-4" loading="lazy" />
           <p className="text-sm leading-relaxed mb-6 max-w-[280px]">
             India's trusted platform for verified tutoring. Connecting students with checked teachers since {new Date().getFullYear()}.
           </p>

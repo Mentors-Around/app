@@ -1,5 +1,4 @@
 import { createContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export const AuthContext = createContext(null);
 
@@ -12,22 +11,12 @@ const getInitials = (name) => {
   return parts[0][0].toUpperCase();
 };
 
-const defaultMockStudent = {
-  name: 'Student User',
-  initials: 'SU',
-  email: 'student@example.com',
-  phone: '+91 9876543210',
-  location: 'Bangalore',
-  school: 'National High School',
-  class: 'Class 10',
-  subjects: ['Mathematics', 'Science'],
-  role: 'student',
-};
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [kycStatus, setKycStatus] = useState('NOT_VERIFIED');
+  const [kycReason, setKycReason] = useState('');
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -36,19 +25,29 @@ export const AuthProvider = ({ children }) => {
     const savedToken = localStorage.getItem('trueed_token');
 
     if (savedToken && savedProfile && savedRole) {
-      const parsedUser = JSON.parse(savedProfile);
-      if (!parsedUser.initials && parsedUser.name) {
-        parsedUser.initials = getInitials(parsedUser.name);
+      try {
+        const parsedUser = JSON.parse(savedProfile);
+        if (!parsedUser.initials && parsedUser.name) {
+          parsedUser.initials = getInitials(parsedUser.name);
+        }
+        setUser(parsedUser);
+        setRole(savedRole);
+        setIsAuthenticated(true);
+      } catch (e) {
+        setUser(null);
+        setRole(null);
+        setIsAuthenticated(false);
       }
-      setUser(parsedUser);
-      setRole(savedRole);
-      setIsAuthenticated(true);
     } else {
-      // Provide a functional UI even without login
-      setUser(defaultMockStudent);
-      setRole('student');
-      setIsAuthenticated(true);
+      setUser(null);
+      setRole(null);
+      setIsAuthenticated(false);
     }
+    
+    const savedKycStatus = localStorage.getItem('trueed_kyc_status');
+    const savedKycReason = localStorage.getItem('trueed_kyc_reason');
+    if (savedKycStatus) setKycStatus(savedKycStatus);
+    if (savedKycReason) setKycReason(savedKycReason);
   }, []);
 
   const updateUser = (updates) => {
@@ -62,61 +61,149 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  // Simulate phone OTP send
-  const sendPhoneOTP = (phone) => {
-    return new Promise((resolve) => {
+  const updateKycStatus = (status, reason = '') => {
+    setKycStatus(status);
+    setKycReason(reason);
+    localStorage.setItem('trueed_kyc_status', status);
+    localStorage.setItem('trueed_kyc_reason', reason);
+  };
+
+  const login = (email, password, rememberMe = false) => {
+    return new Promise((resolve, reject) => {
       setTimeout(() => {
-        resolve({ success: true, phone });
-      }, 1500);
+        if (!email || !password) {
+          reject(new Error('Please fill in all fields'));
+          return;
+        }
+
+        const ADMIN_EMAILS = [
+          "admin@trueed.in",
+          "founder@trueed.in",
+          "hariprasad@trueed.in"
+        ];
+
+        // MVP Admin check
+        const isEmailAdmin = ADMIN_EMAILS.includes(email.toLowerCase());
+        if (isEmailAdmin) {
+          if (password === 'Admin@123') {
+            const mockProfile = {
+              name: 'Admin User',
+              email: email.toLowerCase(),
+              role: 'admin',
+              initials: 'AD'
+            };
+            localStorage.setItem('trueed_profile', JSON.stringify(mockProfile));
+            localStorage.setItem('trueed_role', 'admin');
+            localStorage.setItem('trueed_token', 'demo_token_' + Date.now());
+            setUser(mockProfile);
+            setRole('admin');
+            setIsAuthenticated(true);
+            resolve({ success: true, role: 'admin' });
+            return;
+          } else {
+            reject(new Error('Invalid admin credentials'));
+            return;
+          }
+        }
+
+        // Regular login logic
+        let userRole = 'student';
+        if (email.toLowerCase().includes('teacher')) {
+          userRole = 'teacher';
+        }
+
+        const mockProfile = {
+          name: email.split('@')[0],
+          email: email,
+          role: userRole,
+          initials: getInitials(email.split('@')[0])
+        };
+
+        localStorage.setItem('trueed_profile', JSON.stringify(mockProfile));
+        localStorage.setItem('trueed_role', userRole);
+        localStorage.setItem('trueed_token', 'demo_token_' + Date.now());
+        
+        setUser(mockProfile);
+        setRole(userRole);
+        setIsAuthenticated(true);
+
+        resolve({ success: true, role: userRole });
+      }, 1200);
     });
   };
 
-  // Verify phone OTP — demo code: 123456
+  const loginWithPhone = (phone, otp) => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (otp === '123456') {
+          let userRole = 'student';
+          if (phone.includes('99999')) {
+            userRole = 'teacher';
+          }
+          const mockProfile = {
+            name: 'Phone User',
+            phone: phone,
+            role: userRole,
+            initials: 'PU'
+          };
+          localStorage.setItem('trueed_profile', JSON.stringify(mockProfile));
+          localStorage.setItem('trueed_role', userRole);
+          localStorage.setItem('trueed_token', 'demo_token_' + Date.now());
+
+          setUser(mockProfile);
+          setRole(userRole);
+          setIsAuthenticated(true);
+          resolve({ success: true, role: userRole });
+        } else {
+          reject(new Error('Invalid OTP. Use 123456 for demo.'));
+        }
+      }, 1200);
+    });
+  };
+
+  const sendPhoneOTP = (phone) => {
+    return new Promise((resolve) => {
+      setTimeout(() => resolve({ success: true }), 1200);
+    });
+  };
+
   const verifyPhoneOTP = (otp) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         if (otp === '123456') {
           resolve({ success: true });
         } else {
-          reject(new Error('Invalid OTP. Try 123456 for demo'));
+          reject(new Error('Invalid OTP. Use 123456 for demo.'));
         }
       }, 1200);
     });
   };
 
-  // Register profile
-  const register = (profile) => {
+  const register = (profileData) => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        resolve({ success: true, profile });
+        const profileWithInitials = {
+          ...profileData,
+          initials: getInitials(profileData.name)
+        };
+        
+        localStorage.setItem('trueed_profile', JSON.stringify(profileWithInitials));
+        localStorage.setItem('trueed_role', profileData.role);
+        localStorage.setItem('trueed_token', 'demo_token_' + Date.now());
+        localStorage.setItem('trueed_uid', 'demo_uid_' + Date.now());
+
+        setUser(profileWithInitials);
+        setRole(profileData.role);
+        setIsAuthenticated(true);
+
+        resolve({ success: true, role: profileData.role });
       }, 1500);
     });
   };
 
-  // Verify email OTP — demo code: 654321
-  const verifyEmailOTP = (otp, profile) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (otp === '654321') {
-          const profileWithInitials = {
-            ...profile,
-            initials: getInitials(profile.name)
-          };
-          // Save to localStorage
-          localStorage.setItem('trueed_profile', JSON.stringify(profileWithInitials));
-          localStorage.setItem('trueed_role', profile.role);
-          localStorage.setItem('trueed_token', 'demo_token_' + Date.now());
-          localStorage.setItem('trueed_uid', 'demo_uid_' + Date.now());
-
-          setUser(profileWithInitials);
-          setRole(profile.role);
-          setIsAuthenticated(true);
-
-          resolve({ success: true });
-        } else {
-          reject(new Error('Invalid code. Try 654321 for demo'));
-        }
-      }, 1200);
+  const resetPassword = (emailOrPhone, newPassword) => {
+    return new Promise((resolve) => {
+      setTimeout(() => resolve({ success: true }), 1200);
     });
   };
 
@@ -127,9 +214,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('trueed_token');
     localStorage.removeItem('trueed_uid');
     
-    // Provide a generic mock student on logout instead of crashing
-    setUser(defaultMockStudent);
-    setRole('student');
+    setUser(null);
+    setRole(null);
     setIsAuthenticated(false);
   };
 
@@ -138,7 +224,7 @@ export const AuthProvider = ({ children }) => {
     const routes = {
       student: '/student/discover',
       teacher: '/teacher/dashboard',
-      admin: '/admin/verify',
+      admin: '/admin/dashboard',
     };
     return routes[userRole] || '/student/discover';
   };
@@ -149,11 +235,16 @@ export const AuthProvider = ({ children }) => {
         user,
         role,
         isAuthenticated,
+        kycStatus,
+        kycReason,
         updateUser,
+        updateKycStatus,
+        login,
+        loginWithPhone,
         sendPhoneOTP,
         verifyPhoneOTP,
         register,
-        verifyEmailOTP,
+        resetPassword,
         logout,
         getDashboardRoute,
       }}

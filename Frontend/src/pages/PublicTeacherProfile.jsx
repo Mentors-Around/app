@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { Share2, Heart, CheckCircle2, MapPin, Star, Calendar, Monitor, Award, BookOpen, Clock, AlertCircle } from 'lucide-react';
 import { tutors } from '../data/tutors';
 import TutorCard from '../components/shared/TutorCard';
+import TeacherAvatar from '../components/shared/TeacherAvatar';
 import useAuth from '../hooks/useAuth';
-import TokenPurchaseModal from '../components/shared/TokenPurchaseModal';
+import { useWallet } from '../contexts/WalletContext';
 
 const getSubjectColor = (subject) => {
   const s = subject.toLowerCase();
@@ -20,14 +21,6 @@ const getFormattedDate = (daysOffset) => {
   d.setDate(d.getDate() + daysOffset);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
-
-const dummyReviews = [
-  { id: 1, name: 'Rahul S.', initial: 'R', date: getFormattedDate(-2), rating: 5, text: 'Absolutely brilliant teacher. The concepts are explained so clearly that even the hardest problems feel easy now.' },
-  { id: 2, name: 'Priya M.', initial: 'P', date: getFormattedDate(-15), rating: 5, text: 'Very patient and understanding. Helped me build confidence before my final exams.' },
-  { id: 3, name: 'Karan V.', initial: 'K', date: getFormattedDate(-30), rating: 4, text: 'Great teaching style. Sometimes internet issues during online classes but overall very good.' },
-  { id: 4, name: 'Neha G.', initial: 'N', date: getFormattedDate(-45), rating: 5, text: 'Highly recommend! Scored 95% in boards because of the structured study plans provided.' },
-  { id: 5, name: 'Amit K.', initial: 'A', date: getFormattedDate(-60), rating: 5, text: 'The mock tests and detailed feedback are a game changer.' },
-];
 
 const availabilityGrid = [
   { day: 'Mon', slots: ['09:00 AM', '04:00 PM', null] },
@@ -45,52 +38,9 @@ const PublicTeacherProfile = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('Classrooms');
   const [saved, setSaved] = useState(false);
-  const [showGeneralQueryModal, setShowGeneralQueryModal] = useState(false);
-  const [generalQueryForm, setGeneralQueryForm] = useState({ subject: '', message: '' });
+  const [queryError, setQueryError] = useState(null);
   const [querySuccessToast, setQuerySuccessToast] = useState(false);
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
-
-  const handleSendGeneralQueryClick = () => {
-    const tokens = parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10);
-    if (tokens > 0) {
-      setShowGeneralQueryModal(true);
-    } else {
-      setIsTokenModalOpen(true);
-    }
-  };
-
-  const handleGeneralQuerySubmit = (e) => {
-    e.preventDefault();
-    if (!generalQueryForm.subject || !generalQueryForm.message) return;
-
-    // Deduct token
-    const tokens = parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10);
-    localStorage.setItem('trueed_student_tokens', (tokens - 1).toString());
-
-    // Save Query
-    const queriesRaw = localStorage.getItem('trueed_general_queries');
-    const existing = queriesRaw ? JSON.parse(queriesRaw) : [];
-    existing.push({
-      id: Date.now(),
-      type: 'general',
-      teacherId: profileId,
-      teacherName: tutorData ? tutorData.name : 'Unknown',
-      teacherInitials: tutorData ? tutorData.initials : '?',
-      studentId: user?.id || 'student-1',
-      studentName: user?.name || 'Student User',
-      studentInitials: user?.initials || 'ST',
-      subject: generalQueryForm.subject,
-      message: generalQueryForm.message,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    });
-    localStorage.setItem('trueed_general_queries', JSON.stringify(existing));
-
-    setShowGeneralQueryModal(false);
-    setQuerySuccessToast(true);
-    setTimeout(() => setQuerySuccessToast(false), 5000);
-    setGeneralQueryForm({ subject: '', message: '' });
-  };
+  const { tokens, requireTokens } = useWallet();
 
   const tutorData = tutors.find(t => t.id.toString() === profileId);
 
@@ -123,7 +73,7 @@ const PublicTeacherProfile = () => {
     initials: tutorData.initials || '?',
     subject: tutorData.subject || 'Not specified',
     location: tutorData.location || 'Not specified',
-    rating: tutorData.rating || 0,
+    rating: tutorData.rating || 0, // Fallback if no reviews
     reviews: tutorData.reviews || 0,
     rate: tutorData.price || 0,
     experience: tutorData.experience || 'Not specified',
@@ -135,6 +85,75 @@ const PublicTeacherProfile = () => {
     achievements: tutorData.achievements || [],
   };
 
+  const [actualReviews, setActualReviews] = useState([]);
+  const [reviewStats, setReviewStats] = useState({
+    avgRating: teacher.rating,
+    totalReviews: teacher.reviews,
+    starsBreakdown: [
+      { stars: 5, pct: '0%' },
+      { stars: 4, pct: '0%' },
+      { stars: 3, pct: '0%' },
+      { stars: 2, pct: '0%' },
+      { stars: 1, pct: '0%' }
+    ],
+    categories: {
+      teachingQuality: 0,
+      subjectKnowledge: 0,
+      communication: 0,
+      punctuality: 0,
+      doubtSolving: 0
+    }
+  });
+
+  useEffect(() => {
+    const reviewsRaw = localStorage.getItem('trueed_reviews');
+    if (reviewsRaw) {
+      const allReviews = JSON.parse(reviewsRaw);
+      const teacherReviews = allReviews.filter(r => r.teacherId === profileId && r.verified);
+      
+      setActualReviews(teacherReviews.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+
+      if (teacherReviews.length > 0) {
+        let sumRating = 0;
+        let starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+        let catSums = { teachingQuality: 0, subjectKnowledge: 0, communication: 0, punctuality: 0, doubtSolving: 0 };
+        
+        teacherReviews.forEach(r => {
+          sumRating += r.overallRating;
+          starCounts[r.overallRating] = (starCounts[r.overallRating] || 0) + 1;
+          
+          if (r.categories) {
+            catSums.teachingQuality += r.categories.teachingQuality || 0;
+            catSums.subjectKnowledge += r.categories.subjectKnowledge || 0;
+            catSums.communication += r.categories.communication || 0;
+            catSums.punctuality += r.categories.punctuality || 0;
+            catSums.doubtSolving += r.categories.doubtSolving || 0;
+          }
+        });
+
+        const total = teacherReviews.length;
+        setReviewStats({
+          avgRating: (sumRating / total).toFixed(1),
+          totalReviews: total,
+          starsBreakdown: [
+            { stars: 5, pct: `${(starCounts[5] / total * 100).toFixed(0)}%` },
+            { stars: 4, pct: `${(starCounts[4] / total * 100).toFixed(0)}%` },
+            { stars: 3, pct: `${(starCounts[3] / total * 100).toFixed(0)}%` },
+            { stars: 2, pct: `${(starCounts[2] / total * 100).toFixed(0)}%` },
+            { stars: 1, pct: `${(starCounts[1] / total * 100).toFixed(0)}%` },
+          ],
+          categories: {
+            teachingQuality: (catSums.teachingQuality / total).toFixed(1),
+            subjectKnowledge: (catSums.subjectKnowledge / total).toFixed(1),
+            communication: (catSums.communication / total).toFixed(1),
+            punctuality: (catSums.punctuality / total).toFixed(1),
+            doubtSolving: (catSums.doubtSolving / total).toFixed(1),
+          }
+        });
+      }
+    }
+  }, [profileId]);
+
   let dynamicSubjects = [];
   let dynamicLevels = [];
   let teacherClassrooms = [];
@@ -144,7 +163,7 @@ const PublicTeacherProfile = () => {
       const classrooms = JSON.parse(classroomsRaw);
       teacherClassrooms = classrooms.filter(c => c.teacherId === profileId || c.teacher === teacher.name);
       // Only show active classrooms
-      teacherClassrooms = teacherClassrooms.filter(c => c.status !== 'inactive');
+      teacherClassrooms = teacherClassrooms.filter(c => c.status === 'active');
       if (teacherClassrooms.length > 0) {
         dynamicSubjects = [...new Set(teacherClassrooms.map(c => c.subject).filter(Boolean))];
         dynamicLevels = [...new Set(teacherClassrooms.map(c => c.classLevel).filter(Boolean))];
@@ -193,9 +212,12 @@ const PublicTeacherProfile = () => {
 
               {/* Avatar & Header */}
               <div className="flex flex-col items-center text-center mt-4 mb-6">
-                <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-sora font-extrabold text-3xl mb-4 bg-gradient-to-br ${getSubjectColor(teacher.subject)} shadow-md`}>
-                  {teacher.initials}
-                </div>
+                <TeacherAvatar 
+                  teacherId={profileId} 
+                  name={teacher.name} 
+                  initials={teacher.initials} 
+                  className="w-24 h-24 mb-4 text-3xl" 
+                />
                 <h1 className="font-sora font-extrabold text-2xl text-navy flex items-center gap-2 justify-center mb-1">
                   {teacher.name}
                 </h1>
@@ -217,13 +239,9 @@ const PublicTeacherProfile = () => {
                   <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Rating</p>
                   <div className="flex items-center gap-1.5 text-amber">
                     <Star className="w-4 h-4 fill-amber" />
-                    <span className="font-bold text-navy">{teacher.rating}</span>
-                    <span className="text-xs text-muted font-medium">({teacher.reviews})</span>
+                    <span className="font-bold text-navy">{reviewStats.avgRating}</span>
+                    <span className="text-xs text-muted font-medium">({reviewStats.totalReviews})</span>
                   </div>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Hourly Rate</p>
-                  <p className="font-sora font-extrabold text-xl text-navy">₹{teacher.rate}<span className="text-xs font-semibold text-muted">/hr</span></p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Mode</p>
@@ -236,30 +254,7 @@ const PublicTeacherProfile = () => {
               </div>
             </div>
 
-            {/* Premium General Inquiry Card */}
-            <div className="mt-6 bg-[#F8FAFC] rounded-2xl p-5 border border-transparent hover:border-slate-100 transition-all duration-300 hover:shadow-[0_4px_24px_rgba(0,0,0,0.03)] hover:bg-white group">
-              <h3 className="font-sora font-bold text-slate-900 text-[15px] mb-2 flex items-center gap-2">
-                <span className="opacity-90">💬</span> Ask This Teacher
-              </h3>
-              <p className="text-[13px] text-slate-500 mb-5 leading-relaxed pr-2">
-                Have questions before choosing a classroom? Send a direct inquiry and discuss your learning goals.
-              </p>
-              
-              <div className="flex items-center justify-between">
-                <div className="px-2.5 py-1.5 bg-slate-100 rounded-md flex items-center gap-1.5 group-hover:bg-slate-50 transition-colors">
-                  <span className="text-[10px] leading-none opacity-80">⚡</span>
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-px">
-                    Uses 1 Query Token
-                  </span>
-                </div>
-                <button 
-                  onClick={handleSendGeneralQueryClick}
-                  className="px-5 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:-translate-y-[2px] hover:shadow-[0_6px_16px_rgba(15,23,42,0.15)] transition-all duration-300 ease-out"
-                >
-                  Send Inquiry
-                </button>
-              </div>
-            </div>
+
           </div>
 
           {/* Right Column - Tabs & Content */}
@@ -428,58 +423,86 @@ const PublicTeacherProfile = () => {
                   {/* Summary */}
                   <div className="flex flex-col md:flex-row items-center gap-8 mb-10 bg-slate-50 p-6 rounded-xl border border-slate-100">
                     <div className="text-center md:text-left flex-shrink-0">
-                      <p className="font-sora font-extrabold text-5xl text-navy mb-2">{teacher.rating}</p>
+                      <p className="font-sora font-extrabold text-5xl text-navy mb-2">{reviewStats.avgRating}</p>
                       <div className="flex gap-1 text-amber mb-1 justify-center md:justify-start">
-                        {[1,2,3,4,5].map(i => <Star key={i} className={`w-4 h-4 ${i <= Math.round(teacher.rating) ? 'fill-amber' : 'fill-slate-200 text-slate-200'}`} />)}
+                        {[1,2,3,4,5].map(i => <Star key={i} className={`w-4 h-4 ${i <= Math.round(reviewStats.avgRating) ? 'fill-amber' : 'fill-slate-200 text-slate-200'}`} />)}
                       </div>
-                      <p className="text-xs font-bold text-slate-500">Based on {teacher.reviews} reviews</p>
+                      <p className="text-xs font-bold text-slate-500">Based on {reviewStats.totalReviews} verified reviews</p>
                     </div>
                     
-                    <div className="flex-1 w-full space-y-2">
-                      {[
-                        { stars: 5, pct: '80%' },
-                        { stars: 4, pct: '10%' },
-                        { stars: 3, pct: '5%' },
-                        { stars: 2, pct: '0%' },
-                        { stars: 1, pct: '0%' },
-                      ].map((bar) => (
+                    <div className="flex-1 w-full space-y-2 border-r border-slate-200 pr-8">
+                      {reviewStats.starsBreakdown.map((bar) => (
                         <div key={bar.stars} className="flex items-center gap-3">
                           <span className="text-xs font-bold text-slate-500 w-6">{bar.stars} ★</span>
                           <div className="flex-1 h-2.5 bg-slate-200 rounded-full overflow-hidden">
                             <div className="h-full bg-amber rounded-full" style={{ width: bar.pct }} />
                           </div>
-                          <span className="text-xs font-bold text-slate-500 w-8 text-right">{bar.pct}</span>
+                          <span className="text-xs font-bold text-slate-400 w-8 text-right">{bar.pct}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex-1 w-full space-y-3 pl-2">
+                      <h4 className="text-xs font-bold text-navy uppercase tracking-wider mb-2">Category Ratings</h4>
+                      {[
+                        { label: 'Teaching Quality', score: reviewStats.categories.teachingQuality },
+                        { label: 'Subject Knowledge', score: reviewStats.categories.subjectKnowledge },
+                        { label: 'Communication', score: reviewStats.categories.communication },
+                        { label: 'Punctuality', score: reviewStats.categories.punctuality },
+                        { label: 'Doubt Solving', score: reviewStats.categories.doubtSolving },
+                      ].map(cat => (
+                        <div key={cat.label} className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                          <span>{cat.label}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-sky rounded-full" style={{ width: `${(cat.score / 5) * 100}%` }} />
+                            </div>
+                            <span className="w-6 text-right font-bold text-navy">{cat.score}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Review List */}
+                  {/* List */}
                   <div className="space-y-6">
-                    {dummyReviews.map(r => (
+                    {actualReviews.length > 0 ? actualReviews.map(r => (
                       <div key={r.id} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0">
-                        <div className="flex items-start justify-between mb-3">
+                        <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">
-                              {r.initial}
+                            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-500">
+                              {r.studentInitials}
                             </div>
                             <div>
-                              <h5 className="font-bold text-navy text-sm">{r.name}</h5>
-                              <p className="text-xs text-slate-400 font-medium">{r.date}</p>
+                              <h5 className="font-bold text-navy text-sm flex items-center gap-2">
+                                {r.studentName} 
+                                {r.verified && <span className="bg-sky/10 text-sky text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Verified Student</span>}
+                              </h5>
+                              <p className="text-xs font-medium text-slate-400">{new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                             </div>
                           </div>
                           <div className="flex gap-0.5 text-amber">
-                            {[...Array(5)].map((_, i) => <Star key={i} className={`w-3 h-3 ${i < r.rating ? 'fill-amber' : 'fill-slate-200 text-slate-200'}`} />)}
+                            {[1,2,3,4,5].map(i => <Star key={i} className={`w-3.5 h-3.5 ${i <= r.overallRating ? 'fill-amber text-amber' : 'text-slate-200 fill-slate-200'}`} />)}
                           </div>
                         </div>
-                        <p className="text-sm font-medium text-slate-600 leading-relaxed">{r.text}</p>
+                        {r.text && <p className="text-sm font-medium text-slate-600 pl-13 ml-13">{r.text}</p>}
+                        
+                        {r.reply && (
+                          <div className="mt-4 ml-13 bg-slate-50 p-4 rounded-xl border border-slate-100 relative">
+                            <div className="absolute -top-2 left-4 w-4 h-4 bg-slate-50 border-t border-l border-slate-100 rotate-45"></div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-bold text-navy flex items-center gap-1">
+                                <Award className="w-3.5 h-3.5 text-slate-400" /> Teacher Reply
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-600">{r.reply}</p>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )) : (
+                      <p className="text-center text-slate-500 font-medium py-10">No reviews yet.</p>
+                    )}
                   </div>
-
-                  <button onClick={() => console.log('clicked')} className="w-full py-3 mt-8 border-2 border-slate-200 rounded-xl text-sm font-bold text-navy hover:bg-slate-50 transition">
-                    Load More Reviews
-                  </button>
                 </div>
               )}
 
@@ -615,73 +638,13 @@ const PublicTeacherProfile = () => {
         </div>
       </div>
 
-      {/* General Inquiry Modal */}
-      {showGeneralQueryModal && (
-        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <div>
-                <h2 className="font-sora font-bold text-xl text-navy">General Inquiry</h2>
-                <p className="text-xs font-semibold text-slate-500 mt-1">To: {teacher.name}</p>
-              </div>
-              <button onClick={() => setShowGeneralQueryModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition">
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-            <form onSubmit={handleGeneralQuerySubmit} className="p-6 space-y-5">
-              <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-sky shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-bold text-navy mb-1">Uses 1 Query Token</p>
-                  <p className="text-xs font-semibold text-slate-600">You currently have {parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10)} tokens.</p>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Subject</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="e.g. JEE Preparation Help"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:border-navy focus:ring-1 focus:ring-navy outline-none transition-all"
-                  value={generalQueryForm.subject}
-                  onChange={(e) => setGeneralQueryForm({...generalQueryForm, subject: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Message</label>
-                <textarea 
-                  required
-                  rows="4"
-                  placeholder="Describe your learning goals, current grade, or any questions you have..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:border-navy focus:ring-1 focus:ring-navy outline-none transition-all resize-none"
-                  value={generalQueryForm.message}
-                  onChange={(e) => setGeneralQueryForm({...generalQueryForm, message: e.target.value})}
-                />
-              </div>
-              <div className="pt-2">
-                <button type="submit" className="w-full py-3.5 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
-                  Send Inquiry
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      <TokenPurchaseModal 
-        isOpen={isTokenModalOpen} 
-        onClose={() => setIsTokenModalOpen(false)} 
-        onSuccess={(tokens) => {
-          setIsTokenModalOpen(false);
-          setShowGeneralQueryModal(true);
-        }} 
-      />
 
       {/* Success Toast */}
       {querySuccessToast && (
         <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[60] animate-fade-in">
           <CheckCircle2 className="w-5 h-5 text-success" />
-          General Inquiry Sent Successfully!
+          Inquiry Sent Successfully!
         </div>
       )}
 

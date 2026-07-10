@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Alert from '../components/shared/Alert';
 import Spinner from '../components/shared/Spinner';
+import Logo from '../components/shared/Logo';
 
 const GRADES = ['CBSE 8-10', 'CBSE 11-12', 'IIT JEE', 'NEET', 'College', 'Foundation'];
 
@@ -240,7 +241,7 @@ const TeacherKYC = () => {
           <>
             <div className="text-center mb-6">
               <Link to="/">
-                <img src="/logo.png" alt="TrueEd" className="h-10 mx-auto mb-4" />
+                <Logo variant="light" className="h-14 mx-auto mb-4" />
               </Link>
               <h1 className="font-sora text-2xl font-bold text-navy">Teacher Verification (KYC)</h1>
               <p className="text-muted text-sm mt-1">Step {step} of 4 — Complete your profile to start teaching</p>

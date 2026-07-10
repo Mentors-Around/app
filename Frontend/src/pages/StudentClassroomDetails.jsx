@@ -1,21 +1,34 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Monitor, BookOpen, Users, PlayCircle, Shield, X, AlertCircle, ArrowLeft, Send, CheckCircle2, PartyPopper, ArrowRight } from 'lucide-react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Calendar, Clock, Monitor, BookOpen, Users, PlayCircle, Shield, X, AlertCircle, ArrowLeft, Send, CheckCircle2, PartyPopper, ArrowRight, Wallet, Star } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
+import { useWallet } from '../contexts/WalletContext';
 import { tutors } from '../data/tutors';
+import ReviewModal from '../components/shared/ReviewModal';
+import TeacherAvatar from '../components/shared/TeacherAvatar';
 
 const StudentClassroomDetails = () => {
   const { classroomId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const { openPaymentModal, requireTokens, tokens } = useWallet();
   const [classroom, setClassroom] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [teacher, setTeacher] = useState(null);
   
   const [isEnrolled, setIsEnrolled] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentStep, setPaymentStep] = useState('confirm'); // confirm, processing, success
-  const [enrollSuccessToast, setEnrollSuccessToast] = useState(false);
+
+  
+  // New Enrollment Flow States
+  const [classroomQuery, setClassroomQuery] = useState(null);
+  const [showQueryModal, setShowQueryModal] = useState(false);
+  const [queryForm, setQueryForm] = useState({ message: '' });
+  const [queryError, setQueryError] = useState(null);
+  const [querySuccessToast, setQuerySuccessToast] = useState(false);
+
+  const [existingReview, setExistingReview] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   useEffect(() => {
     const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
@@ -28,6 +41,18 @@ const StudentClassroomDetails = () => {
           document.title = `${found.name} — TrueEd`;
           const tutor = tutors.find(t => t?.name === found.teacher);
           if (tutor) setTeacher(tutor);
+          
+          // Track recently viewed (Priority 2 Logic)
+          try {
+            const viewedStr = localStorage.getItem('trueed_recently_viewed');
+            let viewed = viewedStr ? JSON.parse(viewedStr) : [];
+            viewed = viewed.filter(id => id !== found.id.toString());
+            viewed.unshift(found.id.toString());
+            if (viewed.length > 5) viewed = viewed.slice(0, 5);
+            localStorage.setItem('trueed_recently_viewed', JSON.stringify(viewed));
+          } catch (err) {
+            console.error("Error updating recently viewed", err);
+          }
         }
       } catch (err) {
         console.error("Error parsing classrooms:", err);
@@ -48,38 +73,122 @@ const StudentClassroomDetails = () => {
       }
     }
     
+    // Check classroom query status
+    const queriesRaw = localStorage.getItem('trueed_classroom_queries');
+    if (queriesRaw) {
+      try {
+        const queries = JSON.parse(queriesRaw);
+        const myQuery = queries.find(q => 
+          q.classroomId?.toString() === classroomId?.toString() && 
+          q.studentId === (user?.id || 'student-1')
+        );
+        if (myQuery) {
+          setClassroomQuery(myQuery);
+        }
+      } catch (err) {}
+    }
+    
+    // Check existing review
+    const reviewsRaw = localStorage.getItem('trueed_reviews');
+    if (reviewsRaw) {
+      try {
+        const reviews = JSON.parse(reviewsRaw);
+        const myReview = reviews.find(r => 
+          r.enrollmentId === `enroll_${classroomId}` && 
+          r.studentId === (user?.id || 'student-1')
+        );
+        if (myReview) {
+          setExistingReview(myReview);
+        }
+      } catch (err) {}
+    }
+
     setIsLoading(false);
   }, [classroomId]);
 
-  const handleEnrollClick = () => {
-    setShowPaymentModal(true);
-    setPaymentStep('confirm');
+  useEffect(() => {
+    if (location.search.includes('query=true')) {
+      setShowQueryModal(true);
+    }
+  }, [location.search]);
+
+  const handleQuerySubmit = (e) => {
+    e.preventDefault();
+    if (!queryForm.message) return;
+
+    requireTokens(1, () => {
+      const newQuery = {
+        id: Date.now(),
+        type: 'classroom',
+        classroomId: classroom.id.toString(),
+        classroomName: classroom.name,
+        subject: classroom.subject,
+        teacherId: classroom.teacherId || 'teacher-1',
+        teacherName: classroom.teacher || teacher?.name || 'Teacher User',
+        teacherInitials: teacher?.initials || 'T',
+        studentId: user?.id || 'student-1',
+        studentName: user?.name || 'Student User',
+        studentInitials: user?.initials || 'ST',
+        message: queryForm.message,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      const queriesRaw = localStorage.getItem('trueed_classroom_queries');
+      const existing = queriesRaw ? JSON.parse(queriesRaw) : [];
+      existing.push(newQuery);
+      localStorage.setItem('trueed_classroom_queries', JSON.stringify(existing));
+
+      setClassroomQuery(newQuery);
+      setShowQueryModal(false);
+      setQuerySuccessToast(true);
+      setTimeout(() => setQuerySuccessToast(false), 5000);
+      setQueryForm({ message: '' });
+    });
   };
 
-  const processPayment = () => {
-    setPaymentStep('processing');
+  const handleReviewSubmit = (reviewData) => {
+    const reviewsRaw = localStorage.getItem('trueed_reviews');
+    let reviews = reviewsRaw ? JSON.parse(reviewsRaw) : [];
     
-    setTimeout(() => {
-      // Add to student profile enrolled
-      const profileStr = localStorage.getItem('trueed_student_profile');
-      let profile = profileStr ? JSON.parse(profileStr) : { enrolledClassrooms: [] };
-      profile.enrolledClassrooms = profile.enrolledClassrooms || [];
-      if (!profile.enrolledClassrooms.some(c => c.id === classroom.id)) {
-        profile.enrolledClassrooms.push(classroom);
-      }
-      localStorage.setItem('trueed_student_profile', JSON.stringify(profile));
+    // Check if updating
+    const existingIndex = reviews.findIndex(r => r.id === reviewData.id);
+    if (existingIndex >= 0) {
+      reviews[existingIndex] = reviewData;
+    } else {
+      reviews.push(reviewData);
+    }
+    
+    localStorage.setItem('trueed_reviews', JSON.stringify(reviews));
+    setExistingReview(reviewData);
+    setShowReviewModal(false);
+  };
 
-      // Add to joined rooms
-      const joinedStr = localStorage.getItem('trueed_student_joined_rooms');
-      let joinedRooms = joinedStr ? JSON.parse(joinedStr) : [];
-      if (!joinedRooms.some(r => r.id === classroom.id)) {
-        joinedRooms.push(classroom);
-      }
-      localStorage.setItem('trueed_student_joined_rooms', JSON.stringify(joinedRooms));
+  const handleEnrollClick = () => {
+    openPaymentModal({
+      type: 'classroom',
+      details: classroom,
+      onSuccess: () => {
+        // Add to student profile enrolled
+        const profileStr = localStorage.getItem('trueed_student_profile');
+        let profile = profileStr ? JSON.parse(profileStr) : { enrolledClassrooms: [] };
+        profile.enrolledClassrooms = profile.enrolledClassrooms || [];
+        if (!profile.enrolledClassrooms.some(c => c.id === classroom.id)) {
+          profile.enrolledClassrooms.push(classroom);
+        }
+        localStorage.setItem('trueed_student_profile', JSON.stringify(profile));
 
-      setPaymentStep('success');
-      setIsEnrolled(true);
-    }, 2000); // Simulate payment delay
+        // Add to joined rooms
+        const joinedStr = localStorage.getItem('trueed_student_joined_rooms');
+        let joinedRooms = joinedStr ? JSON.parse(joinedStr) : [];
+        if (!joinedRooms.some(r => r.id === classroom.id)) {
+          joinedRooms.push(classroom);
+        }
+        localStorage.setItem('trueed_student_joined_rooms', JSON.stringify(joinedRooms));
+
+        setIsEnrolled(true);
+      }
+    });
   };
 
   const formatTime12hr = (time24) => {
@@ -169,12 +278,7 @@ const StudentClassroomDetails = () => {
   return (
     <div className="bg-slate-50 min-h-screen pb-24 md:pb-12">
       {/* Toast */}
-      {enrollSuccessToast && (
-        <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[60] animate-fade-in">
-          <Shield className="w-5 h-5 text-success" />
-          Successfully enrolled in classroom!
-        </div>
-      )}
+
 
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-16 z-30 hidden md:block">
@@ -250,9 +354,12 @@ const StudentClassroomDetails = () => {
             {/* Teacher Info */}
             {teacher && (
               <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-8 flex items-start gap-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-sora font-extrabold text-xl flex-shrink-0">
-                  {teacher.initials}
-                </div>
+                <TeacherAvatar 
+                  teacherId={teacher?.id || '1'} 
+                  name={teacher?.name} 
+                  initials={teacher?.initials} 
+                  className="w-16 h-16 text-xl flex-shrink-0" 
+                />
                 <div>
                   <h3 className="font-sora font-bold text-lg text-navy">{teacher.name}</h3>
                   <p className="text-sm font-semibold text-slate-500 mb-2">{teacher.experience} Experience • ★ {teacher.rating} ({teacher.reviews} reviews)</p>
@@ -310,15 +417,31 @@ const StudentClassroomDetails = () => {
               </div>
 
               {isEnrolled ? (
+                <>
+                  <button 
+                    onClick={() => navigate(`/student/lobby/${classroom.id}`)}
+                    className="w-full py-4 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 bg-success text-white hover:bg-green-600 hover:shadow-md transform hover:-translate-y-0.5 mb-3"
+                  >
+                    <BookOpen className="w-5 h-5" /> Open Classroom
+                  </button>
+                  <button
+                    onClick={() => setShowReviewModal(true)}
+                    className="w-full py-4 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 border border-slate-200 bg-white text-navy hover:bg-slate-50 hover:shadow-md"
+                  >
+                    {existingReview ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-success" /> View/Edit Review
+                      </>
+                    ) : (
+                      <>
+                        <Star className="w-5 h-5 text-amber-400 fill-amber-400" /> Rate Teacher
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (!classroomQuery ? (
                 <button 
-                  onClick={() => navigate(`/student/lobby/${classroom.id}`)}
-                  className="w-full py-4 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 bg-success text-white hover:bg-green-600 hover:shadow-md transform hover:-translate-y-0.5"
-                >
-                  <BookOpen className="w-5 h-5" /> Open Classroom
-                </button>
-              ) : (
-                <button 
-                  onClick={handleEnrollClick}
+                  onClick={() => setShowQueryModal(true)}
                   disabled={!classroom.unlimitedStudents && classroom.students >= classroom.maxStudents}
                   className={`w-full py-4 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2
                     ${(!classroom.unlimitedStudents && classroom.students >= classroom.maxStudents)
@@ -326,9 +449,30 @@ const StudentClassroomDetails = () => {
                       : 'bg-navy text-white hover:shadow-md hover:bg-navy-light transform hover:-translate-y-0.5'
                     }`}
                 >
-                  Enroll Now <ArrowRight className="w-4 h-4 ml-1" />
+                  Send Classroom Query <ArrowRight className="w-4 h-4 ml-1" />
                 </button>
-              )}
+              ) : classroomQuery.status === 'pending' ? (
+                <div className="text-center">
+                  <button disabled className="w-full py-4 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center gap-2 bg-amber-50 text-amber-600 border border-amber-200 cursor-not-allowed">
+                    🟡 Query Sent
+                  </button>
+                  <p className="text-xs font-semibold text-slate-500 mt-2">Waiting for the teacher's response.</p>
+                </div>
+              ) : classroomQuery.status === 'accepted' ? (
+                <button 
+                  onClick={handleEnrollClick}
+                  className="w-full py-4 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 bg-success text-white hover:bg-green-600 hover:shadow-md transform hover:-translate-y-0.5"
+                >
+                  🟢 Proceed to Payment <ArrowRight className="w-4 h-4 ml-1" />
+                </button>
+              ) : (
+                <div className="text-center">
+                  <button disabled className="w-full py-4 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center gap-2 bg-red-50 text-error border border-red-200 cursor-not-allowed">
+                    🔴 Request Declined
+                  </button>
+                  <p className="text-xs font-semibold text-slate-500 mt-2">The teacher declined your classroom request.</p>
+                </div>
+              ))}
 
               {(!classroom.unlimitedStudents && classroom.students >= classroom.maxStudents && !isEnrolled) && (
                 <p className="text-xs text-error font-semibold text-center mt-3">
@@ -341,80 +485,84 @@ const StudentClassroomDetails = () => {
         </div>
       </div>
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in animate-zoom-in">
-            {paymentStep === 'confirm' && (
-              <>
-                <div className="flex justify-between items-center p-6 border-b border-slate-100">
-                  <h3 className="font-sora font-bold text-lg text-navy">Enroll in Classroom</h3>
-                  <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600 transition">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="p-6">
-                  <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100">
-                    <p className="text-sm font-semibold text-slate-500 mb-1">{classroom.name}</p>
-                    <div className="flex justify-between items-end">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Course Fee</p>
-                      <p className="font-sora font-extrabold text-2xl text-navy">₹{classroom.price}</p>
-                    </div>
-                  </div>
-                  <h4 className="font-bold text-sm text-navy mb-4">What you'll get:</h4>
-                  <div className="space-y-3 mb-8">
-                    <div className="flex items-center gap-3 text-sm font-semibold text-slate-600">
-                      <CheckCircle2 className="w-4 h-4 text-sky flex-shrink-0" /> Access to all sessions
-                    </div>
-                    <div className="flex items-center gap-3 text-sm font-semibold text-slate-600">
-                      <CheckCircle2 className="w-4 h-4 text-sky flex-shrink-0" /> Learning resources
-                    </div>
-                    <div className="flex items-center gap-3 text-sm font-semibold text-slate-600">
-                      <CheckCircle2 className="w-4 h-4 text-sky flex-shrink-0" /> Classroom announcements
-                    </div>
-                    <div className="flex items-center gap-3 text-sm font-semibold text-slate-600">
-                      <CheckCircle2 className="w-4 h-4 text-sky flex-shrink-0" /> Doubt discussions
-                    </div>
-                  </div>
-                  <button 
-                    onClick={processPayment}
-                    className="w-full py-4 rounded-xl text-sm font-bold shadow-sm transition-all bg-navy text-white hover:shadow-md hover:bg-navy-light transform hover:-translate-y-0.5"
-                  >
-                    Proceed to Payment
-                  </button>
-                </div>
-              </>
-            )}
 
-            {paymentStep === 'processing' && (
-              <div className="p-10 text-center flex flex-col items-center justify-center min-h-[360px]">
-                <div className="w-16 h-16 border-4 border-navy border-t-transparent rounded-full animate-spin mb-6"></div>
-                <h3 className="font-sora font-bold text-xl text-navy mb-2">Processing Payment</h3>
-                <p className="text-slate-500 font-medium">Please do not close this window...</p>
+      {/* Classroom Inquiry Modal */}
+      {showQueryModal && (
+        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h2 className="font-sora font-bold text-xl text-navy">Classroom Inquiry</h2>
+                <p className="text-xs font-semibold text-slate-500 mt-1">Send a query to the teacher regarding this classroom. The teacher will review your request before you can enroll.</p>
               </div>
-            )}
-
-            {paymentStep === 'success' && (
-              <div className="p-10 text-center flex flex-col items-center justify-center min-h-[360px]">
-                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-success mb-6">
-                  <PartyPopper className="w-10 h-10" />
+              <button onClick={() => setShowQueryModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleQuerySubmit} className="p-6 space-y-5">
+              <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-sky shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-navy mb-1">Uses 1 Query Token</p>
+                  <p className="text-xs font-semibold text-slate-600">You currently have {tokens} tokens.</p>
                 </div>
-                <h3 className="font-sora font-bold text-2xl text-navy mb-2">Enrollment Successful</h3>
-                <p className="text-slate-500 font-medium mb-8">You are now enrolled in <br/><span className="text-navy font-bold">{classroom.name}</span></p>
-                <button 
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    navigate('/student/rooms');
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Classroom Name</label>
+                  <input type="text" readOnly value={classroom.name} className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Subject</label>
+                  <input type="text" readOnly value={classroom.subject} className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Message</label>
+                <textarea 
+                  required
+                  rows="4"
+                  placeholder="Tell the teacher about your learning goals, current preparation level, or ask any questions before joining this classroom."
+                  className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-medium focus:ring-1 outline-none transition-all resize-none ${
+                    queryError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:border-navy focus:ring-navy'
+                  }`}
+                  value={queryForm.message}
+                  onChange={(e) => {
+                    setQueryForm({...queryForm, message: e.target.value});
+                    if (queryError) setQueryError(null);
                   }}
-                  className="w-full py-4 rounded-xl text-sm font-bold shadow-sm transition-all bg-navy text-white hover:shadow-md hover:bg-navy-light"
-                >
-                  Go to My Learning
+                />
+                {queryError && <p className="text-xs text-red-500 mt-2 font-medium">{queryError}</p>}
+              </div>
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setShowQueryModal(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition shadow-sm">
+                  Cancel
+                </button>
+                <button type="submit" className="flex-1 py-3.5 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
+                  Send Query
                 </button>
               </div>
-            )}
+            </form>
           </div>
         </div>
       )}
+
+      {/* Query Success Toast */}
+      {querySuccessToast && (
+        <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[60] animate-fade-in">
+          <CheckCircle2 className="w-5 h-5 text-success" />
+          Classroom Query Sent Successfully!
+        </div>
+      )}
+
+      <ReviewModal 
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        teacherId={classroom.teacherId || 'teacher-1'}
+        enrollmentId={`enroll_${classroom.id}`}
+        existingReview={existingReview}
+        onReviewSubmit={handleReviewSubmit}
+      />
     </div>
   );
 };

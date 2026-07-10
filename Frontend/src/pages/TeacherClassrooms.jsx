@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { CalendarDays, Users, IndianRupee, Plus, Edit, Eye, PowerOff, Trash2, CheckCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CalendarDays, Users, IndianRupee, Plus, Edit, Eye, PowerOff, Trash2, CheckCircle, Trash, ShieldAlert } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
 export default function TeacherClassrooms() {
@@ -8,59 +8,12 @@ export default function TeacherClassrooms() {
     document.title = "My Classrooms — TrueEd";
   }, []);
 
-  const { user } = useAuth();
+  const { user, kycStatus } = useAuth();
+  const navigate = useNavigate();
   const [classrooms, setClassrooms] = useState(() => {
     const saved = localStorage.getItem('trueed_teacher_classrooms');
     if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 1,
-        teacherId: 'teacher-1',
-        teacher: user?.name || 'Teacher User',
-        name: 'Crash Course: Organic Chemistry',
-        subject: 'Chemistry',
-        classLevel: 'Class 12',
-        unlimitedStudents: false,
-        mode: 'Online',
-        description: 'A complete crash course covering all important concepts.',
-        price: 499,
-        capacity: 20,
-        enrolled: 12,
-        startDate: '2026-10-01',
-        endDate: '2026-11-01',
-        scheduleDays: ['Mon', 'Wed', 'Fri'],
-        startTime: '17:00',
-        endTime: '18:00',
-        schedule: 'Mon, Wed, Fri (5:00 PM - 6:00 PM)',
-        status: 'active',
-        sessions: [
-          { id: 1, date: 'Oct 23, 2026', time: '5:00 PM - 6:00 PM', topic: 'Hydrocarbons', notes: '' },
-          { id: 2, date: 'Oct 25, 2026', time: '5:00 PM - 6:00 PM', topic: 'Haloalkanes', notes: '' },
-        ]
-      },
-      {
-        id: 2,
-        teacherId: 'teacher-1',
-        teacher: user?.name || 'Teacher User',
-        name: 'Board Prep: Calculus Masterclass',
-        subject: 'Mathematics',
-        classLevel: 'Class 12',
-        unlimitedStudents: true,
-        mode: 'Offline',
-        description: 'Intensive calculus practice for board exams.',
-        price: 799,
-        capacity: 0,
-        enrolled: 8,
-        startDate: '2026-10-15',
-        endDate: '2026-12-15',
-        scheduleDays: ['Sat', 'Sun'],
-        startTime: '10:00',
-        endTime: '12:00',
-        schedule: 'Sat, Sun (10:00 AM - 12:00 PM)',
-        status: 'active',
-        sessions: []
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -73,7 +26,7 @@ export default function TeacherClassrooms() {
   const [newRoom, setNewRoom] = useState({
     name: '', subject: '', classLevel: '', unlimitedStudents: true, description: '', mode: 'Online', price: '',
     maxStudents: 10, startDate: '', endDate: '',
-    scheduleDays: [], startTime: '', endTime: ''
+    schedules: [{ id: 1, days: [], startTime: '', endTime: '' }]
   });
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -88,13 +41,60 @@ export default function TeacherClassrooms() {
     'JEE', 'NEET', 'CUET', 'UPSC', 'Programming', 'Spoken English', 'Music', 'Karate', 'Other'
   ];
 
-  const handleDayToggle = (day) => {
+  const handleScheduleDayToggle = (scheduleId, day) => {
+    setNewRoom(p => {
+      const updatedSchedules = p.schedules.map(sch => {
+        if (sch.id === scheduleId) {
+          return {
+            ...sch,
+            days: sch.days.includes(day)
+              ? sch.days.filter(d => d !== day)
+              : [...sch.days, day]
+          };
+        }
+        return sch;
+      });
+      return { ...p, schedules: updatedSchedules };
+    });
+  };
+
+  const updateScheduleTime = (scheduleId, field, value) => {
+    setNewRoom(p => {
+      const updatedSchedules = p.schedules.map(sch => {
+        if (sch.id === scheduleId) {
+          return { ...sch, [field]: value };
+        }
+        return sch;
+      });
+      return { ...p, schedules: updatedSchedules };
+    });
+  };
+
+  const addSchedule = () => {
     setNewRoom(p => ({
       ...p,
-      scheduleDays: p.scheduleDays.includes(day)
-        ? p.scheduleDays.filter(d => d !== day)
-        : [...p.scheduleDays, day]
+      schedules: [
+        ...p.schedules, 
+        { id: Math.max(0, ...p.schedules.map(s => s.id)) + 1, days: [], startTime: '', endTime: '' }
+      ]
     }));
+  };
+
+  const removeSchedule = (id) => {
+    setNewRoom(p => ({
+      ...p,
+      schedules: p.schedules.filter(s => s.id !== id)
+    }));
+  };
+
+  const getDisabledDays = (currentScheduleId) => {
+    const disabled = [];
+    newRoom.schedules.forEach(sch => {
+      if (sch.id !== currentScheduleId) {
+        disabled.push(...sch.days);
+      }
+    });
+    return disabled;
   };
 
   const parseTime = (timeStr) => {
@@ -148,9 +148,40 @@ export default function TeacherClassrooms() {
   const handleSaveClassroom = (e) => {
     e.preventDefault();
     
-    const daysStr = newRoom.scheduleDays.join(', ') || 'TBD';
-    const timeStr = (newRoom.startTime && newRoom.endTime) ? `(${formatTime12hr(newRoom.startTime)} - ${formatTime12hr(newRoom.endTime)})` : '';
-    const computedSchedule = `${daysStr} ${timeStr}`.trim();
+    // Validation
+    if (newRoom.schedules.length === 0) {
+      setToastMessage('Please add at least one schedule.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+    for (const sch of newRoom.schedules) {
+      if (sch.days.length === 0) {
+        setToastMessage('Please select at least one day for each schedule.');
+        setTimeout(() => setToastMessage(null), 3000);
+        return;
+      }
+      if (!sch.startTime || !sch.endTime) {
+        setToastMessage('Please select start and end times for all schedules.');
+        setTimeout(() => setToastMessage(null), 3000);
+        return;
+      }
+      if (parseTime(sch.endTime) <= parseTime(sch.startTime)) {
+        setToastMessage('End time must be strictly after start time.');
+        setTimeout(() => setToastMessage(null), 3000);
+        return;
+      }
+    }
+
+    const formatScheduleStr = (schedules) => {
+      if (!schedules || schedules.length === 0) return 'TBD';
+      if (schedules.length === 1) {
+        const sch = schedules[0];
+        return `${sch.days.join(', ')} (${formatTime12hr(sch.startTime)} - ${formatTime12hr(sch.endTime)})`;
+      }
+      return `${schedules.length} Schedule Slots`;
+    };
+
+    const computedSchedule = formatScheduleStr(newRoom.schedules);
     
     if (editingClassroomId) {
       // Edit existing
@@ -166,9 +197,7 @@ export default function TeacherClassrooms() {
         capacity: newRoom.unlimitedStudents ? 0 : Number(newRoom.maxStudents),
         startDate: newRoom.startDate,
         endDate: newRoom.endDate,
-        scheduleDays: newRoom.scheduleDays,
-        startTime: newRoom.startTime,
-        endTime: newRoom.endTime,
+        schedules: newRoom.schedules,
         schedule: computedSchedule
       } : c));
       setToastMessage('Classroom updated successfully');
@@ -177,7 +206,7 @@ export default function TeacherClassrooms() {
       const newId = classrooms.length > 0 ? Math.max(...classrooms.map(c => c.id)) + 1 : 1;
       setClassrooms([...classrooms, {
         id: newId,
-        teacherId: 'teacher-1',
+        teacherId: user?.id || (user?.name ? user.name.toLowerCase().replace(/\s+/g, '-') : 'ravi-kumar'),
         teacher: user?.name || 'Teacher User',
         name: newRoom.name,
         subject: newRoom.subject,
@@ -189,9 +218,7 @@ export default function TeacherClassrooms() {
         capacity: newRoom.unlimitedStudents ? 0 : Number(newRoom.maxStudents),
         startDate: newRoom.startDate,
         endDate: newRoom.endDate,
-        scheduleDays: newRoom.scheduleDays,
-        startTime: newRoom.startTime,
-        endTime: newRoom.endTime,
+        schedules: newRoom.schedules,
         enrolled: 0,
         schedule: computedSchedule,
         status: 'active',
@@ -205,6 +232,20 @@ export default function TeacherClassrooms() {
   };
 
   const openEditModal = (room) => {
+    // Migration for legacy classrooms that don't have the new schedules array
+    let migratedSchedules = room.schedules || [];
+    if (migratedSchedules.length === 0 && room.scheduleDays) {
+      migratedSchedules = [{
+        id: 1,
+        days: room.scheduleDays || [],
+        startTime: room.startTime || '',
+        endTime: room.endTime || ''
+      }];
+    }
+    if (migratedSchedules.length === 0) {
+      migratedSchedules = [{ id: 1, days: [], startTime: '', endTime: '' }];
+    }
+
     setNewRoom({
       name: room.name,
       subject: room.subject,
@@ -216,19 +257,23 @@ export default function TeacherClassrooms() {
       maxStudents: room.capacity || 10,
       startDate: room.startDate || '',
       endDate: room.endDate || '',
-      scheduleDays: room.scheduleDays || [],
-      startTime: room.startTime || '',
-      endTime: room.endTime || ''
+      schedules: migratedSchedules
     });
     setEditingClassroomId(room.id);
     setIsModalOpen(true);
   };
 
+  const [kycRestrictionOpen, setKycRestrictionOpen] = useState(false);
+
   const openCreateModal = () => {
+    if (kycStatus === 'NOT_VERIFIED' || kycStatus === 'PENDING') {
+      setKycRestrictionOpen(true);
+      return;
+    }
     setNewRoom({
       name: '', subject: '', classLevel: '', unlimitedStudents: true, description: '', mode: 'Online', price: '',
       maxStudents: 10, startDate: '', endDate: '',
-      scheduleDays: [], startTime: '', endTime: ''
+      schedules: [{ id: 1, days: [], startTime: '', endTime: '' }]
     });
     setEditingClassroomId(null);
     setIsModalOpen(true);
@@ -252,16 +297,32 @@ export default function TeacherClassrooms() {
   };
 
   // Live Auto Calculations
-  const { hours: sessionHours, text: sessionDurationText } = getSessionDuration(newRoom.startTime, newRoom.endTime);
-  const expectedLecturesCount = getExpectedLectures(newRoom.startDate, newRoom.endDate, newRoom.scheduleDays);
-  const totalTeachingHours = (expectedLecturesCount * sessionHours).toFixed(1);
+  let totalTeachingHoursVal = 0;
+  let totalLecturesVal = 0;
+  
+  if (newRoom.startDate && newRoom.endDate && newRoom.schedules) {
+    const start = new Date(newRoom.startDate);
+    const end = new Date(newRoom.endDate);
+    if (start <= end) {
+      newRoom.schedules.forEach(sch => {
+        if (sch.days.length > 0 && sch.startTime && sch.endTime) {
+          const { hours: sessionHours } = getSessionDuration(sch.startTime, sch.endTime);
+          const lectures = getExpectedLectures(newRoom.startDate, newRoom.endDate, sch.days);
+          totalLecturesVal += lectures;
+          totalTeachingHoursVal += (lectures * sessionHours);
+        }
+      });
+    }
+  }
+  const expectedLecturesCount = totalLecturesVal;
+  const totalTeachingHours = totalTeachingHoursVal.toFixed(1);
 
   return (
     <div className="max-w-6xl mx-auto pb-12 space-y-8 relative">
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[60] animate-fade-in">
+        <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[9999] animate-fade-in">
           <CheckCircle className="w-5 h-5" />
           {toastMessage}
         </div>
@@ -474,13 +535,13 @@ export default function TeacherClassrooms() {
                           <span>Max Students</span>
                           <span className="text-sky bg-sky/10 px-2 py-0.5 rounded text-xs">{newRoom.maxStudents}</span>
                         </label>
-                        <input type="range" min="2" max="100" value={newRoom.maxStudents} onChange={e => setNewRoom({...newRoom, maxStudents: e.target.value})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-navy" />
+                        <input type="range" min="1" max="100" value={newRoom.maxStudents} onChange={e => setNewRoom({...newRoom, maxStudents: e.target.value})} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-navy" />
                       </div>
                     )}
                   </div>
 
                   <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2">
-                    <h3 className="font-bold text-navy mb-4">Schedule Builder</h3>
+                    <h3 className="font-bold text-navy mb-4">Weekly Schedule Builder</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                       <div>
@@ -488,35 +549,74 @@ export default function TeacherClassrooms() {
                         <input required type="date" value={newRoom.startDate} onChange={e => setNewRoom({...newRoom, startDate: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">End Date (Required for calculation)</label>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">End Date</label>
                         <input required type="date" value={newRoom.endDate} onChange={e => setNewRoom({...newRoom, endDate: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
                       </div>
                     </div>
 
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Days of Week</label>
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {DAYS.map(day => (
-                        <button 
-                          key={day} 
-                          type="button"
-                          onClick={() => handleDayToggle(day)}
-                          className={`px-3 py-1.5 rounded-md text-sm font-bold transition border cursor-pointer ${newRoom.scheduleDays.includes(day) ? 'bg-sky/10 text-sky border-sky/30' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
-                        >
-                          {day}
-                        </button>
-                      ))}
+                    <div className="space-y-4 mb-4">
+                      {newRoom.schedules.map((sch, idx) => {
+                        const disabledDays = getDisabledDays(sch.id);
+                        return (
+                          <div key={sch.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm relative">
+                            {newRoom.schedules.length > 1 && (
+                              <button 
+                                type="button" 
+                                onClick={() => removeSchedule(sch.id)}
+                                className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition p-1"
+                                aria-label="Remove Schedule"
+                                title="Remove Schedule"
+                              >
+                                <Trash className="w-4 h-4" />
+                              </button>
+                            )}
+                            <h4 className="text-sm font-bold text-slate-700 mb-3">Schedule {idx + 1}</h4>
+                            
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Days</label>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {DAYS.map(day => {
+                                const isSelected = sch.days.includes(day);
+                                const isDisabled = !isSelected && disabledDays.includes(day);
+                                return (
+                                  <button 
+                                    key={day} 
+                                    type="button"
+                                    disabled={isDisabled}
+                                    onClick={() => handleScheduleDayToggle(sch.id, day)}
+                                    title={isDisabled ? "Day already selected in another schedule" : ""}
+                                    className={`px-3 py-1.5 rounded-md text-sm font-bold transition border 
+                                      ${isSelected ? 'bg-sky/10 text-sky border-sky/30 cursor-pointer' : 
+                                        isDisabled ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' : 
+                                        'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 cursor-pointer'}`}
+                                  >
+                                    {day}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Start Time</label>
+                                <input required type="time" value={sch.startTime} onChange={e => updateScheduleTime(sch.id, 'startTime', e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">End Time</label>
+                                <input required type="time" value={sch.endTime} onChange={e => updateScheduleTime(sch.id, 'endTime', e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Start Time</label>
-                        <input required type="time" value={newRoom.startTime} onChange={e => setNewRoom({...newRoom, startTime: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">End Time</label>
-                        <input required type="time" value={newRoom.endTime} onChange={e => setNewRoom({...newRoom, endTime: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
-                      </div>
-                    </div>
+                    <button 
+                      type="button" 
+                      onClick={addSchedule}
+                      className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold text-sm hover:border-sky hover:text-sky hover:bg-sky/5 transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" /> Add Another Time Slot
+                    </button>
                   </div>
 
                 </div>
@@ -544,8 +644,8 @@ export default function TeacherClassrooms() {
                       <p className="font-bold text-navy">{newRoom.price ? `₹${newRoom.price}` : '-'}</p>
                     </div>
                     <div>
-                      <p className="text-slate-500 mb-1">Session Duration</p>
-                      <p className="font-bold text-navy">{sessionDurationText}</p>
+                      <p className="text-slate-500 mb-1">Schedule Blocks</p>
+                      <p className="font-bold text-navy">{newRoom.schedules.length}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 mb-1">Expected Lectures</p>
@@ -568,9 +668,46 @@ export default function TeacherClassrooms() {
             <div className="p-6 border-t border-slate-100 flex justify-end gap-3 shrink-0 bg-slate-50 rounded-b-2xl">
               <button type="button" onClick={closeModal} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg transition hover:bg-slate-100 cursor-pointer">Cancel</button>
               <button type="submit" form="classroom-form" className="px-6 py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-lg transition shadow-sm flex items-center gap-2 cursor-pointer">
-                <i className="fa-solid fa-floppy-disk"></i> {editingClassroomId ? 'Save Changes' : 'Save Classroom'}
+                <i className="fa-solid fa-floppy-disk"></i> {editingClassroomId ? 'Save Changes' : 'Create Classroom'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* KYC Restriction Modal */}
+      {kycRestrictionOpen && (
+        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm z-[7000] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 text-center animate-scale-in">
+            <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-500">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            {kycStatus === 'NOT_VERIFIED' ? (
+              <>
+                <h3 className="font-sora font-bold text-2xl text-navy mb-3">Verification Required</h3>
+                <p className="text-slate-500 font-medium mb-8">
+                  Complete your KYC before creating classrooms. Your documents will be reviewed by the TrueEd Admin Team.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setKycRestrictionOpen(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">
+                    Cancel
+                  </button>
+                  <button onClick={() => { setKycRestrictionOpen(false); navigate('/teacher/profile'); }} className="flex-[2] px-6 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
+                    Go to Verification
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-sora font-bold text-2xl text-navy mb-3">Under Review</h3>
+                <p className="text-slate-500 font-medium mb-8">
+                  Your verification is under review. You can create classrooms after approval.
+                </p>
+                <button onClick={() => setKycRestrictionOpen(false)} className="w-full px-6 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
+                  Okay
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

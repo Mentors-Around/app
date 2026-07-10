@@ -1,17 +1,35 @@
+import React, { useEffect } from 'react';
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import CookieConsent from './components/CookieConsent';
 import Navbar from './components/landing/Navbar';
 import Footer from './components/landing/Footer';
 import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
+import AuthLayout from './layouts/AuthLayout';
+import Login from './pages/auth/Login';
+import Signup from './pages/auth/Signup';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import AdminLogin from './pages/auth/AdminLogin';
 import PageTransition from './components/PageTransition';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentDiscover from './pages/StudentDiscover';
 import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherKYC from './pages/TeacherKYC';
 import AdminVerify from './pages/AdminVerify';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminTeachers from './pages/AdminTeachers';
+import AdminStudents from './pages/AdminStudents';
+import AdminKYC from './pages/AdminKYC';
+import AdminReports from './pages/AdminReports';
+import AdminWallet from './pages/AdminWallet';
+import AdminReviews from './pages/AdminReviews';
+import AdminClassrooms from './pages/AdminClassrooms';
+import AdminSupport from './pages/AdminSupport';
+import AdminAnalytics from './pages/AdminAnalytics';
+import AdminSettings from './pages/AdminSettings';
 import DashboardLayout from './layouts/DashboardLayout';
+import { OverlayProvider } from './contexts/OverlayContext';
 
 // New Public Pages
 import Safety from './pages/Safety';
@@ -27,7 +45,6 @@ import TeacherApply from './pages/TeacherApply';
 import NotFound from './pages/NotFound';
 import CoachingCenters from './pages/CoachingCenters';
 import HowPaymentsWork from './pages/HowPaymentsWork';
-import DirectQueriesPage from './pages/DirectQueriesPage';
 import MyQueriesPage from './pages/MyQueriesPage';
 import SubjectLandingPage from './pages/SubjectLandingPage';
 import StudentClassroomDetails from './pages/StudentClassroomDetails';
@@ -36,7 +53,6 @@ import StudentClassroomDetails from './pages/StudentClassroomDetails';
 import StudentProfile from './pages/StudentProfile';
 import StudentBookings from './pages/StudentBookings';
 import StudentFavourites from './pages/StudentFavourites';
-import StudentPayments from './pages/StudentPayments';
 import StudentSettings from './pages/StudentSettings';
 import StudentRooms from './pages/StudentRooms';
 import ClassroomLobby from './pages/ClassroomLobby';
@@ -45,25 +61,86 @@ import StudentTestTaking from './pages/StudentTestTaking';
 import StudentTestResults from './pages/StudentTestResults';
 import TeacherProfile from './pages/TeacherProfile';
 import TeacherStudents from './pages/TeacherStudents';
-import TeacherEarnings from './pages/TeacherEarnings';
 import TeacherReviews from './pages/TeacherReviews';
 import TeacherSettings from './pages/TeacherSettings';
 import TeacherClassrooms from './pages/TeacherClassrooms';
 import TeacherClassroomDetails from './pages/TeacherClassroomDetails';
+import TeacherClassroomStudents from './pages/TeacherClassroomStudents';
 import TeacherQueriesPage from './pages/TeacherQueriesPage';
 import TeacherDoubtsPage from './pages/TeacherDoubtsPage';
 import TeacherReports from './pages/TeacherReports';
 import PublicTeacherProfile from './pages/PublicTeacherProfile';
+import Notifications from './pages/Notifications';
+import StudentWallet from './pages/StudentWallet';
+import TeacherWallet from './pages/TeacherWallet';
+
+import { WalletProvider } from './contexts/WalletContext';
 
 const App = () => {
   const location = useLocation();
 
+  useEffect(() => {
+    // Seed Verified Reviews
+    if (!localStorage.getItem('trueed_reviews')) {
+      const mockReviews = [
+        {
+          id: 'rev_1',
+          teacherId: '2', // e.g. Dr. A.P.J. Abdul Kalam (Mock) or just 2 (Vikram S)
+          studentId: 'student-2',
+          studentName: 'Rahul S.',
+          studentInitials: 'R',
+          enrollmentId: 'enroll_1',
+          overallRating: 5,
+          categories: { teachingQuality: 5, subjectKnowledge: 5, communication: 5, punctuality: 4, doubtSolving: 5 },
+          text: 'Absolutely brilliant teacher. The concepts are explained so clearly that even the hardest problems feel easy now.',
+          reply: null,
+          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          verified: true
+        },
+        {
+          id: 'rev_2',
+          teacherId: '1',
+          studentId: 'student-3',
+          studentName: 'Priya M.',
+          studentInitials: 'P',
+          enrollmentId: 'enroll_2',
+          overallRating: 5,
+          categories: { teachingQuality: 5, subjectKnowledge: 5, communication: 4, punctuality: 5, doubtSolving: 5 },
+          text: 'Very patient and understanding. Helped me build confidence before my final exams.',
+          reply: 'Thank you Priya! You worked hard.',
+          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+          updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+          verified: true
+        },
+        {
+          id: 'rev_3',
+          teacherId: '1',
+          studentId: 'student-4',
+          studentName: 'Karan V.',
+          studentInitials: 'K',
+          enrollmentId: 'enroll_3',
+          overallRating: 4,
+          categories: { teachingQuality: 4, subjectKnowledge: 5, communication: 4, punctuality: 4, doubtSolving: 4 },
+          text: 'Great teaching style. Sometimes internet issues during online classes but overall very good.',
+          reply: null,
+          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          verified: true
+        }
+      ];
+      localStorage.setItem('trueed_reviews', JSON.stringify(mockReviews));
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
-        <Routes>
-          {/* Public Routes with Navbar/Footer */}
+      <WalletProvider>
+        <OverlayProvider>
+          <Routes>
+            {/* Public Routes with Navbar/Footer */}
           <Route element={
-          <div className="flex flex-col min-h-screen">
+          <div className="flex flex-col min-h-screen bg-page">
             <Navbar />
             <main className="flex-1 pt-16">
               <PageTransition key={location.pathname}>
@@ -94,7 +171,11 @@ const App = () => {
         </Route>
 
         {/* Auth & Form Routes */}
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={<AuthLayout><Login /></AuthLayout>} />
+        <Route path="/signup" element={<AuthLayout><Signup /></AuthLayout>} />
+        <Route path="/forgot-password" element={<AuthLayout><ForgotPassword /></AuthLayout>} />
+        <Route path="/reset-password" element={<AuthLayout><ResetPassword /></AuthLayout>} />
+        <Route path="/admin/login" element={<AuthLayout><AdminLogin /></AuthLayout>} />
         <Route path="/teacher/kyc" element={<TeacherKYC />} />
         <Route path="/teacher/apply" element={<TeacherApply />} />
 
@@ -105,15 +186,15 @@ const App = () => {
           <Route path="profile" element={<StudentProfile />} />
           <Route path="bookings" element={<StudentBookings />} />
           <Route path="favourites" element={<StudentFavourites />} />
-          <Route path="payments" element={<StudentPayments />} />
           <Route path="settings" element={<StudentSettings />} />
           <Route path="rooms" element={<StudentRooms />} />
           <Route path="lobby/:id" element={<ClassroomLobby />} />
           <Route path="tests" element={<StudentTests />} />
           <Route path="tests/:testId" element={<StudentTestTaking />} />
           <Route path="tests/:testId/results" element={<StudentTestResults />} />
-          <Route path="direct-queries" element={<DirectQueriesPage />} />
           <Route path="my-queries" element={<MyQueriesPage />} />
+          <Route path="wallet" element={<StudentWallet />} />
+          <Route path="notifications" element={<Notifications />} />
         </Route>
 
         {/* Teacher Routes */}
@@ -121,7 +202,6 @@ const App = () => {
           <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="profile" element={<TeacherProfile />} />
           <Route path="students" element={<TeacherStudents />} />
-          <Route path="earnings" element={<TeacherEarnings />} />
           <Route path="queries" element={<TeacherQueriesPage />} />
           <Route path="doubts" element={<TeacherDoubtsPage />} />
           <Route path="reports" element={<TeacherReports />} />
@@ -129,16 +209,32 @@ const App = () => {
           <Route path="settings" element={<TeacherSettings />} />
           <Route path="classrooms" element={<TeacherClassrooms />} />
           <Route path="classrooms/:id" element={<TeacherClassroomDetails />} />
+          <Route path="classrooms/:id/students" element={<TeacherClassroomStudents />} />
+          <Route path="wallet" element={<TeacherWallet />} />
+          <Route path="notifications" element={<Notifications />} />
         </Route>
 
         {/* Admin Routes */}
         <Route path="/admin" element={<DashboardLayout role="admin" />}>
           <Route path="verify" element={<AdminVerify />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="teachers" element={<AdminTeachers />} />
+          <Route path="students" element={<AdminStudents />} />
+          <Route path="kyc" element={<AdminKYC />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="wallet" element={<AdminWallet />} />
+          <Route path="reviews" element={<AdminReviews />} />
+          <Route path="classrooms" element={<AdminClassrooms />} />
+          <Route path="support" element={<AdminSupport />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
 
         {/* 404 Catch All */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+        </OverlayProvider>
+      </WalletProvider>
 
       {/* Cookie Consent — appears on all pages */}
       <CookieConsent />

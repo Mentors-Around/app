@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-
 const Contact = () => {
   const [category, setCategory] = useState('Student Support');
   const [submitted, setSubmitted] = useState(false);

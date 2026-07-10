@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
-import { Search, Bell, X, Menu } from 'lucide-react';
+import { useOverlay, useOverlayRefs } from '../../contexts/OverlayContext';
+import { Search, Bell, X, Menu, CheckCircle, Calendar, CreditCard, MessageSquare, Check, CheckCheck } from 'lucide-react';
+import TeacherAvatar from './TeacherAvatar';
 
 const dummyTeachers = [
   { id: 1, name: 'Kavita Verma', subject: 'Mathematics', city: 'Bangalore' },
@@ -24,22 +26,44 @@ const Topbar = ({ onMenuClick }) => {
   const sanitize = (str) => str.replace(/<[^>]*>/g, '');
 
   const [query, setQuery] = useState('');
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const searchRef = useRef(null);
+  
+  const { activeOverlayId, toggleOverlay, closeOverlay } = useOverlay();
+  const notifRefs = useOverlayRefs('topbar-notif');
+  const mobileSearchRefs = useOverlayRefs('topbar-mobile-search');
+  const searchDropdownRefs = useOverlayRefs('topbar-search');
 
   const [notifications, setNotifications] = useState(
     user?.role === 'teacher' 
     ? [
-        { id: 1, text: 'New Query from Rahul Sharma', link: '/teacher/queries' },
-        { id: 2, text: 'New Query from Priya Kapoor', link: '/teacher/queries' },
-        { id: 3, text: 'New Query from Aditi Rao', link: '/teacher/queries' },
+        { id: 1, text: 'New Query from Rahul Sharma', link: '/teacher/queries', isRead: false },
+        { id: 2, text: 'New Query from Priya Kapoor', link: '/teacher/queries', isRead: false },
+        { id: 3, text: 'New Query from Aditi Rao', link: '/teacher/queries', isRead: true },
       ]
     : [
-        { id: 1, text: 'Your class with Kavita Verma starts in 30 mins' },
-        { id: 2, text: 'New message from Arun Singh' }
+        { id: 1, type: 'accepted', text: 'Teacher Alex Johnson accepted your classroom query.', time: '2 hours ago', isRead: false },
+        { id: 2, type: 'reminder', text: 'Upcoming class reminder: Physics Crash Course starts in 1 hour.', time: 'Just now', isRead: false },
+        { id: 3, type: 'payment', text: 'Payment successful for Mastering Calculus.', time: '5 hours ago', isRead: true },
+        { id: 4, type: 'reply', text: 'Teacher Sarah Smith replied to your query.', time: '1 day ago', isRead: true },
+        { id: 5, type: 'announcement', text: 'Classroom announcement posted in Mathematics.', time: '2 days ago', isRead: true },
       ]
   );
-  const [showNotifications, setShowNotifications] = useState(false);
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'accepted': return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+      case 'payment': return <CreditCard className="w-4 h-4 text-sky-500" />;
+      case 'reminder': return <Calendar className="w-4 h-4 text-amber-500" />;
+      case 'reply': return <MessageSquare className="w-4 h-4 text-purple-500" />;
+      case 'announcement': return <Bell className="w-4 h-4 text-indigo-500" />;
+      default: return <Bell className="w-4 h-4 text-slate-400" />;
+    }
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const filtered = query.trim() === '' ? [] : dummyTeachers.filter(t => 
     t.name.toLowerCase().includes(query.toLowerCase()) || 
@@ -47,33 +71,21 @@ const Topbar = ({ onMenuClick }) => {
   );
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setQuery('');
-        setShowMobileSearch(false);
+    if (query.trim() !== '') {
+      if (activeOverlayId !== 'topbar-search' && activeOverlayId !== 'topbar-mobile-search') {
+         // Optionally auto open search dropdown if they type, but toggleOverlay handles this if they focus
       }
-    };
-    const handleClickOutside = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setQuery('');
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+    }
+  }, [query]);
 
   const handleResultClick = (subject) => {
     setQuery('');
-    setShowMobileSearch(false);
+    closeOverlay();
     navigate(`/student/discover?subject=${encodeURIComponent(subject)}`);
   };
 
-  const SearchDropdown = () => {
-    if (!query) return null;
+  const SearchDropdown = ({ isMobile }) => {
+    if (!query || (isMobile ? activeOverlayId !== 'topbar-mobile-search' : activeOverlayId !== 'topbar-search')) return null;
     return (
       <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden py-2 z-50 animate-slide-up-sm">
         <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Results</p>
@@ -115,17 +127,23 @@ const Topbar = ({ onMenuClick }) => {
       </div>
 
       {/* Right section: Search, Bell, Avatar */}
-      <div className="flex items-center gap-3 md:gap-4 relative" ref={searchRef}>
+      <div className="flex items-center gap-3 md:gap-4 relative">
         
         {/* Desktop Search */}
-        <div className="hidden md:block relative w-64 lg:w-80">
+        <div className="hidden md:block relative w-64 lg:w-80" ref={searchDropdownRefs.triggerRef}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 peer-focus:text-navy transition-colors pointer-events-none" />
           <input
             type="text"
             placeholder="Search subjects, teachers..."
             value={query}
             maxLength={50}
-            onChange={(e) => setQuery(sanitize(e.target.value))}
+            onFocus={() => {
+               if (activeOverlayId !== 'topbar-search') toggleOverlay('topbar-search');
+            }}
+            onChange={(e) => {
+               setQuery(sanitize(e.target.value));
+               if (activeOverlayId !== 'topbar-search') toggleOverlay('topbar-search');
+            }}
             className="peer w-full bg-slate-100 border-2 border-transparent focus:bg-white focus:border-navy rounded-full py-2 pl-9 pr-9 text-sm text-navy font-medium outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
           />
           {query && (
@@ -133,13 +151,16 @@ const Topbar = ({ onMenuClick }) => {
               <X className="w-4 h-4" />
             </button>
           )}
-          <SearchDropdown />
+          <div ref={searchDropdownRefs.overlayRef}>
+            <SearchDropdown isMobile={false} />
+          </div>
         </div>
 
         {/* Mobile Search Icon */}
         <button 
+          ref={mobileSearchRefs.triggerRef}
           className="block md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-navy hover:bg-cream transition"
-          onClick={() => setShowMobileSearch(!showMobileSearch)}
+          onClick={() => toggleOverlay('topbar-mobile-search')}
           aria-label="Open search"
         >
           <Search className="w-5 h-5" />
@@ -147,9 +168,10 @@ const Topbar = ({ onMenuClick }) => {
 
         <div className="relative">
           <button 
+            ref={notifRefs.triggerRef}
             className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-cream transition text-slate-500 hover:text-navy group" 
             aria-label="View notifications"
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => toggleOverlay('topbar-notif')}
           >
             <Bell className="w-5 h-5 group-hover:animate-shake" />
             {notifications.length > 0 && (
@@ -157,48 +179,74 @@ const Topbar = ({ onMenuClick }) => {
             )}
           </button>
           
-          {showNotifications && (
-            <div className="absolute top-full right-[-80px] md:right-0 mt-2 w-72 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden z-50 animate-slide-up-sm">
+          {activeOverlayId === 'topbar-notif' && (
+            <div ref={notifRefs.overlayRef} className="absolute top-full right-[-80px] md:right-0 mt-2 w-80 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden z-50 animate-slide-up-sm">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                 <span className="font-bold text-navy">Notifications</span>
-                {notifications.length > 0 && (
-                  <span className="text-xs bg-error/10 text-error px-2 py-0.5 rounded-full font-bold">{notifications.length}</span>
+                {unreadCount > 0 && (
+                  <span className="text-[10px] bg-error/10 text-error px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{unreadCount} New</span>
                 )}
               </div>
-              <div className="max-h-64 overflow-y-auto">
+              <div className="max-h-[350px] overflow-y-auto">
                 {notifications.length > 0 ? (
                   notifications.map(n => (
-                    <div key={n.id} className="px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition flex flex-col gap-1">
-                      {n.link ? (
-                        <Link to={n.link} onClick={() => setShowNotifications(false)} className="text-sm text-navy hover:text-sky transition-colors">
-                          {n.text}
-                        </Link>
-                      ) : (
-                        <p className="text-sm text-navy">{n.text}</p>
-                      )}
-                      <button onClick={() => setNotifications(notifications.filter(x => x.id !== n.id))} className="text-xs text-sky font-semibold self-start hover:underline">
-                        Mark as read
-                      </button>
+                    <div key={n.id} className={`px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition flex gap-3 ${!n.isRead ? 'bg-sky-50/30' : ''}`}>
+                      <div className="mt-0.5 shrink-0">
+                        {getNotificationIcon(n.type)}
+                      </div>
+                      <div className="flex-1">
+                        {n.link ? (
+                          <Link to={n.link} onClick={() => closeOverlay()} className="text-sm font-semibold text-slate-700 hover:text-navy transition-colors">
+                            {n.text}
+                          </Link>
+                        ) : (
+                          <p className="text-sm font-semibold text-slate-700">{n.text}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{n.time || 'Recently'}</span>
+                          {!n.isRead && (
+                            <button onClick={() => setNotifications(notifications.map(x => x.id === n.id ? { ...x, isRead: true } : x))} className="text-[10px] text-sky font-bold hover:underline" title="Mark as read">
+                              <Check className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-6 text-center text-sm text-muted">
-                    No new notifications
+                  <div className="px-4 py-8 text-center flex flex-col items-center gap-2">
+                    <CheckCheck className="w-8 h-8 text-slate-300" />
+                    <p className="text-sm font-medium text-slate-500">You're all caught up!</p>
                   </div>
                 )}
+              </div>
+              <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <button onClick={() => { markAllAsRead(); closeOverlay(); }} className="text-[11px] font-bold text-slate-500 hover:text-navy transition">
+                  Mark all as read
+                </button>
+                <Link to={`/${user?.role || 'student'}/notifications`} onClick={() => closeOverlay()} className="text-[11px] font-bold text-sky hover:text-navy transition">
+                  View all
+                </Link>
               </div>
             </div>
           )}
         </div>
 
         {/* Profile Avatar */}
-        <Link to={`/${user?.role || 'student'}/profile`} className="w-9 h-9 rounded-full bg-gradient-to-br from-navy to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-sm hover:shadow-md hover:scale-105 transition-all">
-          {initials}
+        <Link to={`/${user?.role || 'student'}/profile`} className="block hover:scale-105 transition-transform">
+          <TeacherAvatar 
+            teacherId={user?.id || '1'} 
+            name={user?.name} 
+            initials={initials} 
+            className="w-9 h-9 text-sm" 
+          />
         </Link>
       </div>
 
       {/* Mobile Search Full Width Dropdown */}
-      <div className={`absolute left-0 right-0 bg-white border-b border-slate-200 px-4 py-3 md:hidden z-50 transition-all duration-300 origin-top ${showMobileSearch ? 'top-16 opacity-100 visible' : 'top-12 opacity-0 invisible -translate-y-4 pointer-events-none'}`}>
+      <div 
+        ref={mobileSearchRefs.overlayRef}
+        className={`absolute left-0 right-0 bg-white border-b border-slate-200 px-4 py-3 md:hidden z-50 transition-all duration-300 origin-top ${activeOverlayId === 'topbar-mobile-search' ? 'top-16 opacity-100 visible' : 'top-12 opacity-0 invisible -translate-y-4 pointer-events-none'}`}>
         <div className="flex gap-2 relative">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -217,14 +265,14 @@ const Topbar = ({ onMenuClick }) => {
             )}
           </div>
           <button 
-            onClick={() => { setShowMobileSearch(false); setQuery(''); }}
+            onClick={() => { closeOverlay(); setQuery(''); }}
             className="px-3 text-sm font-semibold text-slate-500 hover:text-navy"
           >
             Cancel
           </button>
           
           <div className="absolute top-full left-0 right-0 w-full mt-2">
-            <SearchDropdown />
+            <SearchDropdown isMobile={true} />
           </div>
         </div>
       </div>

@@ -60,6 +60,13 @@ export default function TeacherClassroomDetails() {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [isLiveSettingsModalOpen, setIsLiveSettingsModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  
+  // Report State
+  const [studentToReport, setStudentToReport] = useState(null);
+  const [reportForm, setReportForm] = useState({ reason: '', description: '' });
+  const [reportedStudentIds, setReportedStudentIds] = useState([]);
+  const [activeDropdown, setActiveDropdown] = useState(null);
   
   // Live Settings State
   const [liveSettingsForm, setLiveSettingsForm] = useState({
@@ -169,6 +176,14 @@ export default function TeacherClassroomDetails() {
     showToast('Live class settings updated successfully');
   };
 
+  const handleReportSubmit = (e) => {
+    e.preventDefault();
+    setReportedStudentIds([...reportedStudentIds, studentToReport.id]);
+    showToast('Student report submitted successfully. Our team will review it.');
+    setIsReportModalOpen(false);
+    setReportForm({ reason: '', description: '' });
+  };
+
   const openAddSessionModal = () => {
     setSessionForm({ topic: '', date: '', startTime: '', endTime: '', notes: '' });
     setEditingSessionId(null);
@@ -260,9 +275,51 @@ export default function TeacherClassroomDetails() {
     return count;
   };
 
-  const { hours: sessionHours, text: sessionDurationText } = getSessionDuration(classroom.startTime, classroom.endTime);
-  const expectedLecturesCount = getExpectedLectures(classroom.startDate, classroom.endDate, classroom.scheduleDays);
-  const totalTeachingHours = (expectedLecturesCount * sessionHours).toFixed(1);
+  let totalTeachingHoursVal = 0;
+  let totalLecturesVal = 0;
+  let sessionDurationContent = '-';
+  const schedules = classroom.schedules || [];
+
+  if (classroom.startDate && classroom.endDate && schedules.length > 0) {
+    const start = new Date(classroom.startDate);
+    const end = new Date(classroom.endDate);
+    if (start <= end) {
+      schedules.forEach(sch => {
+        if (sch.days.length > 0 && sch.startTime && sch.endTime) {
+          const { hours: sessionHours } = getSessionDuration(sch.startTime, sch.endTime);
+          const lectures = getExpectedLectures(classroom.startDate, classroom.endDate, sch.days);
+          totalLecturesVal += lectures;
+          totalTeachingHoursVal += (lectures * sessionHours);
+        }
+      });
+    }
+
+    // Format Session Duration for display
+    const uniqueDurations = new Set();
+    const durationTexts = [];
+    schedules.forEach(sch => {
+      if (sch.days.length > 0 && sch.startTime && sch.endTime) {
+        const { text } = getSessionDuration(sch.startTime, sch.endTime);
+        if (text && text !== '-') {
+          uniqueDurations.add(text);
+          durationTexts.push(`${sch.days.join('–')} : ${text}`);
+        }
+      }
+    });
+    
+    if (uniqueDurations.size === 1) {
+      sessionDurationContent = Array.from(uniqueDurations)[0];
+    } else if (durationTexts.length > 0) {
+      sessionDurationContent = (
+        <div className="flex flex-col gap-1">
+          {durationTexts.map((text, idx) => <span key={idx} className="text-sm font-medium whitespace-nowrap">{text}</span>)}
+        </div>
+      );
+    }
+  }
+
+  const expectedLecturesCount = schedules.length > 0 ? totalLecturesVal : '-';
+  const totalTeachingHours = schedules.length > 0 && totalTeachingHoursVal > 0 ? `${totalTeachingHoursVal.toFixed(1)} Hours` : '-';
 
   return (
     <div className="max-w-6xl mx-auto pb-12 space-y-8 relative">
@@ -293,15 +350,20 @@ export default function TeacherClassroomDetails() {
 
       {/* Analytics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-sky/10 text-sky rounded-full flex items-center justify-center shrink-0">
-            <Users className="w-6 h-6" />
+        <Link to={`/teacher/classrooms/${id}/students`} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-sky/30 hover:shadow-md transition-all">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-sky/10 text-sky rounded-full flex items-center justify-center shrink-0">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Class Capacity</p>
+              <p className="font-sora font-extrabold text-2xl text-navy">{classroom.enrolled || students.length} <span className="text-sm text-slate-400 font-medium">/ {classroom.unlimitedStudents ? 'Unlimited' : classroom.capacity} Filled</span></p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Total Students</p>
-            <p className="font-sora font-extrabold text-2xl text-navy">{classroom.enrolled || students.length} <span className="text-sm text-slate-400 font-medium">/ {classroom.unlimitedStudents ? 'Unlimited' : classroom.capacity}</span></p>
+          <div className="text-sky font-bold text-sm group-hover:translate-x-1 transition-transform">
+            View <i className="fa-solid fa-arrow-right ml-1"></i>
           </div>
-        </div>
+        </Link>
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
             <IndianRupee className="w-6 h-6" />
@@ -322,10 +384,10 @@ export default function TeacherClassroomDetails() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         
-        {/* Left Column: Details & Schedule */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* Main Column: Details & Schedule */}
+        <div className="max-w-4xl space-y-8">
           
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex justify-between items-center mb-4">
@@ -348,7 +410,7 @@ export default function TeacherClassroomDetails() {
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Session Duration</p>
-                <p className="font-sora font-bold text-navy text-lg">{sessionDurationText}</p>
+                <div className="font-sora font-bold text-navy text-lg">{sessionDurationContent}</div>
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Expected Lectures</p>
@@ -356,39 +418,28 @@ export default function TeacherClassroomDetails() {
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Total Teaching</p>
-                <p className="font-sora font-bold text-navy text-lg">{totalTeachingHours > 0 ? `${totalTeachingHours} Hours` : '-'}</p>
+                <p className="font-sora font-bold text-navy text-lg">{totalTeachingHours}</p>
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Price Per Student</p>
-                <div className="flex items-center gap-3">
-                  <p className="font-sora font-bold text-navy text-lg">₹{classroom.price}</p>
-                  <button 
-                    onClick={() => { setEditPrice(classroom.price); setIsPriceModalOpen(true); }} 
-                    className="text-sky hover:text-navy transition text-sm font-bold flex items-center gap-1"
-                  >
-                    <Edit className="w-3.5 h-3.5" /> Edit
-                  </button>
-                </div>
+                <p className="font-sora font-bold text-navy text-lg">₹{classroom.price}</p>
               </div>
               <div className="col-span-2">
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Schedule</p>
-                <div className="flex items-center gap-3">
-                  <p className="font-sora font-bold text-navy text-lg">{(classroom.scheduleDays || []).join(', ') || 'TBD'}</p>
-                  <button 
-                    onClick={() => {
-                      setEditSchedule({
-                        days: [...(classroom.scheduleDays || [])],
-                        startTime: classroom.startTime || '',
-                        endTime: classroom.endTime || '',
-                      });
-                      setIsScheduleModalOpen(true);
-                    }} 
-                    className="text-sky hover:text-navy transition text-sm font-bold flex items-center gap-1"
-                  >
-                    <Edit className="w-3.5 h-3.5" /> Edit
-                  </button>
-                </div>
-                <p className="text-sm text-slate-500">{formatTime12hr(classroom.startTime)} - {formatTime12hr(classroom.endTime)}</p>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Schedule</p>
+                {schedules.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {schedules.map(sch => (
+                      <div key={sch.id} className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
+                        <p className="font-sora font-bold text-navy mb-1">{sch.days.join(', ')}</p>
+                        <p className="text-sm text-slate-500 font-medium">
+                          {formatTime12hr(sch.startTime)} – {formatTime12hr(sch.endTime)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-sora font-bold text-navy text-lg">TBD</p>
+                )}
               </div>
             </div>
           </div>
@@ -478,33 +529,7 @@ export default function TeacherClassroomDetails() {
 
         </div>
 
-        {/* Right Column: Students */}
-        <div className="space-y-8">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <h2 className="font-sora text-xl font-bold text-navy flex items-center gap-2 mb-6">
-              <i className="fa-solid fa-users text-emerald-500"></i> Enrolled Students
-            </h2>
-            <div className="space-y-4">
-              {students.map(student => (
-                <div key={student.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm shrink-0">
-                      {student.initials}
-                    </div>
-                    <div>
-                      <p className="font-bold text-navy text-sm">{student.name}</p>
-                      <p className="text-xs text-slate-500">Joined {student.joinedDate}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-slate-400 uppercase">Attendance</p>
-                    <p className="text-sm font-bold text-emerald-600">{student.attendance}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+
 
       </div>
 
@@ -703,6 +728,68 @@ export default function TeacherClassroomDetails() {
               <div className="pt-2 flex gap-3">
                 <button type="button" onClick={() => setIsLiveSettingsModalOpen(false)} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition">Cancel</button>
                 <button type="submit" className="flex-1 py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-lg transition">Save Details</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Report Student Modal */}
+      {isReportModalOpen && studentToReport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xl font-sora font-bold text-navy">Report Student</h3>
+              <button onClick={() => setIsReportModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <i className="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-5">Report inappropriate behaviour or issues related to this classroom.</p>
+            
+            <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg mb-6 flex justify-between items-center">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Student</p>
+                <p className="font-bold text-navy text-sm">{studentToReport.name}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Classroom</p>
+                <p className="font-bold text-navy text-sm truncate max-w-[120px]" title={classroom.name}>{classroom.name}</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleReportSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Reason <span className="text-red-500">*</span></label>
+                <select 
+                  required
+                  value={reportForm.reason}
+                  onChange={e => setReportForm({...reportForm, reason: e.target.value})}
+                  className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:border-navy outline-none font-medium text-slate-700 bg-white"
+                >
+                  <option value="" disabled>Select a reason...</option>
+                  <option value="Misconduct">Misconduct</option>
+                  <option value="Disruptive Behaviour">Disruptive Behaviour</option>
+                  <option value="Inappropriate Language">Inappropriate Language</option>
+                  <option value="Academic Dishonesty">Academic Dishonesty</option>
+                  <option value="Spam / Misuse">Spam / Misuse</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Description <span className="text-red-500">*</span></label>
+                <textarea 
+                  required
+                  rows="4"
+                  placeholder="Describe what happened and provide any relevant details."
+                  value={reportForm.description}
+                  onChange={e => setReportForm({...reportForm, description: e.target.value})}
+                  className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:border-navy outline-none resize-none font-medium text-slate-700"
+                ></textarea>
+              </div>
+              
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={() => setIsReportModalOpen(false)} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition shadow-sm">Cancel</button>
+                <button type="submit" className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition shadow-sm">Submit Report</button>
               </div>
             </form>
           </div>

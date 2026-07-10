@@ -192,4 +192,16 @@ input[type='range'].distance-slider::-webkit-slider-thumb {
   .animate-fadeIn {
     animation: fadeIn 0.25s ease-out;
   }
+  .hover-lift {
+    @apply transition-all duration-200 hover:-translate-y-[2px] hover:shadow-brand-lg;
+  }
+}
+
+/* Hide scrollbar utility */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }

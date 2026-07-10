@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useOverlay, useOverlayRefs } from '../contexts/OverlayContext';
 import { tutors as allTutors } from '../data/tutors';
 import SortDropdown from '../components/student/SortDropdown';
 import TutorCard from '../components/shared/TutorCard';
 import Pagination from '../components/shared/Pagination';
 
+
 const PER_PAGE = 6;
 const subjectsList = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Computer Science', 'Hindi'];
-const levelsList = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'JEE', 'NEET', 'CUET', 'UPSC', 'Programming', 'Spoken English', 'Music', 'Karate'];
+const levelsList = ['Beginner', 'Intermediate', 'Expert'];
 const responseTimes = ['Any', 'Within 12 hours', 'Within 24 hours'];
 
 const searchSubjects = [
@@ -94,6 +96,14 @@ const classGroups = [
   {
     title: "Higher Secondary",
     classes: ["Class 11", "Class 12"]
+  },
+  {
+    title: "Competitive Exams",
+    classes: ["JEE", "NEET"]
+  },
+  {
+    title: "Others",
+    classes: ["Other"]
   }
 ];
 
@@ -130,7 +140,7 @@ const useAnimatedCount = (target) => {
   return count;
 };
 
-const FilterDropdown = ({ isOpen, onClose, onApply, children }) => {
+const FilterDropdown = ({ isOpen, onClose, onApply, children, overlayRef }) => {
   if (!isOpen) return null;
 
   return (
@@ -139,7 +149,7 @@ const FilterDropdown = ({ isOpen, onClose, onApply, children }) => {
         className="fixed inset-0 bg-black/40 z-40 transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed bottom-0 left-0 right-0 lg:absolute lg:bottom-auto lg:left-0 lg:top-full lg:mt-3 bg-white lg:rounded-2xl rounded-t-2xl p-6 shadow-2xl lg:min-w-[340px] z-50 animate-slide-up sm:animate-slide-up-sm max-h-[85vh] overflow-y-auto cursor-default">
+      <div ref={overlayRef} className="fixed bottom-0 left-0 right-0 lg:absolute lg:bottom-auto lg:left-0 lg:top-full lg:mt-3 bg-white lg:rounded-2xl rounded-t-2xl p-6 shadow-2xl lg:min-w-[340px] z-50 animate-slide-up sm:animate-slide-up-sm max-h-[85vh] overflow-y-auto cursor-default">
         {children}
         <div className="flex justify-between items-center mt-8 pt-5 border-t border-slate-100">
           <button onClick={onClose} className="text-slate-500 font-medium hover:text-navy transition underline underline-offset-4">
@@ -170,12 +180,22 @@ const StudentDiscover = () => {
     quickResponse: null,
   });
 
-  const [openDropdown, setOpenDropdown] = useState(null);
+  const { activeOverlayId, toggleOverlay, closeOverlay } = useOverlay();
+  const searchDropdownRefs = useOverlayRefs('discover-search-dropdown');
+  const classGradeRefs = useOverlayRefs('filter-classGrade');
+  const distanceRefs = useOverlayRefs('filter-distance');
+  const feeRefs = useOverlayRefs('filter-fee');
+  const levelRefs = useOverlayRefs('filter-level');
+  const responseRefs = useOverlayRefs('filter-response');
+  const ratingRefs = useOverlayRefs('filter-rating');
+
+  const openDropdown = activeOverlayId?.startsWith('filter-') ? activeOverlayId.replace('filter-', '') : null;
+  const searchDropdownOpen = activeOverlayId === 'discover-search-dropdown';
+
   const [localFilters, setLocalFilters] = useState(filters);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
-  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
 
   useEffect(() => { document.title = 'Discover Tutors — TrueEd'; }, []);
 
@@ -191,29 +211,22 @@ const StudentDiscover = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    const handleEsc = (e) => { 
-      if (e.key === 'Escape') {
-        setOpenDropdown(null);
-        setSearchDropdownOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    // Escape logic is now handled by OverlayContext globally
   }, []);
 
   const toggleDropdown = (id) => {
     if (openDropdown === id) {
-      setOpenDropdown(null);
+      closeOverlay();
     } else {
       setLocalFilters(filters);
-      setOpenDropdown(id);
+      toggleOverlay(`filter-${id}`);
     }
   };
 
   const applyDropdown = () => {
     setFilters(localFilters);
     setPage(1);
-    setOpenDropdown(null);
+    closeOverlay();
   };
 
   const handleReset = () => {
@@ -295,11 +308,17 @@ const StudentDiscover = () => {
     }
     if (filters.classGrades && filters.classGrades.length > 0) {
       list = list.filter((t) => 
-        filters.classGrades.some(grade => 
-          (t.tags && t.tags.some(tag => tag.toLowerCase().includes(grade.toLowerCase()))) || 
-          (t.bio && t.bio.toLowerCase().includes(grade.toLowerCase())) ||
-          (t.subject && t.subject.toLowerCase().includes(grade.toLowerCase()))
-        )
+        filters.classGrades.some(grade => {
+          if (grade === 'Other') {
+            const hasClassOrExam = (t.tags && t.tags.some(tag => tag.match(/Class \d+|JEE|NEET|CBSE|ICSE/i))) || 
+                                   (t.subject && t.subject.match(/Class \d+|JEE|NEET/i)) ||
+                                   (t.bio && t.bio.match(/Class \d+|JEE|NEET/i));
+            return !hasClassOrExam;
+          }
+          return (t.tags && t.tags.some(tag => tag.toLowerCase().includes(grade.toLowerCase()))) || 
+                 (t.bio && t.bio.toLowerCase().includes(grade.toLowerCase())) ||
+                 (t.subject && t.subject.toLowerCase().includes(grade.toLowerCase()))
+        })
       );
     }
     
@@ -347,7 +366,7 @@ const StudentDiscover = () => {
     setFilters(next);
     setLocalFilters(next);
     setPage(1);
-    setOpenDropdown(null);
+    closeOverlay();
   };
 
   return (
@@ -362,7 +381,7 @@ const StudentDiscover = () => {
             {searchDropdownOpen && (
               <div 
                 className="fixed inset-0 z-10" 
-                onClick={() => setSearchDropdownOpen(false)}
+                onClick={() => closeOverlay()}
               />
             )}
             
@@ -376,7 +395,9 @@ const StudentDiscover = () => {
                   className="w-full h-full outline-none text-gray-800 bg-transparent placeholder:text-gray-400 font-medium text-base sm:text-lg"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setSearchDropdownOpen(true)}
+                  onFocus={() => {
+                    if (activeOverlayId !== 'discover-search-dropdown') toggleOverlay('discover-search-dropdown');
+                  }}
                 />
                 {searchQuery && (
                   <button 
@@ -421,7 +442,7 @@ const StudentDiscover = () => {
 
             {/* Subject Autocomplete Dropdown */}
             {searchDropdownOpen && (
-              <div className="absolute top-[68px] sm:top-full left-0 sm:mt-4 w-full sm:w-[50%] bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-30 max-h-[400px] overflow-y-auto">
+              <div ref={searchDropdownRefs.overlayRef} className="absolute top-[68px] sm:top-full left-0 sm:mt-4 w-full sm:w-[50%] bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-30 max-h-[400px] overflow-y-auto">
                 {!searchQuery ? (
                   <div>
                     <h4 className="px-5 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Trending searches</h4>
@@ -431,7 +452,7 @@ const StudentDiscover = () => {
                         onClick={() => {
                           setSearchQuery(subj);
                           setFilters({ ...filters, subjects: [subj] });
-                          setSearchDropdownOpen(false);
+                          closeOverlay();
                           setPage(1);
                         }}
                         className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-slate-50 transition"
@@ -452,7 +473,7 @@ const StudentDiscover = () => {
                           onClick={() => {
                             setSearchQuery(subj.name);
                             setFilters({ ...filters, subjects: [subj.name] });
-                            setSearchDropdownOpen(false);
+                            closeOverlay();
                             setPage(1);
                           }}
                           className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-slate-50 transition group"
@@ -536,11 +557,11 @@ const StudentDiscover = () => {
             
             {/* Pill: Class / Grade */}
             <div className="relative">
-              <button onClick={() => toggleDropdown('classGrade')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.classGrade ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
+              <button ref={classGradeRefs.triggerRef} onClick={() => toggleDropdown('classGrade')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.classGrade ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
                 {filters.classGrades && filters.classGrades.length > 0 ? filters.classGrades[0] + (filters.classGrades.length > 1 ? ` +${filters.classGrades.length - 1}` : '') : 'Class / Grade'} <i className={`fa-solid fa-chevron-down text-[10px] ${isActive.classGrade ? 'text-white' : 'text-slate-400'}`} />
                 {isActive.classGrade && <span onClick={(e) => clearSingleFilter('classGrade', e)} className="ml-1 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i className="fa-solid fa-xmark text-[11px]" /></span>}
               </button>
-              <FilterDropdown isOpen={openDropdown === 'classGrade'} onClose={() => setOpenDropdown(null)} onApply={applyDropdown}>
+              <FilterDropdown overlayRef={classGradeRefs.overlayRef} isOpen={openDropdown === 'classGrade'} onClose={() => closeOverlay()} onApply={applyDropdown}>
                 <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
                   {classGroups.map(group => (
                     <div key={group.title}>
@@ -570,15 +591,15 @@ const StudentDiscover = () => {
 
             {/* Pill: Distance */}
             <div className="relative">
-              <button onClick={() => toggleDropdown('distance')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.distance ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
+              <button ref={distanceRefs.triggerRef} onClick={() => toggleDropdown('distance')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.distance ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
                 Distance <i className={`fa-solid fa-chevron-down text-[10px] ${isActive.distance ? 'text-white' : 'text-slate-400'}`} />
                 {isActive.distance && <span onClick={(e) => clearSingleFilter('distance', e)} className="ml-1 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i className="fa-solid fa-xmark text-[11px]" /></span>}
               </button>
               
               {openDropdown === 'distance' && (
                 <>
-                  <div className="fixed inset-0 bg-black/40 z-40 transition-opacity" onClick={() => setOpenDropdown(null)} />
-                  <div className="fixed bottom-0 left-0 right-0 lg:absolute lg:bottom-auto lg:left-0 lg:top-full lg:mt-3 bg-white lg:rounded-3xl rounded-t-3xl shadow-2xl z-50 animate-slide-up sm:animate-slide-up-sm min-w-[420px] p-8 cursor-default">
+                  <div className="fixed inset-0 bg-black/40 z-40 transition-opacity" onClick={() => closeOverlay()} />
+                  <div ref={distanceRefs.overlayRef} className="fixed bottom-0 left-0 right-0 lg:absolute lg:bottom-auto lg:left-0 lg:top-full lg:mt-3 bg-white lg:rounded-3xl rounded-t-3xl shadow-2xl z-50 animate-slide-up sm:animate-slide-up-sm min-w-[420px] p-8 cursor-default">
                     <h3 className="text-lg font-bold text-gray-900">
                       I'm willing to travel a maximum distance of : <span className="text-amber-500 font-bold">{localFilters.distance ?? 10}km</span>
                     </h3>
@@ -607,7 +628,7 @@ const StudentDiscover = () => {
                     </div>
 
                     <div className="mt-10 border-t border-gray-100 pt-6 flex justify-between items-center">
-                      <button onClick={() => setOpenDropdown(null)} className="text-gray-400 text-base font-medium hover:text-navy transition underline underline-offset-4">
+                      <button onClick={() => closeOverlay()} className="text-gray-400 text-base font-medium hover:text-navy transition underline underline-offset-4">
                         Cancel
                       </button>
                       <button onClick={applyDropdown} className="bg-[#1B2D5B] text-white px-8 py-3 rounded-full text-base font-bold hover:bg-blue-900 transition shadow-md">
@@ -621,11 +642,11 @@ const StudentDiscover = () => {
 
             {/* Pill: Fee */}
             <div className="relative">
-              <button onClick={() => toggleDropdown('fee')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.fee ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
+              <button ref={feeRefs.triggerRef} onClick={() => toggleDropdown('fee')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.fee ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
                 Fee <i className={`fa-solid fa-chevron-down text-[10px] ${isActive.fee ? 'text-white' : 'text-slate-400'}`} />
                 {isActive.fee && <span onClick={(e) => clearSingleFilter('fee', e)} className="ml-1 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i className="fa-solid fa-xmark text-[11px]" /></span>}
               </button>
-              <FilterDropdown isOpen={openDropdown === 'fee'} onClose={() => setOpenDropdown(null)} onApply={applyDropdown}>
+              <FilterDropdown overlayRef={feeRefs.overlayRef} isOpen={openDropdown === 'fee'} onClose={() => closeOverlay()} onApply={applyDropdown}>
                 <h3 className="text-lg font-semibold text-navy mb-5">Fee range</h3>
                 <div className="flex items-center gap-4 mb-6">
                   <div className="relative flex-1">
@@ -660,11 +681,11 @@ const StudentDiscover = () => {
 
             {/* Pill: Level */}
             <div className="relative">
-              <button onClick={() => toggleDropdown('level')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.level ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
+              <button ref={levelRefs.triggerRef} onClick={() => toggleDropdown('level')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.level ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
                 Level <i className={`fa-solid fa-chevron-down text-[10px] ${isActive.level ? 'text-white' : 'text-slate-400'}`} />
                 {isActive.level && <span onClick={(e) => clearSingleFilter('level', e)} className="ml-1 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i className="fa-solid fa-xmark text-[11px]" /></span>}
               </button>
-              <FilterDropdown isOpen={openDropdown === 'level'} onClose={() => setOpenDropdown(null)} onApply={applyDropdown}>
+              <FilterDropdown overlayRef={levelRefs.overlayRef} isOpen={openDropdown === 'level'} onClose={() => closeOverlay()} onApply={applyDropdown}>
                 <div className="space-y-4">
                   {levelsList.map(lvl => {
                     const checked = (localFilters.levels || []).includes(lvl);
@@ -687,11 +708,11 @@ const StudentDiscover = () => {
 
             {/* Pill: Response time */}
             <div className="relative">
-              <button onClick={() => toggleDropdown('response')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.response ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
+              <button ref={responseRefs.triggerRef} onClick={() => toggleDropdown('response')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.response ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
                 Response time <i className={`fa-solid fa-chevron-down text-[10px] ${isActive.response ? 'text-white' : 'text-slate-400'}`} />
                 {isActive.response && <span onClick={(e) => clearSingleFilter('response', e)} className="ml-1 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i className="fa-solid fa-xmark text-[11px]" /></span>}
               </button>
-              <FilterDropdown isOpen={openDropdown === 'response'} onClose={() => setOpenDropdown(null)} onApply={applyDropdown}>
+              <FilterDropdown overlayRef={responseRefs.overlayRef} isOpen={openDropdown === 'response'} onClose={() => closeOverlay()} onApply={applyDropdown}>
                 <div className="space-y-4">
                   {responseTimes.map(opt => {
                     const checked = localFilters.quickResponse === opt || (opt === 'Any' && !localFilters.quickResponse);
@@ -714,11 +735,11 @@ const StudentDiscover = () => {
 
             {/* Pill: Rating */}
             <div className="relative">
-              <button onClick={() => toggleDropdown('rating')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.rating ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
+              <button ref={ratingRefs.triggerRef} onClick={() => toggleDropdown('rating')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.rating ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
                 Rating <i className={`fa-solid fa-chevron-down text-[10px] ${isActive.rating ? 'text-white' : 'text-slate-400'}`} />
                 {isActive.rating && <span onClick={(e) => clearSingleFilter('rating', e)} className="ml-1 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i className="fa-solid fa-xmark text-[11px]" /></span>}
               </button>
-              <FilterDropdown isOpen={openDropdown === 'rating'} onClose={() => setOpenDropdown(null)} onApply={applyDropdown}>
+              <FilterDropdown overlayRef={ratingRefs.overlayRef} isOpen={openDropdown === 'rating'} onClose={() => closeOverlay()} onApply={applyDropdown}>
                 <div className="flex gap-3">
                   {[
                     { label: '⭐ 5', value: 5 },
@@ -755,7 +776,8 @@ const StudentDiscover = () => {
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto px-6 py-4 z-10 relative">
-        <div className="mb-4">
+
+        <div className="mb-4 mt-4">
           <p className="text-sm text-gray-500">
             Showing {animatedCount} matching tutors
           </p>

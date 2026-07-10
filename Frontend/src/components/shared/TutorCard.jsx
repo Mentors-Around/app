@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import TeacherAvatar from './TeacherAvatar';
+
 const getSubjectColor = (subject) => {
   const s = subject.toLowerCase();
   if (s.includes('math')) return { bg: 'bg-blue-50', text: 'text-blue-700' };
@@ -41,9 +43,12 @@ const TutorCard = ({ tutor }) => {
       <div className="p-5 flex-1 flex flex-col">
         {/* Header */}
         <div className="flex items-start gap-4 mb-5 pr-8">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-sora font-bold text-xl flex-shrink-0 bg-gradient-to-br from-navy to-blue-600 shadow-sm">
-            {tutor.initials}
-          </div>
+          <TeacherAvatar 
+            teacherId={tutor.id} 
+            name={tutor.name} 
+            initials={tutor.initials} 
+            className="w-14 h-14 text-xl flex-shrink-0" 
+          />
           <div className="flex-1 min-w-0 pt-0.5">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="font-sora font-extrabold text-navy text-lg leading-none">{tutor.name}</span>

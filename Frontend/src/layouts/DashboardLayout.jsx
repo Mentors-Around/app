@@ -12,16 +12,24 @@ const DashboardLayout = ({ role }) => {
 
   // Route protection: redirect to /login if no user data in localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem('trueed_user');
     const savedToken = localStorage.getItem('trueed_token');
+    const savedRole = localStorage.getItem('trueed_role');
+    
     // If there is no auth token, redirect to login
     if (!savedToken) {
       navigate('/login', { replace: true });
+      return;
     }
-  }, [navigate]);
+
+    // Role-based route protection
+    if (role === 'admin' && savedRole !== 'admin') {
+      // Prevent non-admins from accessing admin routes
+      navigate('/login', { replace: true });
+    }
+  }, [navigate, role]);
 
   return (
-    <div className="min-h-screen bg-cream relative">
+    <div className="min-h-screen bg-page relative">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div 

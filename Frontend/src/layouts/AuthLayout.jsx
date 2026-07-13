@@ -12,8 +12,8 @@ const AuthLayout = ({ children }) => {
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-sky-500/10 rounded-full translate-y-1/3 -translate-x-1/4"></div>
         
         <div className="relative z-10">
-<Link to="/" className="flex items-center gap-2 mb-16">
-            <Logo variant="dark" className="h-14 w-auto" />
+          <Link to="/" className="flex items-center gap-2 mb-16">
+            <Logo variant="dark" className="w-[200px] h-auto" />
           </Link>
           
           <h1 className="font-sora text-4xl font-bold leading-tight mb-4">
@@ -55,7 +55,7 @@ const AuthLayout = ({ children }) => {
         <div className="w-full max-w-[480px]">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-10">
-            <Logo variant="dark" className="h-14 w-auto" />
+            <Logo variant="light" className="w-[160px] h-auto" />
           </div>
           
           <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 sm:p-10 border border-slate-100 relative">

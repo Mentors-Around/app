@@ -146,9 +146,9 @@ const Step3 = ({ documents, onFileChange, onNext, onBack }) => {
 const Step4 = ({ personalData, teachingData, documents, onSubmit, onBack, loading }) => {
   const [agreed, setAgreed] = useState(false);
   const Row = ({ label, value }) => (
-    <div className="flex justify-between text-sm py-1.5 border-b border-slate-50 last:border-0">
-      <span className="text-muted">{label}</span>
-      <span className="text-navy font-medium text-right ml-4">{value || '—'}</span>
+    <div className="flex justify-between items-start text-sm py-1.5 border-b border-slate-50 last:border-0 gap-3">
+      <span className="text-muted shrink-0">{label}</span>
+      <span className="text-navy font-medium text-right break-all">{value || '—'}</span>
     </div>
   );
   return (

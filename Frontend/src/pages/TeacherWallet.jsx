@@ -66,10 +66,10 @@ const TeacherWallet = () => {
 
   return (
     <div className="max-w-6xl mx-auto pb-12 relative">
-      <div className="mb-8 flex items-end justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row justify-between sm:items-center gap-4 px-4 sm:px-0">
         <div>
-          <h1 className="font-sora text-3xl font-bold text-navy mb-2">Earnings Dashboard</h1>
-          <p className="text-slate-500 font-medium">Manage your earnings, withdraw funds, and analyze revenue trends.</p>
+          <h1 className="font-sora text-2xl sm:text-3xl font-bold text-navy mb-2">Earnings Dashboard</h1>
+          <p className="text-slate-500 font-medium text-sm sm:text-base">Manage your earnings, withdraw funds, and analyze revenue trends.</p>
         </div>
       </div>
 
@@ -86,8 +86,8 @@ const TeacherWallet = () => {
             <p className="text-sky-100/70 text-sm font-medium">Ready for withdrawal</p>
           </div>
           
-          <div className="flex gap-3 relative z-10">
-            <button onClick={() => setShowDepositModal(true)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold transition flex items-center justify-center gap-2 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row gap-3 relative z-10 w-full">
+            <button onClick={() => setShowDepositModal(true)} className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold transition flex items-center justify-center gap-2 backdrop-blur-sm">
               <ArrowDownToLine className="w-5 h-5" /> Deposit
             </button>
             <button onClick={() => {
@@ -96,7 +96,7 @@ const TeacherWallet = () => {
               } else {
                 setShowWithdrawModal(true);
               }
-            }} className="flex-1 py-3 bg-sky-500 hover:bg-sky-400 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-lg">
+            }} className="w-full py-3 bg-sky-500 hover:bg-sky-400 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-lg">
               <ArrowUpFromLine className="w-5 h-5" /> Withdraw
             </button>
           </div>
@@ -144,16 +144,18 @@ const TeacherWallet = () => {
               <option>2025</option>
             </select>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} tickFormatter={(val) => `₹${val/1000}k`} />
-                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', fontWeight: 'bold', color: '#1e293b'}} />
-                <Bar dataKey="earnings" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={60} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-64 w-full overflow-x-auto hide-scrollbar">
+            <div className="h-full min-w-[500px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} tickFormatter={(val) => `₹${val/1000}k`} />
+                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', fontWeight: 'bold', color: '#1e293b'}} />
+                  <Bar dataKey="earnings" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>
@@ -235,11 +237,11 @@ const TeacherWallet = () => {
       </div>
 
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-sora text-xl font-bold text-navy flex items-center gap-2">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+          <h2 className="font-sora text-lg sm:text-xl font-bold text-navy flex items-center gap-2">
             <History className="w-5 h-5 text-sky-500" /> Transaction History
           </h2>
-          <button className="px-4 py-2 bg-slate-50 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-100 transition flex items-center gap-2">
+          <button className="px-4 py-2 bg-slate-50 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-100 transition flex items-center gap-2 self-start sm:self-auto">
             <Download className="w-4 h-4" /> Statement
           </button>
         </div>

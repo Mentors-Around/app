@@ -10,10 +10,10 @@ const Footer = () => {
   return (
     <footer className="bg-navy text-white/60 py-12 px-6">
 
-      <div className="max-w-[1100px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="max-w-[1100px] mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 gap-10">
         
         {/* Brand & Contact */}
-        <div className="lg:col-span-3">
+        <div className="sm:col-span-2 md:col-span-3 lg:col-span-3">
           <Logo variant="dark" className="h-14 w-auto mb-4" loading="lazy" />
           <p className="text-sm leading-relaxed mb-6 max-w-[280px]">
             India's trusted platform for verified tutoring. Connecting students with checked teachers since {new Date().getFullYear()}.
@@ -54,7 +54,7 @@ const Footer = () => {
         </div>
 
         {/* Links */}
-        <div className="lg:col-span-2">
+        <div className="sm:col-span-1 lg:col-span-2">
           <h4 className="text-white font-sora text-sm font-semibold mb-5 uppercase tracking-wider">For Students</h4>
           <ul className="flex flex-col gap-3">
             <li><Link to="/student/discover" className="text-white/60 text-sm hover:text-amber transition hover:translate-x-1 inline-block">Find a Teacher</Link></li>
@@ -65,7 +65,7 @@ const Footer = () => {
           </ul>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="sm:col-span-1 lg:col-span-2">
           <h4 className="text-white font-sora text-sm font-semibold mb-5 uppercase tracking-wider">For Teachers</h4>
           <ul className="flex flex-col gap-3">
             <li><Link to="/login?role=teacher" className="text-white/60 text-sm hover:text-amber transition hover:translate-x-1 inline-block">Become a Teacher</Link></li>
@@ -76,7 +76,7 @@ const Footer = () => {
           </ul>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="sm:col-span-1 lg:col-span-2">
           <h4 className="text-white font-sora text-sm font-semibold mb-5 uppercase tracking-wider">For Coaching Centers</h4>
           <ul className="flex flex-col gap-3">
             <li><Link to="/coaching-centers" className="text-white/60 text-sm hover:text-amber transition hover:translate-x-1 inline-block">Join as a Center</Link></li>
@@ -86,7 +86,7 @@ const Footer = () => {
           </ul>
         </div>
 
-        <div className="lg:col-span-3">
+        <div className="sm:col-span-2 md:col-span-3 lg:col-span-3">
           <h4 className="text-white font-sora text-sm font-semibold mb-5 uppercase tracking-wider">Stay Updated</h4>
           <p className="text-sm text-white/60 mb-4">
             Get updates about tutors, offers, and learning resources.

@@ -23,6 +23,7 @@ const corsOptions = {
     "Authorization",
     "X-Correlation-ID",
     "X-Requested-With",
+    "Idempotency-Key",
   ],
 
   exposedHeaders: [

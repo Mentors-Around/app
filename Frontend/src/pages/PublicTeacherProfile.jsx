@@ -430,7 +430,7 @@ const PublicTeacherProfile = () => {
                       <p className="text-xs font-bold text-slate-500">Based on {reviewStats.totalReviews} verified reviews</p>
                     </div>
                     
-                    <div className="flex-1 w-full space-y-2 border-r border-slate-200 pr-8">
+                    <div className="flex-1 w-full space-y-2 border-b md:border-b-0 md:border-r border-slate-200 pb-6 md:pb-0 pr-0 md:pr-8">
                       {reviewStats.starsBreakdown.map((bar) => (
                         <div key={bar.stars} className="flex items-center gap-3">
                           <span className="text-xs font-bold text-slate-500 w-6">{bar.stars} ★</span>
@@ -442,7 +442,7 @@ const PublicTeacherProfile = () => {
                       ))}
                     </div>
 
-                    <div className="flex-1 w-full space-y-3 pl-2">
+                    <div className="flex-1 w-full space-y-3 pl-0 md:pl-2 pt-6 md:pt-0">
                       <h4 className="text-xs font-bold text-navy uppercase tracking-wider mb-2">Category Ratings</h4>
                       {[
                         { label: 'Teaching Quality', score: reviewStats.categories.teachingQuality },
@@ -485,10 +485,10 @@ const PublicTeacherProfile = () => {
                             {[1,2,3,4,5].map(i => <Star key={i} className={`w-3.5 h-3.5 ${i <= r.overallRating ? 'fill-amber text-amber' : 'text-slate-200 fill-slate-200'}`} />)}
                           </div>
                         </div>
-                        {r.text && <p className="text-sm font-medium text-slate-600 pl-13 ml-13">{r.text}</p>}
+                        {r.text && <p className="text-sm font-medium text-slate-600 pl-0 ml-0 sm:pl-13 sm:ml-13">{r.text}</p>}
                         
                         {r.reply && (
-                          <div className="mt-4 ml-13 bg-slate-50 p-4 rounded-xl border border-slate-100 relative">
+                          <div className="mt-4 ml-0 sm:ml-13 bg-slate-50 p-4 rounded-xl border border-slate-100 relative">
                             <div className="absolute -top-2 left-4 w-4 h-4 bg-slate-50 border-t border-l border-slate-100 rotate-45"></div>
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xs font-bold text-navy flex items-center gap-1">

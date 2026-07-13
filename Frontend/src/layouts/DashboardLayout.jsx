@@ -28,6 +28,16 @@ const DashboardLayout = ({ role }) => {
     }
   }, [navigate, role]);
 
+  // Prevent body scrolling when sidebar drawer is open on mobile
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    return () => document.body.classList.remove('overflow-hidden');
+  }, [sidebarOpen]);
+
   return (
     <div className="min-h-screen bg-page relative">
       {/* Mobile overlay */}

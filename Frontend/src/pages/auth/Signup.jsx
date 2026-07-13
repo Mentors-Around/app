@@ -220,7 +220,7 @@ const Signup = () => {
               </div>
               {num < 4 && (
                 <div 
-                  className={`w-12 h-0.5 ml-2 transition ${
+                  className={`w-8 sm:w-12 h-0.5 ml-2 transition ${
                     step > num ? 'bg-emerald-500' : 'bg-slate-100'
                   }`}
                 />

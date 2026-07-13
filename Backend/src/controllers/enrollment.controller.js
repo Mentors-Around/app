@@ -16,7 +16,7 @@ import {
   QUERY_STATUS, PAYMENT_PURPOSE, PAYMENT_STATUS, ENROLLMENT_STATUS,
 } from '../constants/enums.js';
 import { calcTeacherDeposit } from '../utils/finance.util.js';
-import { blockAllPII }        from '../utils/pii.util.js';
+import { blockAllPII }        from '../utils/pil.util.js';
 import logger                 from '../config/logger.config.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -65,15 +65,30 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      {activeOverlayId === 'navbar-mobile-menu' && (
-        <div ref={mobileMenuRefs.overlayRef} className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-slate-100 shadow-lg py-4 px-6 flex flex-col gap-4 animate-fade-in">
-          <Link to="/student/discover" onClick={() => closeOverlay()} className="text-navy font-bold">Find a Teacher</Link>
-          <Link to="/#how" onClick={() => { scrollTo('how'); closeOverlay(); }} className="text-navy/70 font-medium">How it Works</Link>
-          <Link to="/#for-students" onClick={() => { scrollTo('for-students'); closeOverlay(); }} className="text-navy/70 font-medium">For Students</Link>
-          <Link to="/#for-teachers" onClick={() => { scrollTo('for-teachers'); closeOverlay(); }} className="text-navy/70 font-medium">For Teachers</Link>
-          <Link to="/coaching-centers" onClick={() => closeOverlay()} className="text-navy/70 font-medium">For Coaching Centers</Link>
+      {/* Mobile Menu Drawer */}
+      <div 
+        className={`fixed inset-y-0 right-0 w-[280px] bg-white z-50 shadow-xl border-l border-slate-100 p-6 flex flex-col gap-5 transition-transform duration-300 ease-in-out md:hidden
+          ${activeOverlayId === 'navbar-mobile-menu' ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+          <Logo variant="light" className="h-10 w-auto" />
+          <button onClick={() => closeOverlay()} className="text-slate-400 hover:text-navy p-1">
+            <i className="fa-solid fa-xmark text-xl" />
+          </button>
         </div>
+        <Link to="/student/discover" onClick={() => closeOverlay()} className="text-navy font-bold text-lg">Find a Teacher</Link>
+        <Link to="/#how" onClick={() => { scrollTo('how'); closeOverlay(); }} className="text-navy/70 font-semibold text-lg">How it Works</Link>
+        <Link to="/#for-students" onClick={() => { scrollTo('for-students'); closeOverlay(); }} className="text-navy/70 font-semibold text-lg">For Students</Link>
+        <Link to="/#for-teachers" onClick={() => { scrollTo('for-teachers'); closeOverlay(); }} className="text-navy/70 font-semibold text-lg">For Teachers</Link>
+        <Link to="/coaching-centers" onClick={() => closeOverlay()} className="text-navy/70 font-semibold text-lg">For Coaching Centers</Link>
+      </div>
+      
+      {/* Mobile Drawer Overlay */}
+      {activeOverlayId === 'navbar-mobile-menu' && (
+        <div 
+          onClick={() => closeOverlay()}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+        />
       )}
     </nav>
   );

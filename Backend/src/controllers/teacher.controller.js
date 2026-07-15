@@ -415,3 +415,46 @@ function _nextOccurrence(dayOfWeek, startTime, from) {
   candidate.setDate(candidate.getDate() + diff);
   return candidate;
 }
+
+// ── GET /me/reviews ─────────────────────────────────────────────────────────────
+export const getMyReviews = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+
+  const result = await Review.paginate(
+    { teacherId: req.user._id, isVisible: true },
+    {
+      page:     Number(page),
+      limit:    Math.min(Number(limit), 50),
+      sort:     { createdAt: -1 },
+      populate: [
+        { path: 'studentId',   select: 'name avatarUrl' },
+        { path: 'classroomId', select: 'title subject' },
+      ],
+    }
+  );
+
+  res.status(200).json(new ApiResponse(200, result, 'Reviews fetched successfully'));
+});
+
+// ── PATCH /me/reviews/:reviewId/reply ───────────────────────────────────────────
+export const replyToReview = asyncHandler(async (req, res) => {
+  const { reviewId } = req.params;
+  const { replyText } = req.body;
+
+  if (replyText === undefined || replyText === null) {
+    throw ApiError.badRequest('replyText is required');
+  }
+
+  const review = await Review.findById(reviewId);
+  if (!review) throw ApiError.notFound('Review');
+
+  if (review.teacherId.toString() !== req.user._id.toString()) {
+    throw ApiError.forbidden('You do not own this review');
+  }
+
+  review.replyText = replyText.trim();
+  review.repliedAt = new Date();
+  await review.save();
+
+  res.status(200).json(new ApiResponse(200, review, 'Reply posted successfully'));
+});

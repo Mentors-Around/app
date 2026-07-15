@@ -61,7 +61,7 @@ export const TokenService = {
       sameSite: env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge:   7 * 24 * 60 * 60 * 1000,
       domain:   env.REFRESH_TOKEN_COOKIE_DOMAIN || env.COOKIE_DOMAIN || undefined,
-      path:     "/api/auth/refresh",
+      path:     "/",
     };
   },
 

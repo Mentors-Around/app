@@ -1,6 +1,237 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* ============ DYNAMIC THEMING & DARK MODE SYSTEM ============ */
+:root,
+.theme-classic {
+  --trueed-navy: #16355F;
+  --trueed-navy-hover: #1E4A80;
+  --trueed-navy-dark: #0e2340;
+  --trueed-navy-light: #25508a;
+  --trueed-amber: #F59E0B;
+  --trueed-amber-hover: #d97706;
+  --trueed-sky: #38BDF8;
+  --trueed-coral: #FF6B6B;
+  --trueed-coral-hover: #e85a5a;
+  --trueed-page: #F5F9FF;
+  --trueed-cream: #F8FAFC;
+  --trueed-cream-warm: #F1F5F9;
+  --trueed-surface: #ffffff;
+  --trueed-text-primary: #0F172A;
+  --trueed-text-secondary: #475569;
+  --trueed-text-muted: #64748B;
+  --trueed-border: #E2E8F0;
+  --trueed-border-light: #F1F5F9;
+  --trueed-success: #22C55E;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
+}
+
+html.dark,
+html.dark.theme-classic {
+  --trueed-navy: #60A5FA;
+  --trueed-navy-hover: #93C5FD;
+  --trueed-navy-dark: #1E3A8A;
+  --trueed-navy-light: #3B82F6;
+  --trueed-amber: #FBBF24;
+  --trueed-amber-hover: #F59E0B;
+  --trueed-sky: #60A5FA;
+  --trueed-coral: #F87171;
+  --trueed-coral-hover: #EF4444;
+  --trueed-page: #0B0F19;
+  --trueed-cream: #111827;
+  --trueed-cream-warm: #1F2937;
+  --trueed-surface: #1F2937;
+  --trueed-text-primary: #F3F4F6;
+  --trueed-text-secondary: #D1D5DB;
+  --trueed-text-muted: #9CA3AF;
+  --trueed-border: #374151;
+  --trueed-border-light: #4B5563;
+}
+
+.theme-emerald {
+  --trueed-navy: #064E3B;
+  --trueed-navy-hover: #065F46;
+  --trueed-navy-dark: #022C22;
+  --trueed-navy-light: #047857;
+  --trueed-amber: #10B981;
+  --trueed-amber-hover: #059669;
+  --trueed-sky: #34D399;
+  --trueed-coral: #FB7185;
+  --trueed-coral-hover: #F43F5E;
+  --trueed-page: #F0FDF4;
+  --trueed-cream: #F6FDF9;
+  --trueed-cream-warm: #ECFDF5;
+  --trueed-surface: #ffffff;
+  --trueed-text-primary: #062F22;
+  --trueed-text-secondary: #115E59;
+  --trueed-text-muted: #4D7C0F;
+  --trueed-border: #CBD5E1;
+  --trueed-border-light: #F1F5F9;
+  --trueed-success: #10B981;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
+}
+
+html.dark.theme-emerald {
+  --trueed-navy: #34D399;
+  --trueed-navy-hover: #6EE7B7;
+  --trueed-navy-dark: #064E3B;
+  --trueed-navy-light: #059669;
+  --trueed-amber: #10B981;
+  --trueed-amber-hover: #059669;
+  --trueed-sky: #6EE7B7;
+  --trueed-coral: #FDA4AF;
+  --trueed-coral-hover: #FB7185;
+  --trueed-page: #022C22;
+  --trueed-cream: #064E3B;
+  --trueed-cream-warm: #065F46;
+  --trueed-surface: #064E3B;
+  --trueed-text-primary: #ECFDF5;
+  --trueed-text-secondary: #D1FAE5;
+  --trueed-text-muted: #A7F3D0;
+  --trueed-border: #047857;
+  --trueed-border-light: #059669;
+}
+
+.theme-amethyst {
+  --trueed-navy: #4C1D95;
+  --trueed-navy-hover: #5B21B6;
+  --trueed-navy-dark: #2E1065;
+  --trueed-navy-light: #6D28D9;
+  --trueed-amber: #8B5CF6;
+  --trueed-amber-hover: #7C3AED;
+  --trueed-sky: #C084FC;
+  --trueed-coral: #F472B6;
+  --trueed-coral-hover: #EC4899;
+  --trueed-page: #FAF5FF;
+  --trueed-cream: #FDFAFF;
+  --trueed-cream-warm: #F3E8FF;
+  --trueed-surface: #ffffff;
+  --trueed-text-primary: #1E1B4B;
+  --trueed-text-secondary: #4C1D95;
+  --trueed-text-muted: #7C3AED;
+  --trueed-border: #CBD5E1;
+  --trueed-border-light: #F1F5F9;
+  --trueed-success: #10B981;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
+}
+
+html.dark.theme-amethyst {
+  --trueed-navy: #C084FC;
+  --trueed-navy-hover: #D8B4FE;
+  --trueed-navy-dark: #3B0764;
+  --trueed-navy-light: #7C3AED;
+  --trueed-amber: #A78BFA;
+  --trueed-amber-hover: #8B5CF6;
+  --trueed-sky: #C084FC;
+  --trueed-coral: #F472B6;
+  --trueed-coral-hover: #EC4899;
+  --trueed-page: #120B24;
+  --trueed-cream: #2E1065;
+  --trueed-cream-warm: #3B0764;
+  --trueed-surface: #2E1065;
+  --trueed-text-primary: #FAF5FF;
+  --trueed-text-secondary: #E9D5FF;
+  --trueed-text-muted: #D8B4FE;
+  --trueed-border: #5B21B6;
+  --trueed-border-light: #6D28D9;
+}
+
+.theme-sunset {
+  --trueed-navy: #7C2D12;
+  --trueed-navy-hover: #9A3412;
+  --trueed-navy-dark: #431407;
+  --trueed-navy-light: #C2410C;
+  --trueed-amber: #EA580C;
+  --trueed-amber-hover: #D97706;
+  --trueed-sky: #FDBA74;
+  --trueed-coral: #F43F5E;
+  --trueed-coral-hover: #E11D48;
+  --trueed-page: #FFF7ED;
+  --trueed-cream: #FFFAF5;
+  --trueed-cream-warm: #FFEDD5;
+  --trueed-surface: #ffffff;
+  --trueed-text-primary: #431407;
+  --trueed-text-secondary: #7C2D12;
+  --trueed-text-muted: #C2410C;
+  --trueed-border: #CBD5E1;
+  --trueed-border-light: #F1F5F9;
+  --trueed-success: #10B981;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
+}
+
+html.dark.theme-sunset {
+  --trueed-navy: #FDBA74;
+  --trueed-navy-hover: #FED7AA;
+  --trueed-navy-dark: #431407;
+  --trueed-navy-light: #EA580C;
+  --trueed-amber: #EA580C;
+  --trueed-amber-hover: #D97706;
+  --trueed-sky: #FDBA74;
+  --trueed-coral: #F43F5E;
+  --trueed-coral-hover: #E11D48;
+  --trueed-page: #270E05;
+  --trueed-cream: #431407;
+  --trueed-cream-warm: #7C2D12;
+  --trueed-surface: #431407;
+  --trueed-text-primary: #FFEDD5;
+  --trueed-text-secondary: #FED7AA;
+  --trueed-text-muted: #FDBA74;
+  --trueed-border: #9A3412;
+  --trueed-border-light: #C2410C;
+}
+
+@theme {
+  --color-page: var(--trueed-page);
+  --color-navy: var(--trueed-navy);
+  --color-navy-hover: var(--trueed-navy-hover);
+  --color-navy-dark: var(--trueed-navy-dark);
+  --color-navy-light: var(--trueed-navy-light);
+  --color-amber: var(--trueed-amber);
+  --color-amber-hover: var(--trueed-amber-hover);
+  --color-sky: var(--trueed-sky);
+  --color-coral: var(--trueed-coral);
+  --color-coral-hover: var(--trueed-coral-hover);
+  --color-cream: var(--trueed-cream);
+  --color-cream-warm: var(--trueed-cream-warm);
+  --color-surface: var(--trueed-surface);
+  --color-muted: var(--trueed-muted);
+  --color-success: var(--trueed-success);
+  --color-warning: var(--trueed-warning);
+  --color-error: var(--trueed-error);
+
+  --font-sora: "Sora", sans-serif;
+  --font-dm: "DM Sans", sans-serif;
+  --font-inter: "Inter", sans-serif;
+
+  --radius-brand: 12px;
+  --radius-brand-lg: 18px;
+
+  --shadow-brand: 0 4px 20px rgba(15,23,42,0.06);
+  --shadow-brand-lg: 0 8px 30px rgba(15,23,42,0.08);
+  --shadow-brand-xl: 0 12px 40px rgba(15,23,42,0.1);
+
+  --animate-slide-up: slideUp 0.4s ease-out;
+  --animate-expand-in: expandIn 0.3s ease;
+  --animate-shake: shake 0.3s;
+  --animate-spin-slow: spin 0.8s linear infinite;
+}
+
+@keyframes slideUp {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes expandIn {
+  0% { opacity: 0; transform: scale(0.95) translateY(-10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
 
 /* ============ BASE ============ */
 html {
@@ -205,3 +436,98 @@ input[type='range'].distance-slider::-webkit-slider-thumb {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ============ GLOBAL DARK MODE INTERFACES OVERRIDES ============ */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: var(--trueed-page);
+  color: var(--trueed-text-primary);
+}
+
+/* Force-map solid whites and generic slates to respect custom themes in dark mode */
+html.dark .bg-white {
+  background-color: var(--trueed-surface) !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-cream {
+  background-color: var(--trueed-cream) !important;
+}
+
+html.dark .bg-slate-100,
+html.dark .bg-cream-warm {
+  background-color: var(--trueed-cream-warm) !important;
+}
+
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-navy {
+  color: var(--trueed-text-primary) !important;
+}
+
+html.dark .text-slate-700,
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: var(--trueed-text-secondary) !important;
+}
+
+html.dark .text-slate-400 {
+  color: var(--trueed-text-muted) !important;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-100,
+html.dark .border-slate-300 {
+  border-color: var(--trueed-border) !important;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--trueed-cream) !important;
+  color: var(--trueed-text-primary) !important;
+  border-color: var(--trueed-border) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--trueed-text-muted) !important;
+}
+
+html.dark .sidebar-nav-item.active {
+  background-color: rgba(245, 166, 35, 0.15) !important;
+  color: var(--trueed-amber) !important;
+}
+
+html.dark .time-slot-booked {
+  background-color: rgba(91, 163, 224, 0.15) !important;
+  color: var(--trueed-text-primary) !important;
+  border-color: var(--trueed-border) !important;
+}
+
+html.dark .upload-zone {
+  border-color: var(--trueed-border) !important;
+}
+
+html.dark .upload-zone:hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: var(--trueed-border) !important;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--trueed-border-light) !important;
+}
+
+/* Specific component fixes for dark mode readability */
+html.dark .shadow-sm,
+html.dark .shadow-brand,
+html.dark .shadow-brand-lg {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+

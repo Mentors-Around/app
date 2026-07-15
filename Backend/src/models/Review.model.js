@@ -55,6 +55,16 @@ const reviewSchema = new Schema(
       maxlength: [1000, 'Comment cannot exceed 1000 characters'],
       default:   '',
     },
+    replyText: {
+      type:      String,
+      trim:      true,
+      maxlength: [1000, 'Reply cannot exceed 1000 characters'],
+      default:   null,
+    },
+    repliedAt: {
+      type:    Date,
+      default: null,
+    },
     // Moderation
     isVisible:    { type: Boolean, default: true, index: true },
     adminNote:    { type: String,  trim: true, default: null, select: false },

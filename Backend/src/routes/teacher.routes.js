@@ -9,6 +9,7 @@ import {
   getMyQueries, getPublicProfile, getMyClassrooms,
   getMyDoubts, updateAvailability,
   getTeacherWallet, initiateTeacherDeposit, verifyTeacherDeposit,
+  getMyReviews, replyToReview,
 } from '../controllers/teacher.controller.js';
 import { paymentLimiter }       from '../middlewares/rateLimit.middleware.js';
 import { requireIdempotencyKey } from '../middlewares/idempotency.middleware.js';
@@ -26,6 +27,8 @@ router.get('/me/classrooms',   authenticate, requireTeacher, getMyClassrooms);
 router.get('/me/queries',      authenticate, requireTeacher, getMyQueries);
 router.get('/me/doubts',       authenticate, requireTeacher, getMyDoubts);
 router.patch('/me/availability', authenticate, requireTeacher, updateAvailability);
+router.get('/me/reviews',        authenticate, requireTeacher, getMyReviews);
+router.patch('/me/reviews/:reviewId/reply', authenticate, requireTeacher, replyToReview);
 
 // ── Public profile (no auth required) ────────────────────────────────────────
 router.get('/:teacherId/public', optionalAuthenticate, getPublicProfile);

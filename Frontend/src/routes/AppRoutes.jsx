@@ -62,12 +62,22 @@ const TeacherDoubtsPage = lazy(() => import('@/pages/teacher/TeacherDoubtsPage')
 const TeacherReports = lazy(() => import('@/pages/teacher/TeacherReports'));
 const TeacherReviews = lazy(() => import('@/pages/teacher/TeacherReviews'));
 const TeacherStudents = lazy(() => import('@/pages/teacher/TeacherStudents'));
+const TeacherProfile = lazy(() => import('@/pages/teacher/TeacherProfile'));
+const TeacherClassroomStudents = lazy(() => import('@/pages/teacher/TeacherClassroomStudents'));
 
 // ── Admin ──
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
 const AdminReviews = lazy(() => import('@/pages/admin/AdminReviews'));
 const AdminPayouts = lazy(() => import('@/pages/admin/AdminPayouts'));
 const AdminAnalytics = lazy(() => import('@/pages/admin/AdminAnalytics'));
+const AdminTeachers = lazy(() => import('@/pages/admin/AdminTeachers'));
+const AdminStudents = lazy(() => import('@/pages/admin/AdminStudents'));
+const AdminKYC = lazy(() => import('@/pages/admin/AdminKYC'));
+const AdminClassrooms = lazy(() => import('@/pages/admin/AdminClassrooms'));
+const AdminReports = lazy(() => import('@/pages/admin/AdminReports'));
+const AdminWallet = lazy(() => import('@/pages/admin/AdminWallet'));
+const AdminSupport = lazy(() => import('@/pages/admin/AdminSupport'));
+const AdminSettings = lazy(() => import('@/pages/admin/AdminSettings'));
 
 const Fallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-page">
@@ -117,15 +127,20 @@ const AppRoutes = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
           {/* Google OAuth: new user profile completion page */}
           <Route path="/auth/complete-profile" element={<GoogleComplete />} />
         </Route>
       </Route>
 
+      {/* Admin login — always accessible (not behind GuestRoute) */}
+      <Route element={<AuthLayout />}>
+        <Route path="/admin/login" element={<AdminLogin />} />
+      </Route>
+
       {/* Student */}
       <Route element={<ProtectedRoute roles={[ROLES.STUDENT]} />}>
         <Route element={<DashboardLayout />}>
+          <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
           <Route path="/student/discover" element={<StudentDiscover />} />
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/student/wallet" element={<StudentWallet />} />
@@ -145,9 +160,11 @@ const AppRoutes = () => (
       {/* Teacher */}
       <Route element={<ProtectedRoute roles={[ROLES.TEACHER]} />}>
         <Route element={<DashboardLayout />}>
+          <Route path="/teacher" element={<Navigate to="/teacher/dashboard" replace />} />
           <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
           <Route path="/teacher/classrooms" element={<TeacherClassrooms />} />
           <Route path="/teacher/classrooms/:id" element={<TeacherClassroomDetails />} />
+          <Route path="/teacher/classrooms/:id/students" element={<TeacherClassroomStudents />} />
           <Route path="/teacher/wallet" element={<TeacherWallet />} />
           <Route path="/teacher/kyc" element={<TeacherKYC />} />
           <Route path="/teacher/notifications" element={<Notifications />} />
@@ -157,17 +174,27 @@ const AppRoutes = () => (
           <Route path="/teacher/reports" element={<TeacherReports />} />
           <Route path="/teacher/reviews" element={<TeacherReviews />} />
           <Route path="/teacher/students" element={<TeacherStudents />} />
+          <Route path="/teacher/profile" element={<TeacherProfile />} />
         </Route>
       </Route>
 
       {/* Admin */}
       <Route element={<ProtectedRoute roles={[ROLES.ADMIN]} />}>
         <Route element={<DashboardLayout />}>
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/reviews" element={<AdminReviews />} />
           <Route path="/admin/payouts" element={<AdminPayouts />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/notifications" element={<Notifications />} />
+          <Route path="/admin/teachers" element={<AdminTeachers />} />
+          <Route path="/admin/students" element={<AdminStudents />} />
+          <Route path="/admin/kyc" element={<AdminKYC />} />
+          <Route path="/admin/classrooms" element={<AdminClassrooms />} />
+          <Route path="/admin/reports" element={<AdminReports />} />
+          <Route path="/admin/wallet" element={<AdminWallet />} />
+          <Route path="/admin/support" element={<AdminSupport />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
         </Route>
       </Route>
 

@@ -272,7 +272,7 @@ classroomSchema.virtual('isPastHalfway').get(function () {
 });
 
 // ── Pre-save ──────────────────────────────────────────────────────────────────
-classroomSchema.pre('save', function (next) {
+classroomSchema.pre('save', async function () {
   if (
     this.isModified('title') || this.isModified('subject') ||
     this.isModified('stream') || this.isModified('tags') ||
@@ -289,9 +289,8 @@ classroomSchema.pre('save', function (next) {
     this.searchKeywords = [...new Set(kw)];
   }
   if (this.startDate && this.endDate && this.endDate <= this.startDate) {
-    return next(new Error('End date must be after start date'));
+    throw new Error('End date must be after start date');
   }
-  next();
 });
 
 // ── Instance methods ──────────────────────────────────────────────────────────

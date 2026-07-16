@@ -134,6 +134,10 @@ export const OtpService = {
       phoneOk,
     });
 
+    if (env.NODE_ENV === 'development') {
+      logger.info(`[DEV ONLY] Raw OTPs for ${normEmail} / ${phone} -> Email OTP: ${emailOtp}, Phone OTP: ${phoneOtp}`);
+    }
+
     return {
       expiresAt,
       maskedEmail:   _maskEmail(normEmail),
@@ -390,6 +394,9 @@ export const OtpService = {
   },
 
   _generateOtp() {
+    if (env.NODE_ENV === 'development') {
+      return '123456';
+    }
     return String(crypto.randomInt(100000, 999999));
   },
 };

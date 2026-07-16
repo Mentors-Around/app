@@ -127,14 +127,14 @@ documentSchema.statics.pendingReviewQueue = function (options = {}) {
 };
 
 // ── Pre-save: deactivate previous versions ────────────────────────────────────
-documentSchema.pre('save', async function (next) {
+documentSchema.pre('save', async function () {
   if (this.isNew) {
     await this.constructor.updateMany(
       { teacherId: this.teacherId, type: this.type, _id: { $ne: this._id }, isActive: true },
       { $set: { isActive: false } },
+      { session: this.$session() }
     );
   }
-  next();
 });
 
 documentSchema.query.approved = function () { return this.where({ status: DOCUMENT_STATUS.APPROVED }); };

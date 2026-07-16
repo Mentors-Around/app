@@ -168,7 +168,7 @@ export const signupComplete = asyncHandler(async (req, res) => {
       await TeacherProfile.create([{
         userId:             user._id,
         verificationStatus: 'pending',
-        subjects:           teacherFields.subjects || [],
+        subjects:           (teacherFields.subjects && teacherFields.subjects.length > 0) ? teacherFields.subjects : ['General'],
         bio:                teacherFields.bio      || '',
         city:               teacherFields.city     || '',
         state:              teacherFields.state    || '',
@@ -494,7 +494,7 @@ export const googleComplete = asyncHandler(async (req, res) => {
 
     // Teacher
     await TeacherProfile.create([{
-      userId: user._id, verificationStatus: 'pending', subjects: [],
+      userId: user._id, verificationStatus: 'pending', subjects: ['General'],
     }], { session: dbSession });
     await dbSession.commitTransaction();
 

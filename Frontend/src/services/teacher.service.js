@@ -6,6 +6,7 @@ export const teacherService = {
   uploadKYC: (formData) =>
     apiClient.post('/teachers/onboarding/kyc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // 2 min — Cloudinary uploads can be slow
     }),
 
   getDashboard: () => apiClient.get('/teachers/me/dashboard'),

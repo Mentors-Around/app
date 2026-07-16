@@ -24,8 +24,12 @@ const AdminLogin = () => {
     setError('');
     setLoading(true);
     try {
-      const user = await loginWithPassword(email.trim().toLowerCase(), password);
-      if (user.role !== ROLES.ADMIN) {
+      // If another user session is active, log them out silently first
+      // so the admin credentials can establish a fresh session.
+      await logout().catch(() => {});
+
+      const { user } = await loginWithPassword(email.trim().toLowerCase(), password);
+      if (user?.role !== ROLES.ADMIN) {
         await logout();
         setError('This account does not have admin access.');
         return;

@@ -274,8 +274,9 @@ export default function TeacherClassroomDetails() {
     setSubmittingReport(true);
     try {
       await classroomService.report(id, {
-        studentId: reportingStudent._id,
-        reason: reportReason,
+        targetType: 'student',
+        targetId: reportingStudent._id,
+        reportType: reportReason,
         description: reportDesc
       });
       toast.success('Student report submitted successfully');
@@ -695,9 +696,17 @@ export default function TeacherClassroomDetails() {
               {/* Enrolled Students */}
               {activeTab === 'students' && (
                 <div>
-                  <h3 className="font-sora font-bold text-navy text-lg mb-6 flex items-center gap-2">
-                    <Users size={18} className="text-sky" /> Enrolled Students
-                  </h3>
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-sora font-bold text-navy text-lg flex items-center gap-2">
+                      <Users size={18} className="text-sky" /> Enrolled Students
+                    </h3>
+                    <Link
+                      to={`/teacher/classrooms/${id}/students`}
+                      className="text-xs bg-navy text-white px-3 py-1.5 rounded-lg hover:bg-navy-hover transition font-bold"
+                    >
+                      Manage Students
+                    </Link>
+                  </div>
 
                   {studentsList.length === 0 ? (
                     <p className="text-sm text-muted py-12 text-center">No students enrolled yet.</p>

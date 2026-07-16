@@ -133,10 +133,12 @@ const TeacherKYC = () => {
     if (selected.length === 0) { toast.error('Upload at least one document'); return; }
     setSaving(true);
     try {
-      const formData = new FormData();
-      selected.forEach(([, file]) => formData.append('documents', file));
-      formData.append('documentType', selected[0][0]);
-      await teacherService.uploadKYC(formData);
+      for (const [docKey, file] of selected) {
+        const formData = new FormData();
+        formData.append('documents', file);
+        formData.append('documentType', docKey);
+        await teacherService.uploadKYC(formData);
+      }
       toast.success('Documents submitted! We\'ll review within 1-2 business days.');
       setSubmitted(true);
       updateUser({ kycStatus: 'under_review', isVerificationPending: true });

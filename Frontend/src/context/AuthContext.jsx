@@ -32,10 +32,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await userService.getMe();
       const me = data?.data ?? data;
-      setUser(withInitials(me));
+      const actualUser = me?.user ?? me;
+      setUser(withInitials(actualUser));
       setIsAuthenticated(true);
       // isVerificationPending comes from the User model (teachers only)
-      setKycPending(!!(me?.isVerificationPending));
+      setKycPending(!!(actualUser?.isVerificationPending));
     } catch {
       setUser(null);
       setIsAuthenticated(false);

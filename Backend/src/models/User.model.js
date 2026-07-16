@@ -141,6 +141,7 @@ const userSchema = new Schema(
     },
     // ── Auth flags ─────────────────────────────────────────────────────────────
     isPhoneVerified: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
     kycStatus: {
       type:    String,
       enum:    ['pending', 'under_review', 'approved', 'rejected'],

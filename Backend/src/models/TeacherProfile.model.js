@@ -177,7 +177,7 @@ teacherProfileSchema.virtual('walletRupees').get(function () {
 });
 
 // ── Pre-save: build search keywords ───────────────────────────────────────────
-teacherProfileSchema.pre('save', function (next) {
+teacherProfileSchema.pre('save', async function () {
   if (
     this.isModified('subjects') ||
     this.isModified('languages') ||
@@ -188,7 +188,6 @@ teacherProfileSchema.pre('save', function (next) {
       .map((s) => s.toLowerCase().trim());
     this.searchKeywords = [...new Set(kw)];
   }
-  next();
 });
 
 // ── Static methods ─────────────────────────────────────────────────────────────

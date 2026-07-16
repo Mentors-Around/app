@@ -43,6 +43,7 @@ const PUBLIC_AUTH_PATHS = [
   '/auth/signup',
   '/auth/refresh',
   '/auth/forgot-password',
+  '/auth/google/complete',
   '/users/me',   // initial hydration — a 401 here means "not logged in", not "session expired"
 ];
 

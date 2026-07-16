@@ -51,11 +51,17 @@ export const ADMIN_ACTION_TAKEN = Object.freeze({
 const reportSchema = new Schema(
   {
     // ── Reporter ───────────────────────────────────────────────────────────────
+    // ── Reporter ───────────────────────────────────────────────────────────────
     reportedBy: {
       type:     Schema.Types.ObjectId,
       ref:      'User',
       required: [true, 'Reporter (student) ID is required'],
       index:    true,
+    },
+    reporterId: {
+      type:     Schema.Types.ObjectId,
+      ref:      'User',
+      required: false,
     },
     // ── Subject of report ──────────────────────────────────────────────────────
     teacherId: {
@@ -63,6 +69,15 @@ const reportSchema = new Schema(
       ref:      'User',
       required: [true, 'Teacher ID is required'],
       index:    true,
+    },
+    targetId: {
+      type:     Schema.Types.ObjectId,
+      ref:      'User',
+      required: false,
+    },
+    targetType: {
+      type:     String,
+      required: false,
     },
     classroomId: {
       type:     Schema.Types.ObjectId,
@@ -81,6 +96,10 @@ const reportSchema = new Schema(
       type:     String,
       enum:     { values: Object.values(REPORT_REASON), message: '{VALUE} is not a valid reason' },
       required: [true, 'Report reason is required'],
+    },
+    reportType: {
+      type:     String,
+      required: false,
     },
     description: {
       type:      String,
@@ -130,6 +149,31 @@ const reportSchema = new Schema(
     toObject:   toObjectOptions,
   },
 );
+
+reportSchema.pre('validate', async function () {
+  if (!this.reportedBy && this.reporterId) {
+    this.reportedBy = this.reporterId;
+  } else if (!this.reporterId && this.reportedBy) {
+    this.reporterId = this.reportedBy;
+  }
+  if (!this.teacherId && this.targetId) {
+    this.teacherId = this.targetId;
+  } else if (!this.targetId && this.teacherId) {
+    this.targetId = this.teacherId;
+  }
+  if (!this.reason && this.reportType) {
+    // Normalize reportType to match reason enum if possible
+    const val = this.reportType.toLowerCase().replace(/[\s_]+/g, '_');
+    const matched = Object.values(REPORT_REASON).find(r => r.toLowerCase().replace(/[\s_]+/g, '_') === val);
+    if (matched) {
+      this.reason = matched;
+    } else {
+      this.reason = REPORT_REASON.OTHER;
+    }
+  } else if (!this.reportType && this.reason) {
+    this.reportType = this.reason;
+  }
+});
 
 reportSchema.plugin(mongoosePaginate);
 reportSchema.plugin(mongooseLeanVirtuals);

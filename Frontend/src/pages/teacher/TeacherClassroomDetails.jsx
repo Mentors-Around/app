@@ -77,9 +77,11 @@ export default function TeacherClassroomDetails() {
     setLoading(true);
     try {
       const { data } = await classroomService.getDetail(id);
-      const cls = data?.data ?? data;
+      // Backend returns: { classroom, reviews, ratingBreakdown } nested under data.data
+      const payload = data?.data ?? data;
+      const cls = payload?.classroom ?? payload;
       setClassroom(cls);
-      setGmeetLink(cls.gmeetLink || '');
+      setGmeetLink(cls?.gmeetLink || '');
     } catch (err) {
       toast.error(err?.message || 'Could not load classroom details');
     } finally {
@@ -91,24 +93,32 @@ export default function TeacherClassroomDetails() {
     loadClassroom();
   }, [loadClassroom]);
 
+  const extractList = (data) => {
+    const payload = data?.data ?? data;
+    // Handle paginated response (docs) or plain array
+    return payload?.docs ?? payload?.items ?? (Array.isArray(payload) ? payload : []);
+  };
+
   const loadTabContent = useCallback(async () => {
     setLoadingTab(true);
     try {
       if (activeTab === 'announcements') {
         const { data } = await classroomService.getAnnouncements(id);
-        setAnnouncements(data?.data ?? data ?? []);
+        setAnnouncements(extractList(data));
       } else if (activeTab === 'materials') {
         const { data } = await classroomService.getMaterials(id);
-        setMaterials(data?.data ?? data ?? []);
+        setMaterials(extractList(data));
       } else if (activeTab === 'assignments') {
         const { data } = await classroomService.getAssignments(id);
-        setAssignments(data?.data ?? data ?? []);
+        setAssignments(extractList(data));
       } else if (activeTab === 'doubts') {
         const { data } = await classroomService.getDoubts(id);
-        setDoubts(data?.data ?? data ?? []);
+        setDoubts(extractList(data));
       } else if (activeTab === 'students') {
         const { data } = await classroomService.getEnrolledStudents(id);
-        setStudentsList(data?.data ?? data ?? []);
+        // enrolled students list: paginated {docs:[{studentId:{...}}]}
+        const raw = extractList(data);
+        setStudentsList(raw.map(e => e.studentId ?? e));
       }
     } catch (err) {
       console.error('Error loading tab content', err);

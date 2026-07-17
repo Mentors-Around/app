@@ -23,25 +23,25 @@ export default function ThemePreferences() {
     {
       id: 'emerald',
       name: 'Emerald Sage',
-      primary: '#064E3B',
+      primary: '#0F5132',
       secondary: '#10B981',
-      bg: '#F0FDF4',
+      bg: '#F8FAF9',
       desc: 'Sophisticated botanical green & mint'
     },
     {
       id: 'amethyst',
       name: 'Royal Amethyst',
-      primary: '#4C1D95',
+      primary: '#581C87',
       secondary: '#8B5CF6',
-      bg: '#FAF5FF',
+      bg: '#FAF9FC',
       desc: 'Luxurious violet & lavender'
     },
     {
       id: 'sunset',
       name: 'Sunset Crimson',
-      primary: '#7C2D12',
+      primary: '#9A3412',
       secondary: '#EA580C',
-      bg: '#FFF7ED',
+      bg: '#FAF9F8',
       desc: 'Warm orange & autumn gold'
     },
   ];

@@ -79,7 +79,14 @@ export const uploadKYC = asyncHandler(async (req, res) => {
       docIds.push(doc._id);
     }
 
-    await TeacherProfile.findOneAndUpdate({ userId: req.user._id }, { $push: { kycDocumentIds: { $each: docIds } } }, { session });
+    await TeacherProfile.findOneAndUpdate(
+      { userId: req.user._id },
+      {
+        $push: { kycDocumentIds: { $each: docIds } },
+        $set: { verificationStatus: VERIFICATION_STATUS.PENDING }
+      },
+      { session }
+    );
     await User.findByIdAndUpdate(req.user._id, { kycStatus: 'under_review' }, { session });
     await session.commitTransaction();
 

@@ -67,7 +67,17 @@ const TeacherClassrooms = () => {
   const updateSlot = (i, field, value) => {
     setForm((f) => {
       const schedule = [...f.schedule];
-      schedule[i] = { ...schedule[i], [field]: value };
+      const slot = { ...schedule[i], [field]: value };
+
+      // Auto-calculate durationMinutes from startTime and endTime
+      if (field === 'startTime' || field === 'endTime') {
+        const [sh, sm] = (slot.startTime || '00:00').split(':').map(Number);
+        const [eh, em] = (slot.endTime || '00:00').split(':').map(Number);
+        const diff = (eh * 60 + em) - (sh * 60 + sm);
+        slot.durationMinutes = diff > 0 ? diff : slot.durationMinutes;
+      }
+
+      schedule[i] = slot;
       return { ...f, schedule };
     });
   };
@@ -288,17 +298,21 @@ const TeacherClassrooms = () => {
             </div>
             <div className="space-y-2">
               {form.schedule.map((slot, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="flex items-center gap-2 flex-wrap">
                   <select value={slot.day} onChange={(e) => updateSlot(i, 'day', e.target.value)}
                     className="rounded-xl border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:border-navy">
                     {DAYS.map((d, idx) => <option key={d} value={idx}>{d}</option>)}
                   </select>
-                  <input type="time" value={slot.startTime} onChange={(e) => updateSlot(i, 'startTime', e.target.value)}
-                    className="rounded-xl border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:border-navy" />
-                  <input type="time" value={slot.endTime} onChange={(e) => updateSlot(i, 'endTime', e.target.value)}
-                    className="rounded-xl border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:border-navy" />
-                  <input type="number" min="15" value={slot.durationMinutes} onChange={(e) => updateSlot(i, 'durationMinutes', e.target.value)}
-                    placeholder="mins" className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:border-navy" />
+                  <div className="flex items-center gap-1">
+                    <input type="time" value={slot.startTime} onChange={(e) => updateSlot(i, 'startTime', e.target.value)}
+                      className="rounded-xl border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:border-navy" />
+                    <span className="text-slate-400 text-xs font-bold">to</span>
+                    <input type="time" value={slot.endTime} onChange={(e) => updateSlot(i, 'endTime', e.target.value)}
+                      className="rounded-xl border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:border-navy" />
+                  </div>
+                  <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-2 rounded-xl whitespace-nowrap">
+                    {slot.durationMinutes || 0} min
+                  </span>
                   {form.schedule.length > 1 && (
                     <button type="button" onClick={() => removeSlot(i)} className="text-error hover:bg-error/10 rounded-lg p-2"><X size={14} /></button>
                   )}

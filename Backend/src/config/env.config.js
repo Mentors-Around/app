@@ -113,7 +113,9 @@ const env = cleanEnv(process.env, {
   FIREBASE_PRIVATE_KEY:   str({ default: "" }),
 
   // ── Admin ───────────────────────────────────────────────────────────────────
-  ADMIN_IDS: commaSeparatedList(),
+  // ADMIN_IDS is kept for backwards-compatibility but is no longer used
+  // for authorization (admin access is controlled solely by role in DB).
+  ADMIN_IDS: str({ default: '' }),
 
   // ── Cron / Jobs ─────────────────────────────────────────────────────────────
   QUERY_AUTO_EXPIRE_DAYS:    num({ default: 5 }),   // days before pending query auto-expires

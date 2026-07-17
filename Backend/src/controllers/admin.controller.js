@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import {
   User, TeacherProfile, Document, Classroom,
   Payment, EnrollmentQuery, Enrollment, Report,
-  ExtraClass, Review,
+  ExtraClass, Review, SystemSettings,
 } from '../models/index.js';
 import { NotificationService } from '../services/notification.service.js';
 import { asyncHandler }        from '../utils/AsyncHandler.js';
@@ -89,8 +89,21 @@ export const rejectTeacher = asyncHandler(async (req, res) => {
 
 export const getAllTeachers = asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 20, search } = req.query;
-  const filter = { verificationStatus: status || { $exists: true } };
-  if (search) filter['$text'] = { $search: search };
+  const filter = {};
+  if (status) {
+    filter.verificationStatus = status;
+  }
+  if (search) {
+    const users = await User.find({
+      role: 'teacher',
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ]
+    }).select('_id');
+    const userIds = users.map(u => u._id);
+    filter.userId = { $in: userIds };
+  }
 
   const result = await TeacherProfile.paginate(filter, {
     page: Number(page), limit: Math.min(Number(limit), 50),
@@ -276,7 +289,12 @@ export const getAllUsers = asyncHandler(async (req, res) => {
   const { role, page = 1, limit = 20, search } = req.query;
   const filter = { deletedAt: null };
   if (role)   filter.role = role;
-  if (search) filter.name = { $regex: search, $options: 'i' };
+  if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } }
+    ];
+  }
 
   const result = await User.paginate(filter, {
     page: Number(page), limit: Math.min(Number(limit), 100),
@@ -333,7 +351,7 @@ export const hideReview = asyncHandler(async (req, res) => {
 
 // ── Platform Stats ────────────────────────────────────────────────────────────
 export const getPlatformStats = asyncHandler(async (req, res) => {
-  const [userStats, classroomStats, paymentStats] = await Promise.all([
+  const [userStats, classroomStats, paymentStats, openReportsCount] = await Promise.all([
     User.aggregate([
       { $group: { _id: '$role', count: { $sum: 1 }, active: { $sum: { $cond: ['$isActive', 1, 0] } } } },
     ]),
@@ -344,9 +362,10 @@ export const getPlatformStats = asyncHandler(async (req, res) => {
       { $match: { status: 'captured' } },
       { $group: { _id: '$purpose', totalPaise: { $sum: '$totalAmountPaise' }, count: { $sum: 1 } } },
     ]),
+    Report.countDocuments({ status: { $in: ['open', 'under_review'] } }),
   ]);
 
-  res.status(200).json(new ApiResponse(200, { userStats, classroomStats, paymentStats }, 'Platform stats'));
+  res.status(200).json(new ApiResponse(200, { userStats, classroomStats, paymentStats, openReportsCount }, 'Platform stats'));
 });
 // ── Top Teachers ──────────────────────────────────────────────────────────────
 // Returns teachers ranked by average rating, total students, and total classrooms
@@ -360,7 +379,7 @@ export const getTopTeachers = asyncHandler(async (req, res) => {
       limit:    Math.min(Number(limit), 50),
       sort:     { 'stats.avgRating': -1, 'stats.totalStudentsTaught': -1, 'stats.totalClassrooms': -1 },
       populate: { path: 'userId', select: 'name avatarUrl email phone createdAt' },
-      select:   '-adminNotes -bankAccount -aadhaarNumber -kycDocumentIds',
+      select:   'userId bio headline experienceYears education stats',
     },
   );
 
@@ -386,4 +405,27 @@ export const getReportsDashboard = asyncHandler(async (req, res) => {
   ]);
 
   res.status(200).json(new ApiResponse(200, { byStatus, byType, recent }, 'Reports dashboard'));
+});
+
+// ── System Settings ───────────────────────────────────────────────────────────
+export const getSystemSettings = asyncHandler(async (req, res) => {
+  const settings = await SystemSettings.getSettings();
+  res.status(200).json(new ApiResponse(200, settings, 'System settings retrieved'));
+});
+
+export const updateSystemSettings = asyncHandler(async (req, res) => {
+  const { platformFeePercent, minWithdrawalRupees, queryTokenPriceRupees, maintenanceMode } = req.body;
+
+  auditLog(req, 'UPDATE_SYSTEM_SETTINGS', req.body);
+
+  const settings = await SystemSettings.getSettings();
+
+  if (platformFeePercent !== undefined) settings.platformFeePercent = platformFeePercent;
+  if (minWithdrawalRupees !== undefined) settings.minWithdrawalRupees = minWithdrawalRupees;
+  if (queryTokenPriceRupees !== undefined) settings.queryTokenPriceRupees = queryTokenPriceRupees;
+  if (maintenanceMode !== undefined) settings.maintenanceMode = maintenanceMode;
+
+  await settings.save();
+
+  res.status(200).json(new ApiResponse(200, settings, 'System settings updated successfully'));
 });

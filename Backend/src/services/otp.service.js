@@ -394,9 +394,6 @@ export const OtpService = {
   },
 
   _generateOtp() {
-    if (env.NODE_ENV === 'development') {
-      return '123456';
-    }
     return String(crypto.randomInt(100000, 999999));
   },
 };

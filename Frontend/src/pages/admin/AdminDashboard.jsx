@@ -88,6 +88,7 @@ const OverviewTab = () => {
   const payments = stats?.paymentStats || [];
   const totalUsers = users.reduce((s, u) => s + u.count, 0);
   const totalRevenue = payments.reduce((s, p) => s + (p.totalPaise || 0), 0) / 100;
+  const openReports = stats?.openReportsCount ?? 0;
 
   return (
     <div>
@@ -95,7 +96,7 @@ const OverviewTab = () => {
         <StatCard icon={Users} iconBg="bg-navy/10" iconColor="text-navy" label="Total users" value={totalUsers} />
         <StatCard icon={School} iconBg="bg-sky/10" iconColor="text-sky" label="Total classrooms" value={classrooms.reduce((s, c) => s + c.count, 0)} />
         <StatCard icon={CheckCircle2} iconBg="bg-emerald-500/10" iconColor="text-emerald-500" label="Captured revenue" value={formatCurrency(totalRevenue)} />
-        <StatCard icon={FileWarning} iconBg="bg-error/10" iconColor="text-error" label="Open reports" value={payments.length} />
+        <StatCard icon={FileWarning} iconBg="bg-error/10" iconColor="text-error" label="Open reports" value={openReports} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

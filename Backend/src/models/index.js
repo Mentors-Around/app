@@ -22,6 +22,7 @@ import { Report }           from './Report.model.js';
 import { Test }             from './Test.model.js';
 import { TestAttempt }      from './TestAttempt.model.js';
 import { Notification }     from './Notification.model.js';
+import { SystemSettings }   from './SystemSettings.model.js';
 
 export {
   User,
@@ -47,4 +48,5 @@ export {
   Test,
   TestAttempt,
   Notification,
+  SystemSettings,
 };

@@ -37,7 +37,8 @@ const AdminSupport = () => {
       setTickets(payload?.items ?? payload?.docs ?? payload ?? []);
     } catch (err) {
       // 404 = endpoint not yet implemented; show empty state gracefully
-      if (err?.response?.status === 404 || err?.response?.status === 405) {
+      const status = err?.statusCode || err?.response?.status;
+      if (status === 404 || status === 405) {
         setApiUnavailable(true);
         setTickets([]);
       } else {

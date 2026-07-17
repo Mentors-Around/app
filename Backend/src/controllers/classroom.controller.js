@@ -210,7 +210,12 @@ export const getClassroomDetail = asyncHandler(async (req, res) => {
   let enrollmentStatus = null;
   let studentProgress  = null;
 
-  if (req.user?.role === 'student') {
+  const isClassroomTeacher = req.user && classroom.teacherId?._id?.toString() === req.user._id?.toString();
+
+  if (isClassroomTeacher) {
+    // Teacher views their own classroom — full access, no data hidden
+    enrollmentStatus = 'teacher_owner';
+  } else if (req.user?.role === 'student') {
     const enrollment = await Enrollment.findOne({
       studentId:   req.user._id,
       classroomId,

@@ -3,31 +3,27 @@
  *
  * Admin authorization layer.
  *
- * TWO-FACTOR ADMIN CHECK:
- *   1. Role check   → req.user.role must be "admin"
- *   2. Allowlist    → user._id must be in ADMIN_IDS env var
+ * DESIGN DECISION:
+ *   Admin role is set directly in the database by the platform owner
+ *   (never via self-registration — the signup endpoint explicitly blocks it).
+ *   Therefore, a single role check is the correct and sufficient gate:
+ *     req.user.role === "admin"
  *
- * WHY BOTH: A single compromised account or a role-elevation DB attack
- * won't grant admin access without also being in the environment-level
- * allowlist.  This is a defence-in-depth pattern used in financial SaaS.
+ *   The authenticate() middleware already validates the JWT, verifies the
+ *   user exists, is active, and is not banned — so by the time we reach
+ *   requireAdmin, the identity is fully verified.
  *
  * NOTE: authenticate middleware MUST run before this middleware.
  */
 
 import ApiError from "../utils/ApiError.js";
-import env from "../config/env.config.js";
-
-const ADMIN_ID_SET = new Set(env.ADMIN_IDS);
 
 export const requireAdmin = (req, _res, next) => {
   if (!req.user) {
     throw new ApiError(401, "Authentication required", [], "AUTH_REQUIRED");
   }
 
-  const isRoleAdmin = req.user.role === "admin";
-  const isAllowlisted = ADMIN_ID_SET.has(req.user._id.toString());
-
-  if (!isRoleAdmin || !isAllowlisted) {
+  if (req.user.role !== "admin") {
     throw new ApiError(
       403,
       "Insufficient privileges",
@@ -50,8 +46,7 @@ export const requireAdminOrSelf = (paramKey = "userId") => (req, _res, next) => 
 
   const targetId = req.params[paramKey];
   const isSelf = req.user._id.toString() === targetId;
-  const isAdmin =
-    req.user.role === "admin" && ADMIN_ID_SET.has(req.user._id.toString());
+  const isAdmin = req.user.role === "admin";
 
   if (!isSelf && !isAdmin) {
     throw new ApiError(403, "Access denied", [], "FORBIDDEN");

@@ -45,7 +45,7 @@ const TeacherQueriesPage = () => {
       const { data } = await enrollmentService.getMyQueries({
         page,
         limit: 10,
-        status: tab === 'all' ? undefined : tab,
+        tab: tab === 'all' ? undefined : tab,
       });
       const payload = data?.data ?? data;
       setQueries(payload?.items ?? payload?.docs ?? []);

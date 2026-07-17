@@ -7,8 +7,10 @@ import Logo from '@/components/shared/Logo';
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isAuthenticated, getDashboardRoute, logout } = useAuth();
+  const { isAuthenticated, role, getDashboardRoute, logout } = useAuth();
   const navigate = useNavigate();
+
+  const discoverPath = (isAuthenticated && role === 'student') ? '/student/discover' : '/discover';
 
   const handleLogout = async () => {
     try {
@@ -32,7 +34,7 @@ const Navbar = () => {
             <Logo variant="light" className="h-10 w-auto" />
           </Link>
           <div className="hidden md:flex items-center gap-8">
-          <Link to={isAuthenticated ? '/student/discover' : '/discover'} className="text-navy font-bold text-sm hover:text-amber transition">Find a Teacher</Link>
+          <Link to={discoverPath} className="text-navy font-bold text-sm hover:text-amber transition">Find a Teacher</Link>
             <Link to="/about" className="text-navy/70 text-sm font-medium hover:text-navy transition">About Us</Link>
             <Link to="/safety" className="text-navy/70 text-sm font-medium hover:text-navy transition">Safety</Link>
             <Link to="/coaching-centers" className="text-navy/70 text-sm font-medium hover:text-navy transition">Coaching Centers</Link>
@@ -96,7 +98,7 @@ const Navbar = () => {
                 <X size={20} />
               </button>
             </div>
-            <Link to={isAuthenticated ? '/student/discover' : '/discover'} onClick={() => setMobileMenuOpen(false)} className="text-navy font-bold text-lg">Find a Teacher</Link>
+            <Link to={discoverPath} onClick={() => setMobileMenuOpen(false)} className="text-navy font-bold text-lg">Find a Teacher</Link>
             <Link to="/about" onClick={() => setMobileMenuOpen(false)} className="text-navy/70 font-semibold text-lg hover:text-navy">About Us</Link>
             <Link to="/safety" onClick={() => setMobileMenuOpen(false)} className="text-navy/70 font-semibold text-lg hover:text-navy">Safety</Link>
             <Link to="/coaching-centers" onClick={() => setMobileMenuOpen(false)} className="text-navy/70 font-semibold text-lg hover:text-navy">Coaching Centers</Link>
@@ -110,6 +112,9 @@ const Navbar = () => {
 };
 
 const Footer = () => {
+  const { isAuthenticated, role } = useAuth();
+  const discoverPath = (isAuthenticated && role === 'student') ? '/student/discover' : '/discover';
+
   return (
     <footer className="bg-navy-dark text-white/60 py-12 px-6">
       <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -137,7 +142,7 @@ const Footer = () => {
         <div>
           <h4 className="text-white font-sora text-sm font-semibold mb-4 uppercase tracking-wider">For Students</h4>
           <ul className="flex flex-col gap-2 text-xs">
-            <li><Link to="/student/discover" className="hover:text-amber transition">Find a Teacher</Link></li>
+            <li><Link to={discoverPath} className="hover:text-amber transition">Find a Teacher</Link></li>
             <li><Link to="/safety" className="hover:text-amber transition">Safety First</Link></li>
             <li><Link to="/how-payments-work" className="hover:text-amber transition">How Payments Work</Link></li>
             <li><Link to="/refund-policy" className="hover:text-amber transition">Refund Policy</Link></li>

@@ -9,6 +9,7 @@ const sharedOptions = {
   legacyHeaders: false,     // Disable X-RateLimit-* legacy headers
   skipFailedRequests: false,
   validate: false, 
+  skip: (req) => env.NODE_ENV === "development",
   handler(req, res, next, options) {
     next(
       new ApiError(
@@ -32,7 +33,7 @@ export const globalLimiter = rateLimit({
   ...sharedOptions,
   windowMs: env.RATE_LIMIT_WINDOW_MS,
   max: env.RATE_LIMIT_MAX_REQUESTS,
-  skip: (req) => req.path === "/health",
+  skip: (req) => env.NODE_ENV === "development" || req.path === "/health",
 });
 
 /**
@@ -41,13 +42,17 @@ export const globalLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
   ...sharedOptions,
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: RATE_LIMITS.AUTH_WINDOW_MS,
+  max: RATE_LIMITS.AUTH_MAX,
+  skip: (req) => {
+    if (env.NODE_ENV === "development") return true;
+    const exemptPaths = ["/refresh", "/logout", "/google", "/google/callback"];
+    return exemptPaths.some(path => req.path.endsWith(path));
+  },
   keyGenerator: (req) => {
-    const phone = req.body?.phone ?? "unknown";
-    // Standard library method to safely extract user IP across IPv4/IPv6
+    const identifier = req.body?.phone || req.body?.email || req.body?.username || "unknown";
     const ip = req.ip || req.socket.remoteAddress || "unknown";
-    return `${ip}:${phone}`;
+    return `${ip}:${identifier}`;
   },
 });
 

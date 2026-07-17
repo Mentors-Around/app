@@ -34,8 +34,8 @@ const AdminAnalytics = () => {
         ]);
         setStats(statsRes.data?.data ?? statsRes.data);
         const topPayload = topRes.data?.data ?? topRes.data;
-        setTopTeachers(topPayload?.teachers ?? topPayload ?? []);
-      } catch {
+        setTopTeachers(topPayload?.docs ?? topPayload?.results ?? topPayload?.items ?? (Array.isArray(topPayload) ? topPayload : []));
+      } catch (err) {
         toast.error('Could not load analytics data');
       } finally {
         setLoading(false);

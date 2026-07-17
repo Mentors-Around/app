@@ -68,7 +68,9 @@ const StudentClassroomDetails = () => {
     try {
       // 1. Fetch classroom details
       const { data: classRes } = await classroomService.getDetail(classroomId);
-      setClassroom(classRes?.data ?? classRes);
+      // Backend wraps response: { classroom, reviews, ratingBreakdown }
+      const classPayload = classRes?.data ?? classRes;
+      setClassroom(classPayload?.classroom ?? classPayload);
 
       // 2. Fetch student queries to see if they applied
       const { data: queryRes } = await enrollmentService.getMyQueries({ limit: 100 });

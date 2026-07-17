@@ -12,6 +12,7 @@ import {
   getAllUsers, banUser, unbanUser,
   hideReview,
   getPlatformStats, getTopTeachers, getReportsDashboard,
+  getSystemSettings, updateSystemSettings,
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -63,5 +64,9 @@ router.get('/top-teachers', getTopTeachers);
 
 // ── Reports Dashboard ─────────────────────────────────────────────────────────
 router.get('/reports/dashboard', getReportsDashboard);
+
+// ── System Settings ───────────────────────────────────────────────────────────
+router.get('/settings',   getSystemSettings);
+router.patch('/settings', updateSystemSettings);
 
 export default router;

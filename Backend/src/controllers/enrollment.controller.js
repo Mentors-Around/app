@@ -214,7 +214,8 @@ export const rejectQuery = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 export const enrollInClassroom = asyncHandler(async (req, res) => {
   const { queryId }       = req.params;
-  const { useWalletCash } = req.body;
+  const { useWalletCash, password, transactionPassword } = req.body;
+  const providedPassword = password || transactionPassword;
 
   const query = await EnrollmentQuery.findById(queryId).populate('classroomId');
   if (!query)                                                  throw ApiError.notFound('Query');
@@ -229,6 +230,25 @@ export const enrollInClassroom = asyncHandler(async (req, res) => {
   const classroom = query.classroomId;
 
   if (useWalletCash) {
+    if (!providedPassword) {
+      throw new ApiError(
+        400,
+        'Password verification is required for wallet payments. Please enter your account password.',
+        [],
+        'PASSWORD_REQUIRED'
+      );
+    }
+
+    const userWithPass = await User.findById(req.user._id).select('+passwordHash');
+    if (!userWithPass?.passwordHash) {
+      throw new ApiError(403, 'No password set on this account. Please set a password to make wallet transfers.', [], 'NO_PASSWORD_SET');
+    }
+
+    const isValidPassword = await userWithPass.comparePassword(providedPassword);
+    if (!isValidPassword) {
+      throw new ApiError(401, 'Incorrect password. Wallet payment failed.', [], 'INVALID_PASSWORD');
+    }
+
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
@@ -263,18 +283,21 @@ export const enrollInClassroom = asyncHandler(async (req, res) => {
       await Classroom.findByIdAndUpdate(classroom._id, { $inc: { 'stats.enrolledStudents': 1 } }, { session });
       await session.commitTransaction();
 
+      // Fetch wallet balance after debit for receipt
+      const updatedWallet = await StudentWallet.findOne({ studentId: req.user._id }).lean();
+
       // Receipt email to student
       const student = await User.findById(req.user._id).select('name email phone');
       if (student?.email) {
         EmailService.sendPaymentReceipt(student.email, {
           recipientName:       student.name,
           transactionId:       payment._id.toString(),
-          description:         `Enrollment — ${classroom.title}`,
+          description:         `Classroom Enrollment — ${classroom.title}`,
           type:                'enrollment_fee',
           amountPaise:         classroom.feesPaise,
           date:                new Date().toISOString(),
           classroomName:       classroom.title,
-          balanceAfterPaise:   undefined, // balance already debited; fetch would cost a query
+          balanceAfterPaise:   updatedWallet?.cashBalancePaise,
         });
       }
       NotificationService.notifyEnrollmentConfirmed(student, null, classroom).catch(() => {});

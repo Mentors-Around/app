@@ -4,7 +4,7 @@ import { NotificationService } from '../services/notification.service.js';
 import { asyncHandler }        from '../utils/AsyncHandler.js';
 import ApiError                from '../utils/ApiError.js';
 import ApiResponse             from '../utils/ApiResponse.js';
-import { ENROLLMENT_STATUS }   from '../constants/enums.js';
+import { blockAllPII }        from '../utils/pil.util.js';
 import logger                  from '../config/logger.config.js';
 
 // ── POST /classrooms/:classroomId/announcements ───────────────────────────────
@@ -14,6 +14,9 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
 
   if (!title?.trim()) throw ApiError.badRequest('title is required');
   if (!body?.trim())  throw ApiError.badRequest('body is required');
+
+  // PII guard
+  blockAllPII({ title, announcement: body });
 
   const classroom = await Classroom.findById(classroomId).lean();
   if (!classroom) throw ApiError.notFound('Classroom');

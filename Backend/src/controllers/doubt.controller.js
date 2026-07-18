@@ -7,6 +7,7 @@ import { asyncHandler }       from '../utils/AsyncHandler.js';
 import ApiError               from '../utils/ApiError.js';
 import ApiResponse            from '../utils/ApiResponse.js';
 import { DOUBT_VISIBILITY, DOUBT_STATUS, ENROLLMENT_STATUS } from '../constants/enums.js';
+import { blockAllPII }        from '../utils/pil.util.js';
 import logger                 from '../config/logger.config.js';
 
 // ── Shared: verify student is actively enrolled ───────────────────────────────
@@ -27,6 +28,9 @@ export const createDoubt = asyncHandler(async (req, res) => {
   if (!Object.values(DOUBT_VISIBILITY).includes(visibility)) {
     throw ApiError.badRequest('visibility must be public or private');
   }
+
+  // PII guard
+  blockAllPII({ topic, question });
 
   const classroom = await Classroom.findById(classroomId).lean();
   if (!classroom) throw ApiError.notFound('Classroom');
@@ -82,6 +86,9 @@ export const answerDoubt = asyncHandler(async (req, res) => {
   const { text, attachmentUrls = [] } = req.body;
 
   if (!text?.trim()) throw ApiError.badRequest('Answer text is required');
+
+  // PII guard
+  blockAllPII({ answer: text });
 
   const classroom = await Classroom.findById(classroomId).lean();
   if (!classroom) throw ApiError.notFound('Classroom');

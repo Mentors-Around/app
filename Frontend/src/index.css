@@ -28,24 +28,27 @@
 
 html.dark,
 html.dark.theme-classic {
-  --trueed-navy: #60A5FA;
-  --trueed-navy-hover: #93C5FD;
-  --trueed-navy-dark: #1E3A8A;
-  --trueed-navy-light: #3B82F6;
-  --trueed-amber: #FBBF24;
-  --trueed-amber-hover: #F59E0B;
-  --trueed-sky: #60A5FA;
+  --trueed-navy: #2563EB;
+  --trueed-navy-hover: #3B82F6;
+  --trueed-navy-dark: #1D4ED8;
+  --trueed-navy-light: #60A5FA;
+  --trueed-amber: #F59E0B;
+  --trueed-amber-hover: #D97706;
+  --trueed-sky: #38BDF8;
   --trueed-coral: #F87171;
   --trueed-coral-hover: #EF4444;
   --trueed-page: #0B0F19;
   --trueed-cream: #111827;
   --trueed-cream-warm: #1F2937;
-  --trueed-surface: #1F2937;
-  --trueed-text-primary: #F3F4F6;
-  --trueed-text-secondary: #D1D5DB;
-  --trueed-text-muted: #9CA3AF;
-  --trueed-border: #374151;
-  --trueed-border-light: #4B5563;
+  --trueed-surface: #1E293B;
+  --trueed-text-primary: #F8FAFC;
+  --trueed-text-secondary: #CBD5E1;
+  --trueed-text-muted: #94A3B8;
+  --trueed-border: #334155;
+  --trueed-border-light: #475569;
+  --trueed-success: #22C55E;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
 }
 
 .theme-emerald {
@@ -73,24 +76,27 @@ html.dark.theme-classic {
 }
 
 html.dark.theme-emerald {
-  --trueed-navy: #34D399;
-  --trueed-navy-hover: #6EE7B7;
+  --trueed-navy: #059669;
+  --trueed-navy-hover: #10B981;
   --trueed-navy-dark: #064E3B;
-  --trueed-navy-light: #059669;
+  --trueed-navy-light: #34D399;
   --trueed-amber: #10B981;
   --trueed-amber-hover: #059669;
   --trueed-sky: #6EE7B7;
   --trueed-coral: #FDA4AF;
   --trueed-coral-hover: #FB7185;
-  --trueed-page: #0B0F0D;
-  --trueed-cream: #111614;
-  --trueed-cream-warm: #1B221E;
-  --trueed-surface: #161C19;
+  --trueed-page: #06120D;
+  --trueed-cream: #0B1914;
+  --trueed-cream-warm: #13241D;
+  --trueed-surface: #13241D;
   --trueed-text-primary: #F1F5F3;
   --trueed-text-secondary: #C1CDC8;
   --trueed-text-muted: #8B9B95;
-  --trueed-border: #242E2A;
-  --trueed-border-light: #34423C;
+  --trueed-border: #243830;
+  --trueed-border-light: #344C42;
+  --trueed-success: #10B981;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
 }
 
 .theme-amethyst {
@@ -118,24 +124,27 @@ html.dark.theme-emerald {
 }
 
 html.dark.theme-amethyst {
-  --trueed-navy: #C084FC;
-  --trueed-navy-hover: #D8B4FE;
-  --trueed-navy-dark: #3B0764;
-  --trueed-navy-light: #7C3AED;
+  --trueed-navy: #7C3AED;
+  --trueed-navy-hover: #8B5CF6;
+  --trueed-navy-dark: #4C1D95;
+  --trueed-navy-light: #A78BFA;
   --trueed-amber: #A78BFA;
   --trueed-amber-hover: #8B5CF6;
   --trueed-sky: #C084FC;
   --trueed-coral: #F472B6;
   --trueed-coral-hover: #EC4899;
-  --trueed-page: #0D0B12;
-  --trueed-cream: #13111A;
-  --trueed-cream-warm: #1C1926;
-  --trueed-surface: #191623;
+  --trueed-page: #0B0711;
+  --trueed-cream: #120C1C;
+  --trueed-cream-warm: #1B1328;
+  --trueed-surface: #1B1328;
   --trueed-text-primary: #F5F3F7;
   --trueed-text-secondary: #C9C3D4;
   --trueed-text-muted: #928AA3;
-  --trueed-border: #292437;
-  --trueed-border-light: #39334C;
+  --trueed-border: #2F2440;
+  --trueed-border-light: #413357;
+  --trueed-success: #10B981;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
 }
 
 .theme-sunset {
@@ -163,24 +172,27 @@ html.dark.theme-amethyst {
 }
 
 html.dark.theme-sunset {
-  --trueed-navy: #FDBA74;
-  --trueed-navy-hover: #FED7AA;
-  --trueed-navy-dark: #431407;
-  --trueed-navy-light: #EA580C;
+  --trueed-navy: #C2410C;
+  --trueed-navy-hover: #EA580C;
+  --trueed-navy-dark: #7C2D12;
+  --trueed-navy-light: #FDBA74;
   --trueed-amber: #EA580C;
   --trueed-amber-hover: #D97706;
   --trueed-sky: #FDBA74;
   --trueed-coral: #F43F5E;
   --trueed-coral-hover: #E11D48;
-  --trueed-page: #0F0C0B;
-  --trueed-cream: #161211;
-  --trueed-cream-warm: #221C1A;
-  --trueed-surface: #1B1614;
+  --trueed-page: #100A08;
+  --trueed-cream: #18100C;
+  --trueed-cream-warm: #261914;
+  --trueed-surface: #261914;
   --trueed-text-primary: #F7F5F4;
   --trueed-text-secondary: #DDD2CD;
   --trueed-text-muted: #AA9C96;
-  --trueed-border: #2D2522;
-  --trueed-border-light: #423732;
+  --trueed-border: #3A2720;
+  --trueed-border-light: #4E362C;
+  --trueed-success: #10B981;
+  --trueed-warning: #F59E0B;
+  --trueed-error: #EF4444;
 }
 
 @theme {

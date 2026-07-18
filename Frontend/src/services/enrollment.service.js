@@ -1,15 +1,17 @@
 // src/services/enrollment.service.js
 import apiClient from './apiClient';
 
+const getOrGenKey = (key) => key || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
+
 export const enrollmentService = {
   sendQuery: (data, idempotencyKey) =>
-    apiClient.post('/enrollments/queries', data, { headers: { 'Idempotency-Key': idempotencyKey } }),
+    apiClient.post('/enrollments/queries', data, { headers: { 'Idempotency-Key': getOrGenKey(idempotencyKey) } }),
   acceptQuery: (queryId, data) => apiClient.patch(`/enrollments/queries/${queryId}/accept`, data),
   rejectQuery: (queryId, data) => apiClient.patch(`/enrollments/queries/${queryId}/reject`, data),
 
   enroll: (queryId, data, idempotencyKey) =>
     apiClient.post(`/enrollments/queries/${queryId}/enroll`, data, {
-      headers: { 'Idempotency-Key': idempotencyKey },
+      headers: { 'Idempotency-Key': getOrGenKey(idempotencyKey) },
     }),
   verifyEnrollPayment: (queryId, data) =>
     apiClient.post(`/enrollments/queries/${queryId}/enroll/verify`, data),
@@ -21,3 +23,4 @@ export const enrollmentService = {
 };
 
 export default enrollmentService;
+

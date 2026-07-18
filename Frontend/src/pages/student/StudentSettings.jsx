@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Mail, Globe, LifeBuoy, AlertCircle, MessageSquare, Shield,
@@ -282,7 +282,12 @@ export default function StudentSettings() {
               </h2>
               <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Current Password</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Current Password</label>
+                    <Link to="/forgot-password" className="text-xs font-bold text-sky hover:underline">
+                      Forgot Password?
+                    </Link>
+                  </div>
                   <div className="relative">
                     <input
                       type={showOldPassword ? 'text' : 'password'}

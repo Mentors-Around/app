@@ -19,8 +19,19 @@ export const apiClient = axios.create({
 const genCorrelationId = () =>
   (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
+const isMutatingRequest = (config) => {
+  if (!config?.method) return false;
+  const method = config.method.toUpperCase();
+  const url = config.url || '';
+  if (url.includes('/auth/refresh') || url.includes('/users/me')) return false;
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+};
+
 apiClient.interceptors.request.use((config) => {
   config.headers['X-Correlation-ID'] = genCorrelationId();
+  if (isMutatingRequest(config)) {
+    window.dispatchEvent(new CustomEvent('trueed:api-start'));
+  }
   return config;
 });
 
@@ -48,8 +59,16 @@ const PUBLIC_AUTH_PATHS = [
 ];
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (isMutatingRequest(response.config)) {
+      window.dispatchEvent(new CustomEvent('trueed:api-end'));
+    }
+    return response;
+  },
   async (error) => {
+    if (isMutatingRequest(error.config)) {
+      window.dispatchEvent(new CustomEvent('trueed:api-end'));
+    }
     const original = error.config;
     const status = error.response?.status;
     const isAuthEndpoint = PUBLIC_AUTH_PATHS.some((p) => original?.url?.startsWith(p));

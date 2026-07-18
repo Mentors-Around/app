@@ -11,6 +11,7 @@ import Modal from '@/components/shared/Modal';
 import openRazorpayCheckout from '@/utils/razorpay.util';
 import { formatCurrency } from '@/utils/format.util';
 import { formatDate } from '@/utils/date.util';
+import { validateNoPII } from '@/utils/pii.util';
 
 const statusPills = {
   pending: 'bg-amber/10 text-amber-hover border-amber/20',
@@ -76,6 +77,13 @@ const TeacherQueriesPage = () => {
 
   const handleAcceptSubmit = async (e) => {
     e.preventDefault();
+    if (teacherMessage) {
+      const piiError = validateNoPII(teacherMessage, 'teacher message');
+      if (piiError) {
+        toast.error(piiError);
+        return;
+      }
+    }
     setSubmitting(true);
     try {
       const res = await enrollmentService.acceptQuery(activeQuery._id, {
@@ -115,6 +123,11 @@ const TeacherQueriesPage = () => {
     e.preventDefault();
     if (!rejectReason.trim()) {
       toast.error('Please enter a rejection reason.');
+      return;
+    }
+    const piiError = validateNoPII(rejectReason, 'rejection reason');
+    if (piiError) {
+      toast.error(piiError);
       return;
     }
     setSubmitting(true);

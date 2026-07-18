@@ -1,5 +1,6 @@
 // src/app.js
 import express      from 'express';
+import compression  from 'compression';
 import cors         from 'cors';
 import cookieParser from 'cookie-parser';
 import morgan       from 'morgan';
@@ -44,6 +45,9 @@ app.use(correlationIdMiddleware);
 // ── HTTP request logging ──────────────────────────────────────────────────────
 app.use(morgan('combined', { stream: logger.stream }));
 app.use(requestLoggerMiddleware);
+
+// ── Response compression ──────────────────────────────────────────────────────
+app.use(compression());
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 app.use(cors(corsOptions));

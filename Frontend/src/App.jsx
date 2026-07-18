@@ -5,6 +5,7 @@ import { WalletProvider } from '@/context/WalletContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import ScrollToTop from '@/components/shared/ScrollToTop';
+import ProcessingOverlay from '@/components/shared/ProcessingOverlay';
 import AppRoutes from '@/routes/AppRoutes';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
             <WalletProvider>
               <ScrollToTop />
               <AppRoutes />
+              <ProcessingOverlay />
               <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
             </WalletProvider>
           </AuthProvider>

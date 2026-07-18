@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { MessagesSquare, CheckCircle, Clock, XCircle, ChevronRight, AlertCircle, RefreshCw, Star, MessageSquare, CreditCard, Wallet, BookOpen } from 'lucide-react';
 import enrollmentService from '@/services/enrollment.service';
@@ -37,6 +37,8 @@ const MyQueriesPage = () => {
   // Payment states
   const [paymentModalTarget, setPaymentModalTarget] = useState(null);
   const [paying, setPaying] = useState(false);
+  const [walletPassword, setWalletPassword] = useState('');
+  const [showWalletPassword, setShowWalletPassword] = useState(false);
 
   const loadQueries = useCallback(async () => {
     setLoading(true);
@@ -66,8 +68,15 @@ const MyQueriesPage = () => {
     setPage(1);
   };
 
-  const handleEnrollWallet = async () => {
+  const handleEnrollWallet = async (e) => {
+    if (e) e.preventDefault();
     if (!paymentModalTarget) return;
+
+    if (!walletPassword) {
+      toast.error('Please enter your account password to authorize wallet cash payment.');
+      return;
+    }
+
     const feesPaise = paymentModalTarget.classroomId?.feesPaise || 0;
     if ((wallet?.cashBalancePaise ?? 0) < feesPaise) {
       toast.error('Insufficient wallet balance. Please top up first or use gateway payment.');
@@ -76,12 +85,15 @@ const MyQueriesPage = () => {
 
     setPaying(true);
     try {
+      const idempotencyKey = crypto.randomUUID();
       await enrollmentService.enroll(
         paymentModalTarget._id,
-        { useWalletCash: true }
+        { useWalletCash: true, password: walletPassword },
+        idempotencyKey
       );
-      toast.success('Successfully enrolled via wallet cash!');
+      toast.success('Successfully enrolled! Payment receipt sent to your email.');
       setPaymentModalTarget(null);
+      setWalletPassword('');
       refreshWallet();
       loadQueries();
     } catch (err) {
@@ -294,12 +306,12 @@ const MyQueriesPage = () => {
 
                   {query.status === 'enrolled' && (
                     <div className="pt-4 border-t border-slate-100 flex justify-end">
-                      <Link
-                        to={`/classroom/${classroom._id}`}
+                      <button
+                        onClick={() => navigate(`/classroom/${classroom._id}`)}
                         className="bg-navy text-white text-xs font-bold py-2 px-4 rounded-xl hover:bg-navy-hover transition flex items-center gap-1.5"
                       >
                         <BookOpen size={14} /> Enter Classroom
-                      </Link>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -314,20 +326,26 @@ const MyQueriesPage = () => {
       {paymentModalTarget && (
         <Modal
           isOpen={!!paymentModalTarget}
-          onClose={() => setPaymentModalTarget(null)}
+          onClose={() => {
+            setPaymentModalTarget(null);
+            setWalletPassword('');
+          }}
           title="Confirm Enrollment Payment"
           footer={
             <>
               <button
-                onClick={() => setPaymentModalTarget(null)}
-                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                onClick={() => {
+                  setPaymentModalTarget(null);
+                  setWalletPassword('');
+                }}
+                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEnrollGateway}
                 disabled={paying}
-                className="px-4 py-2.5 rounded-xl bg-navy text-white text-sm font-bold hover:bg-navy-hover disabled:opacity-50 flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-navy text-white text-sm font-bold hover:bg-navy-hover disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
               >
                 <CreditCard size={16} /> Pay via Card/UPI
               </button>
@@ -335,40 +353,70 @@ const MyQueriesPage = () => {
           }
         >
           <div className="space-y-4">
-            <div className="border border-slate-100 p-4 rounded-xl bg-slate-50">
+            <div className="border border-slate-100 dark:border-slate-800 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50">
               <h4 className="font-sora font-bold text-navy text-sm mb-1">
                 {paymentModalTarget.classroomId?.title}
               </h4>
               <p className="text-xs text-muted mb-3">
                 Subject: {paymentModalTarget.classroomId?.subject}
               </p>
-              <div className="flex justify-between items-end border-t border-slate-200 pt-3">
-                <span className="text-xs font-semibold text-slate-500">Total Fees:</span>
+              <div className="flex justify-between items-end border-t border-slate-200 dark:border-slate-800 pt-3">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Fees:</span>
                 <span className="font-sora font-extrabold text-navy text-lg">
                   {formatCurrency((paymentModalTarget.classroomId?.feesPaise || 0) / 100)}
                 </span>
               </div>
             </div>
 
-            <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Wallet Cash Balance</p>
-                <p className="font-sora font-extrabold text-navy text-base">
-                  {formatCurrency((wallet?.cashBalancePaise || 0) / 100)}
-                </p>
+            <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-0.5">
+                    Wallet Cash Balance
+                  </p>
+                  <p className="font-sora font-extrabold text-navy text-base">
+                    {formatCurrency((wallet?.cashBalancePaise || 0) / 100)}
+                  </p>
+                </div>
+                {(wallet?.cashBalancePaise ?? 0) < (paymentModalTarget.classroomId?.feesPaise || 0) && (
+                  <span className="text-xs font-bold text-coral bg-coral/10 px-2.5 py-1 rounded-md">
+                    Insufficient Cash
+                  </span>
+                )}
               </div>
-              {(wallet?.cashBalancePaise ?? 0) >= (paymentModalTarget.classroomId?.feesPaise || 0) ? (
-                <button
-                  onClick={handleEnrollWallet}
-                  disabled={paying}
-                  className="bg-emerald-600 text-white text-xs font-bold py-2 px-3.5 rounded-xl hover:bg-emerald-700 transition flex items-center gap-1"
-                >
-                  <Wallet size={14} /> Pay using Cash
-                </button>
-              ) : (
-                <span className="text-xs font-bold text-coral bg-coral/10 px-2.5 py-1 rounded-md">
-                  Insufficient Cash
-                </span>
+
+              {(wallet?.cashBalancePaise ?? 0) >= (paymentModalTarget.classroomId?.feesPaise || 0) && (
+                <form onSubmit={handleEnrollWallet} className="space-y-3 pt-2 border-t border-emerald-500/10">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Account Password Verification <span className="text-coral">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showWalletPassword ? 'text' : 'password'}
+                        placeholder="Enter your account password to authorize payment"
+                        value={walletPassword}
+                        onChange={(e) => setWalletPassword(e.target.value)}
+                        className="w-full pl-3 pr-10 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy dark:bg-slate-800 dark:text-slate-100"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowWalletPassword(!showWalletPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy dark:hover:text-slate-200 transition"
+                      >
+                        {showWalletPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={paying || !walletPassword}
+                    className="w-full bg-emerald-600 text-white text-xs font-bold py-2.5 px-4 rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Wallet size={14} /> Confirm & Pay using Wallet Cash
+                  </button>
+                </form>
               )}
             </div>
           </div>

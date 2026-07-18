@@ -284,8 +284,8 @@ export default function StudentSettings() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Current Password</label>
-                    <Link to="/forgot-password" className="text-xs font-bold text-sky hover:underline">
-                      Forgot Password?
+                    <Link to="/forgot-password" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">
+                      Forgot password?
                     </Link>
                   </div>
                   <div className="relative">

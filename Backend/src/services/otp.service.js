@@ -135,7 +135,11 @@ export const OtpService = {
     });
 
     if (env.NODE_ENV === 'development') {
-      logger.info(`[DEV ONLY] Raw OTPs for ${normEmail} / ${phone} -> Email OTP: ${emailOtp}, Phone OTP: ${phoneOtp}`);
+      // Email OTP is intentionally NOT logged here — Nodemailer delivers it for real,
+      // so the inbox is the single source of truth. Logging it too invited a stale
+      // terminal value being used after a resend, which looked like "two different OTPs".
+      // Phone OTP is still logged because no SMS/WhatsApp provider is configured yet.
+      logger.info(`[DEV ONLY] Raw Phone OTP for ${phone} -> ${phoneOtp} (email OTP was sent via Nodemailer — check inbox)`);
     }
 
     return {

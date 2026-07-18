@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { User, Mail, Phone, Calendar, MapPin, KeyRound, Camera, Loader2 } from 'lucide-react';
+import { User, Mail, Phone, Calendar, MapPin, KeyRound, Camera, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import userService from '@/services/user.service';
 import Modal from '@/components/shared/Modal';
@@ -28,8 +29,11 @@ const StudentProfile = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [pwOpen, setPwOpen] = useState(false);
-  const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '' });
+  const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [pwSaving, setPwSaving] = useState(false);
+  const [showOldPw, setShowOldPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   const dirty = JSON.stringify(form) !== JSON.stringify({
     name: user?.name || '', city: user?.city || '', state: user?.state || '',
@@ -68,12 +72,13 @@ const StudentProfile = () => {
 
   const changePassword = async () => {
     if (pwForm.newPassword.length < 8) { toast.error('New password must be at least 8 characters'); return; }
+    if (pwForm.newPassword !== pwForm.confirmPassword) { toast.error('New password and confirm password do not match'); return; }
     setPwSaving(true);
     try {
-      await userService.changePassword(pwForm);
+      await userService.changePassword({ oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
       toast.success('Password changed');
       setPwOpen(false);
-      setPwForm({ oldPassword: '', newPassword: '' });
+      setPwForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       toast.error(err?.message || 'Could not change password');
     } finally {
@@ -192,15 +197,43 @@ const StudentProfile = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-navy mb-1.5">Current password</label>
-            <input type="password" value={pwForm.oldPassword} onChange={(e) => setPwForm((f) => ({ ...f, oldPassword: e.target.value }))}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-navy" />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-semibold text-navy">Current password</label>
+              <Link to="/forgot-password" className="text-xs font-semibold text-navy/70 hover:text-navy hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+            <div className="relative">
+              <input type={showOldPw ? 'text' : 'password'} value={pwForm.oldPassword} onChange={(e) => setPwForm((f) => ({ ...f, oldPassword: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-10 text-sm focus:outline-none focus:border-navy" />
+              <button type="button" onClick={() => setShowOldPw((v) => !v)} tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition">
+                {showOldPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-semibold text-navy mb-1.5">New password</label>
-            <input type="password" value={pwForm.newPassword} onChange={(e) => setPwForm((f) => ({ ...f, newPassword: e.target.value }))}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-navy" />
+            <div className="relative">
+              <input type={showNewPw ? 'text' : 'password'} value={pwForm.newPassword} onChange={(e) => setPwForm((f) => ({ ...f, newPassword: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-10 text-sm focus:outline-none focus:border-navy" />
+              <button type="button" onClick={() => setShowNewPw((v) => !v)} tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition">
+                {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
             <p className="text-xs text-muted mt-1">At least 8 characters, one letter and one number.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-1.5">Confirm new password</label>
+            <div className="relative">
+              <input type={showConfirmPw ? 'text' : 'password'} value={pwForm.confirmPassword} onChange={(e) => setPwForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-10 text-sm focus:outline-none focus:border-navy" />
+              <button type="button" onClick={() => setShowConfirmPw((v) => !v)} tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition">
+                {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

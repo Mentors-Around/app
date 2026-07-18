@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { MessagesSquare, CheckCircle, Clock, XCircle, ChevronRight, AlertCircle, RefreshCw, Star, MessageSquare, CreditCard, Wallet, BookOpen } from 'lucide-react';
+import { MessagesSquare, CheckCircle, Clock, XCircle, ChevronRight, AlertCircle, RefreshCw, Star, MessageSquare, CreditCard, Wallet, BookOpen, Eye, EyeOff } from 'lucide-react';
 import enrollmentService from '@/services/enrollment.service';
 import { useWallet } from '@/hooks/useWallet';
 import { useAuth } from '@/hooks/useAuth';
@@ -306,12 +306,12 @@ const MyQueriesPage = () => {
 
                   {query.status === 'enrolled' && (
                     <div className="pt-4 border-t border-slate-100 flex justify-end">
-                      <button
-                        onClick={() => navigate(`/classroom/${classroom._id}`)}
+                      <Link
+                        to={`/classroom/${classroom._id}`}
                         className="bg-navy text-white text-xs font-bold py-2 px-4 rounded-xl hover:bg-navy-hover transition flex items-center gap-1.5"
                       >
                         <BookOpen size={14} /> Enter Classroom
-                      </button>
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -397,15 +397,16 @@ const MyQueriesPage = () => {
                         placeholder="Enter your account password to authorize payment"
                         value={walletPassword}
                         onChange={(e) => setWalletPassword(e.target.value)}
-                        className="w-full pl-3 pr-10 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy dark:bg-slate-800 dark:text-slate-100"
+                        className="w-full px-3 py-2 pr-10 text-xs rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy dark:bg-slate-800 dark:text-slate-100"
                         required
                       />
                       <button
                         type="button"
-                        onClick={() => setShowWalletPassword(!showWalletPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy dark:hover:text-slate-200 transition"
+                        onClick={() => setShowWalletPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
+                        tabIndex={-1}
                       >
-                        {showWalletPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                        {showWalletPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
                   </div>

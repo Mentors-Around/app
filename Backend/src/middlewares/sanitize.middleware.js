@@ -1,6 +1,20 @@
 // src/middlewares/sanitize.middleware.js
 import xss from "xss";
 
+// ─── Fields that must survive byte-for-byte (never rendered as HTML, only
+// ─── hashed/compared server-side). HTML-escaping these silently corrupts
+// ─── the value: bcrypt.compare(escaped, hash) fails even for the *correct*
+// ─── password if it contains characters like < > & " ' — this was the
+// ─── root cause of "correct password rejected" on login / wallet payment /
+// ─── change-password. OTP and token fields are excluded for the same reason.
+const XSS_EXEMPT_FIELDS = new Set([
+  "password", "oldPassword", "newPassword", "confirmPassword",
+  "transactionPassword", "currentPassword",
+  "otp", "emailOtp", "phoneOtp", "code",
+  "sessionToken", "refreshToken", "accessToken",
+  "razorpaySignature", "razorpayOrderId", "razorpayPaymentId",
+]);
+
 // ─── Recursive NoSQL Scrubbing (Removes keys starting with $ or containing .) ───
 function deepCleanNoSQL(value) {
   if (value === null || typeof value !== "object") return value;
@@ -17,14 +31,19 @@ function deepCleanNoSQL(value) {
 }
 
 // ─── Recursive XSS Escape ─────────────────────────────────────────────────────
-function deepCleanXSS(value) {
-  if (typeof value === "string") return xss(value);
-  if (Array.isArray(value)) return value.map(deepCleanXSS);
+// `parentKey` lets us skip escaping for fields in XSS_EXEMPT_FIELDS (passwords,
+// OTPs, tokens, Razorpay signatures) — those are never rendered as HTML, and
+// escaping them corrupts the exact byte sequence needed for hashing/comparison.
+function deepCleanXSS(value, parentKey = null) {
+  if (typeof value === "string") {
+    return parentKey && XSS_EXEMPT_FIELDS.has(parentKey) ? value : xss(value);
+  }
+  if (Array.isArray(value)) return value.map((v) => deepCleanXSS(v, parentKey));
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value)
         .filter(([k]) => !["__proto__", "constructor", "prototype"].includes(k))
-        .map(([k, v]) => [k, deepCleanXSS(v)])
+        .map(([k, v]) => [k, deepCleanXSS(v, k)])
     );
   }
   return value;

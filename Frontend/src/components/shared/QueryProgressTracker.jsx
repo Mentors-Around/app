@@ -4,15 +4,15 @@ import { Check } from 'lucide-react';
 const QueryProgressTracker = ({ currentStatus }) => {
   // Map our backend statuses to the UI steps
   const steps = [
-    { id: 'submitted', label: 'Submitted', statuses: ['pending', 'pending_review'] },
-    { id: 'reviewing', label: 'Teacher Reviewing', statuses: ['waiting_for_student'] },
-    { id: 'action', label: 'Waiting for Action', statuses: ['accepted', 'approved_waiting_payment'] },
+    { id: 'submitted', label: 'Submitted', statuses: ['pending_review'] },
+    { id: 'reviewing', label: 'Teacher Reviewing', statuses: ['waiting_for_student', 'approved_waiting_payment'] },
+    { id: 'action', label: 'Waiting for Action', statuses: ['approved_waiting_payment', 'waiting_for_student'] },
     { id: 'enrolled', label: 'Resolved / Enrolled', statuses: ['enrolled', 'resolved'] }
   ];
 
   // Determine current step index
   let currentIndex = 0;
-  if (['rejected', 'auto_rejected', 'approval_expired', 'closed_inactive', 'expired', 'lapsed'].includes(currentStatus)) {
+  if (['rejected', 'auto_rejected', 'approval_expired', 'closed_inactive'].includes(currentStatus)) {
     return (
       <div className="w-full bg-slate-50 p-4 rounded-xl border border-slate-200 text-center text-xs font-bold text-slate-500 uppercase tracking-wide">
         Query Closed: {currentStatus.replace(/_/g, ' ')}
@@ -21,8 +21,7 @@ const QueryProgressTracker = ({ currentStatus }) => {
   }
 
   if (['enrolled', 'resolved'].includes(currentStatus)) currentIndex = 3;
-  else if (['accepted', 'approved_waiting_payment', 'waiting_for_student'].includes(currentStatus)) currentIndex = 2;
-  else if (['pending', 'pending_review'].includes(currentStatus)) currentIndex = 1;
+  else if (['approved_waiting_payment', 'waiting_for_student'].includes(currentStatus)) currentIndex = 2;
   else currentIndex = 0;
 
   return (

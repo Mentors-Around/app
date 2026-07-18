@@ -4,7 +4,8 @@ import toast from 'react-hot-toast';
 import {
   Calendar, Clock, MapPin, Users, BookOpen, AlertCircle, ArrowLeft, Send,
   CheckCircle2, Star, CreditCard, Wallet, Megaphone, FileText, HelpCircle,
-  Video, PlayCircle, ShieldAlert, ArrowRight, ThumbsUp, Loader2, Upload
+  Video, PlayCircle, ShieldAlert, ArrowRight, ThumbsUp, Loader2, Upload,
+  Eye, EyeOff
 } from 'lucide-react';
 import classroomService from '@/services/classroom.service';
 import enrollmentService from '@/services/enrollment.service';
@@ -52,6 +53,7 @@ const StudentClassroomDetails = () => {
 
   const [payOpen, setPayOpen] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [walletPassword, setWalletPassword] = useState('');
   const [showWalletPassword, setShowWalletPassword] = useState(false);
 
   // Doubt submission states
@@ -746,15 +748,16 @@ const StudentClassroomDetails = () => {
                         placeholder="Enter account password to authorize wallet debit"
                         value={walletPassword}
                         onChange={(e) => setWalletPassword(e.target.value)}
-                        className="w-full pl-3 pr-10 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy dark:bg-slate-800 dark:text-slate-100"
+                        className="w-full px-3 py-2 pr-10 text-xs rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy dark:bg-slate-800 dark:text-slate-100"
                         required
                       />
                       <button
                         type="button"
-                        onClick={() => setShowWalletPassword(!showWalletPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy dark:hover:text-slate-200 transition"
+                        onClick={() => setShowWalletPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
+                        tabIndex={-1}
                       >
-                        {showWalletPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                        {showWalletPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
                   </div>

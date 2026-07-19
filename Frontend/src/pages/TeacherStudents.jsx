@@ -13,9 +13,8 @@ const mockStudents = [
 ];
 
 export default function TeacherStudents() {
-  useEffect(() => {
-    document.title = "My Students — TrueEd";
-  }, []);
+  const [realStudents, setRealStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
@@ -30,23 +29,74 @@ export default function TeacherStudents() {
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
-    const savedClassrooms = localStorage.getItem('trueed_teacher_classrooms');
-    if (savedClassrooms) {
-      setClassrooms(JSON.parse(savedClassrooms));
-    }
+    document.title = "My Students — TrueEd";
+    
+    const fetchStudentsData = async () => {
+      try {
+        setLoading(true);
+        const [queriesRes, classroomsRes] = await Promise.all([
+          api.teacher.getMyQueries().catch(() => null),
+          api.teacher.getMyClassrooms().catch(() => null)
+        ]);
+
+        const classroomList = Array.isArray(classroomsRes) ? classroomsRes : (classroomsRes?.docs || classroomsRes?.classrooms || []);
+        setClassrooms(classroomList.map(c => ({ id: c._id || c.id, name: c.title || c.name, subject: c.subject, mode: c.mode })));
+
+        const queryList = Array.isArray(queriesRes) ? queriesRes : (queriesRes?.docs || queriesRes?.queries || []);
+        
+        // Map students from queries / enrollments
+        if (queryList.length > 0) {
+          const studentMap = new Map();
+          queryList.forEach((q, idx) => {
+            const studentObj = typeof q.studentId === 'object' ? q.studentId : (typeof q.student === 'object' ? q.student : null);
+            const classroomObj = typeof q.classroomId === 'object' ? q.classroomId : (typeof q.classroom === 'object' ? q.classroom : null);
+            
+            const sId = studentObj?._id || q.studentId || `s_${idx}`;
+            const sName = studentObj?.name || 'Student';
+            
+            if (!studentMap.has(sId)) {
+              studentMap.set(sId, {
+                id: sId,
+                name: sName,
+                initials: sName.split(' ').map(n => n[0]).join('').toUpperCase(),
+                grade: classroomObj?.academicLevel || classroomObj?.subject || 'Class Student',
+                city: 'India',
+                subjects: classroomObj?.subject ? [classroomObj.subject] : ['General'],
+                totalSessions: 1,
+                lastSession: new Date(q.createdAt || Date.now()).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }),
+                status: q.status === 'enrolled' || q.status === 'accepted' ? 'Active' : 'Inactive',
+                attendance: '100%',
+                classrooms: classroomObj ? [{ name: classroomObj.title || 'Classroom', mode: classroomObj.mode || 'Online' }] : []
+              });
+            } else {
+              const existing = studentMap.get(sId);
+              if (classroomObj && !existing.classrooms.some(c => c.name === classroomObj.title)) {
+                existing.classrooms.push({ name: classroomObj.title || 'Classroom', mode: classroomObj.mode || 'Online' });
+              }
+            }
+          });
+          setRealStudents(Array.from(studentMap.values()));
+        } else {
+          setRealStudents(mockStudents);
+        }
+      } catch (err) {
+        console.warn('Failed to load students data:', err.message);
+        setRealStudents(mockStudents);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudentsData();
   }, []);
 
-  // Compute enriched students with classrooms based on dummy determinism
-  const enrichedStudents = mockStudents.map(student => {
-    let studentClassrooms = [];
-    if (classrooms.length > 0) {
-      if (student.id % 3 === 1) {
-        studentClassrooms = classrooms.slice(0, 2);
-      } else if (student.id % 3 === 2) {
-        studentClassrooms = classrooms.slice(0, 1);
-      } else {
-        studentClassrooms = [];
-      }
+  const displayStudents = realStudents.length > 0 ? realStudents : mockStudents;
+
+  // Compute enriched students with classrooms
+  const enrichedStudents = displayStudents.map(student => {
+    let studentClassrooms = student.classrooms || [];
+    if (studentClassrooms.length === 0 && classrooms.length > 0) {
+      studentClassrooms = classrooms.slice(0, 1);
     }
     return { ...student, classrooms: studentClassrooms };
   });

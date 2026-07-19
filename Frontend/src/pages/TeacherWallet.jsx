@@ -118,8 +118,8 @@ const TeacherWallet = () => {
               <Calendar className="w-6 h-6" />
             </div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">This Month</p>
-            <p className="font-sora font-bold text-3xl text-navy">₹8,200</p>
-            <p className="text-xs text-slate-500 mt-2 font-medium flex items-center gap-1"><span className="text-emerald-500">↑ 12%</span> vs last month</p>
+            <p className="font-sora font-bold text-3xl text-navy">₹{(teacherWallet?.totalEarnings || 0).toLocaleString()}</p>
+            <p className="text-xs text-slate-500 mt-2 font-medium flex items-center gap-1"><span className="text-emerald-500">Live</span> backend data</p>
           </div>
           
           <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm hover:shadow-md transition group relative overflow-hidden">

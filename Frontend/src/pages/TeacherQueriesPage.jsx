@@ -17,21 +17,27 @@ const TeacherQueriesPage = () => {
     try {
       setLoading(true);
       const res = await api.teacher.getMyQueries();
-      const list = Array.isArray(res) ? res : (res?.queries || []);
-      const mapped = list.map(q => ({
-        id: q._id || q.id,
-        student: q.student?.name || 'Student',
-        studentId: q.student?._id || q.student,
-        initials: q.student?.name ? q.student.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'S',
-        subject: q.classroom?.subject || q.subject || 'General',
-        classroomName: q.classroom?.title || q.classroomName || 'Classroom Query',
-        classroomId: q.classroom?._id || q.classroom,
-        status: q.status || 'pending',
-        message: q.initialMessage || q.message || '',
-        createdAt: q.createdAt,
-        paymentDeadline: q.paymentDeadline,
-        events: q.history || q.events || []
-      }));
+      const list = Array.isArray(res) ? res : (res?.docs || res?.queries || []);
+      const mapped = list.map(q => {
+        const studentObj = typeof q.studentId === 'object' ? q.studentId : (typeof q.student === 'object' ? q.student : null);
+        const classroomObj = typeof q.classroomId === 'object' ? q.classroomId : (typeof q.classroom === 'object' ? q.classroom : null);
+        const studentName = studentObj?.name || 'Student';
+        return {
+          id: q._id || q.id,
+          student: studentName,
+          studentName: studentName,
+          studentId: studentObj?._id || q.studentId || q.student,
+          initials: studentName ? studentName.split(' ').map(n => n[0]).join('').toUpperCase() : 'S',
+          subject: classroomObj?.subject || q.subject || 'General',
+          classroomName: classroomObj?.title || q.classroomName || 'Classroom Query',
+          classroomId: classroomObj?._id || q.classroomId || q.classroom,
+          status: q.status || 'pending',
+          message: q.initialMessage || q.message || '',
+          createdAt: q.createdAt,
+          paymentDeadline: q.paymentDeadline,
+          events: q.history || q.events || []
+        };
+      });
       setQueries(mapped);
     } catch (err) {
       console.warn('Failed to load teacher queries:', err.message);

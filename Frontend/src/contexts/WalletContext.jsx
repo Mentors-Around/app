@@ -48,12 +48,17 @@ export const WalletProvider = ({ children }) => {
         } else if (user.role === 'teacher') {
           const tWallet = await api.teacher.getWallet();
           if (tWallet) {
-            setTeacherWallet({
-              balance: tWallet.balance ?? 0,
-              totalEarnings: tWallet.totalEarnings ?? 0,
-              totalWithdrawn: tWallet.totalWithdrawn ?? 0,
-              transactions: tWallet.transactions || [],
-            });
+            const realBalance = tWallet.walletRupees ?? (tWallet.walletPaise !== undefined ? tWallet.walletPaise / 100 : 0);
+            const realEarnings = tWallet.totalEarningsPaise ? tWallet.totalEarningsPaise / 100 : (tWallet.totalEarnings || 0);
+            const realWithdrawn = tWallet.withdrawnPaise ? tWallet.withdrawnPaise / 100 : (tWallet.totalWithdrawn || 0);
+            
+            setTeacherWallet(prev => ({
+              ...prev,
+              balance: realBalance,
+              totalEarnings: realEarnings,
+              totalWithdrawn: realWithdrawn,
+              transactions: tWallet.transactions || prev.transactions || [],
+            }));
           }
         }
       } catch (err) {
@@ -61,15 +66,15 @@ export const WalletProvider = ({ children }) => {
       }
     };
 
-    fetchBackendWallet();
-
-    // Teacher Init
+    // Teacher Init from local cache ONLY if not logged in / as fallback before fetch
     const savedTeacher = localStorage.getItem('trueed_teacher_wallet_data');
     if (savedTeacher) {
       try {
         setTeacherWallet(JSON.parse(savedTeacher));
       } catch(e) {}
     }
+
+    fetchBackendWallet();
 
     // Student Init
     const savedStudent = localStorage.getItem('trueed_student_wallet_data');

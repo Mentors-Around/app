@@ -14,28 +14,27 @@ export default function TeacherClassrooms() {
     try {
       setLoading(true);
       const data = await api.teacher.getMyClassrooms();
-      if (Array.isArray(data)) {
-        const mapped = data.map(item => ({
-          id: item._id || item.id,
-          teacherId: item.teacher?._id || item.teacher || user?.id,
-          teacher: item.teacher?.name || user?.name || 'Teacher User',
-          name: item.title || item.name || 'Classroom',
-          subject: item.subject || 'General',
-          classLevel: item.grade || item.classLevel || 'N/A',
-          unlimitedStudents: item.maxStudents ? false : true,
-          mode: item.mode || 'Online',
-          description: item.description || '',
-          price: item.pricePaise ? item.pricePaise / 100 : item.price || 0,
-          capacity: item.maxStudents || 0,
-          startDate: item.startDate ? item.startDate.split('T')[0] : '',
-          endDate: item.endDate ? item.endDate.split('T')[0] : '',
-          schedules: item.schedules || [],
-          enrolled: item.enrolledStudentsCount || item.enrolled || 0,
-          schedule: item.schedule || 'Flexible Schedule',
-          status: item.isCancelled ? 'inactive' : 'active'
-        }));
-        setClassrooms(mapped);
-      }
+      const list = Array.isArray(data) ? data : (data?.docs || data?.classrooms || []);
+      const mapped = list.map(item => ({
+        id: item._id || item.id,
+        teacherId: item.teacherId?._id || item.teacherId || item.teacher || user?.id,
+        teacher: item.teacherId?.name || item.teacher?.name || user?.name || 'Teacher User',
+        name: item.title || item.name || 'Classroom',
+        subject: item.subject || 'General',
+        classLevel: item.academicLevel || item.grade || item.classLevel || 'N/A',
+        unlimitedStudents: item.maxStudents >= 9999 ? true : false,
+        mode: item.mode ? (item.mode.charAt(0).toUpperCase() + item.mode.slice(1)) : 'Online',
+        description: item.description || '',
+        price: item.feesPaise ? item.feesPaise / 100 : (item.pricePaise ? item.pricePaise / 100 : item.price || 0),
+        capacity: item.maxStudents || 0,
+        startDate: item.startDate ? item.startDate.split('T')[0] : '',
+        endDate: item.endDate ? item.endDate.split('T')[0] : '',
+        schedules: item.schedules || [],
+        enrolled: item.stats?.enrolledStudents || item.enrolledStudentsCount || item.enrolled || 0,
+        schedule: Array.isArray(item.schedule) ? `${item.schedule.length} Weekly Sessions` : (item.schedule || 'Flexible Schedule'),
+        status: item.status === 'active' ? 'active' : 'inactive'
+      }));
+      setClassrooms(mapped);
     } catch (err) {
       console.warn('Failed to fetch classrooms from API:', err.message);
     } finally {
@@ -177,24 +176,53 @@ export default function TeacherClassrooms() {
     e.preventDefault();
     
     // Validation
-    if (newRoom.schedules.length === 0) {
+    if (!newRoom.schedules || newRoom.schedules.length === 0) {
       setToastMessage('Please add at least one schedule.');
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }
 
     try {
+      const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+      const scheduleSlots = [];
+
+      (newRoom.schedules || []).forEach(sch => {
+        (sch.days || []).forEach(dayName => {
+          const dayOfWeek = dayMap[dayName];
+          if (dayOfWeek !== undefined && sch.startTime && sch.endTime) {
+            const { hours } = getSessionDuration(sch.startTime, sch.endTime);
+            const durationMinutes = Math.round(hours * 60);
+            scheduleSlots.push({
+              day: dayOfWeek,
+              dayOfWeek: dayOfWeek,
+              startTime: sch.startTime,
+              endTime: sch.endTime,
+              durationMinutes: durationMinutes > 0 ? durationMinutes : 60,
+            });
+          }
+        });
+      });
+
+      if (scheduleSlots.length === 0) {
+        setToastMessage('Please select at least one day and time for your schedule.');
+        setTimeout(() => setToastMessage(null), 3000);
+        return;
+      }
+
       const payload = {
         title: newRoom.name,
         subject: newRoom.subject,
-        grade: newRoom.classLevel,
-        description: newRoom.description,
-        pricePaise: Math.round(Number(newRoom.price) * 100),
-        maxStudents: newRoom.unlimitedStudents ? undefined : Number(newRoom.maxStudents),
+        classroomType: 'academic',
+        academicLevel: newRoom.classLevel || 'Class 10',
+        description: newRoom.description || '',
+        feesPaise: Math.round(Number(newRoom.price || 0) * 100),
+        totalHoursPlanned: Number(totalTeachingHours) > 0 ? Number(totalTeachingHours) : 20,
+        maxStudents: newRoom.unlimitedStudents ? 99999 : Number(newRoom.maxStudents || 30),
         startDate: newRoom.startDate,
         endDate: newRoom.endDate,
-        mode: newRoom.mode,
-        schedules: newRoom.schedules
+        mode: (newRoom.mode || 'Online').toLowerCase(),
+        schedule: scheduleSlots,
+        ...(newRoom.mode?.toLowerCase() === 'offline' ? { offlineAddress: newRoom.offlineAddress || 'Teacher Training Center' } : {})
       };
 
       await api.classroom.create(payload);

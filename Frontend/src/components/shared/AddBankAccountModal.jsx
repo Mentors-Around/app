@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { X, Landmark } from 'lucide-react';
+import { X, Landmark, Eye, EyeOff } from 'lucide-react';
 
 const AddBankAccountModal = ({ isOpen, onClose, onSave }) => {
+  const [showAccNum, setShowAccNum] = useState(false);
+  const [showConfirmAccNum, setShowConfirmAccNum] = useState(false);
+
   const [bankForm, setBankForm] = useState({
     accountName: '',
     bankName: '',
@@ -68,11 +71,43 @@ const AddBankAccountModal = ({ isOpen, onClose, onSave }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Account Number *</label>
-                <input type="password" value={bankForm.accountNumber} onChange={(e) => setBankForm({...bankForm, accountNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:border-navy" placeholder="Enter Account No." />
+                <div className="relative">
+                  <input 
+                    type={showAccNum ? "text" : "password"} 
+                    value={bankForm.accountNumber} 
+                    onChange={(e) => setBankForm({...bankForm, accountNumber: e.target.value})} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-4 pr-10 py-2.5 text-slate-800 focus:outline-none focus:border-navy" 
+                    placeholder="Enter Account No." 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAccNum(!showAccNum)} 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    aria-label={showAccNum ? "Hide account number" : "Show account number"}
+                  >
+                    {showAccNum ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Confirm Account *</label>
-                <input type="text" value={bankForm.confirmAccountNumber} onChange={(e) => setBankForm({...bankForm, confirmAccountNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:border-navy" placeholder="Re-enter Account No." />
+                <div className="relative">
+                  <input 
+                    type={showConfirmAccNum ? "text" : "password"} 
+                    value={bankForm.confirmAccountNumber} 
+                    onChange={(e) => setBankForm({...bankForm, confirmAccountNumber: e.target.value})} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-4 pr-10 py-2.5 text-slate-800 focus:outline-none focus:border-navy" 
+                    placeholder="Re-enter Account No." 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowConfirmAccNum(!showConfirmAccNum)} 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    aria-label={showConfirmAccNum ? "Hide account number" : "Show account number"}
+                  >
+                    {showConfirmAccNum ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

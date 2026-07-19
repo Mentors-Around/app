@@ -116,8 +116,7 @@ export const getAllTeachers = asyncHandler(async (req, res) => {
 
 export const suspendTeacher = asyncHandler(async (req, res) => {
   const { teacherId } = req.params;
-  const { reason }    = req.body;
-  if (!reason) throw ApiError.badRequest('Reason required');
+  const reason = req.body?.reason || 'Administrative suspension';
 
   auditLog(req, 'SUSPEND_TEACHER', { teacherId, reason });
 
@@ -288,7 +287,7 @@ export const cancelClassroom = asyncHandler(async (req, res) => {
 export const getAllUsers = asyncHandler(async (req, res) => {
   const { role, page = 1, limit = 20, search } = req.query;
   const filter = { deletedAt: null };
-  if (role)   filter.role = role;
+  if (role) filter.role = role;
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: 'i' } },
@@ -301,13 +300,42 @@ export const getAllUsers = asyncHandler(async (req, res) => {
     sort: { createdAt: -1 },
     select: '-fcmTokens -passwordHash -mfaSecret',
   });
+
+  const StudentWallet = mongoose.model('StudentWallet');
+  const TeacherProfile = mongoose.model('TeacherProfile');
+  const Enrollment = mongoose.model('Enrollment');
+
+  const rawDocs = result?.results || result?.docs || [];
+
+  const docsWithDetails = await Promise.all(
+    rawDocs.map(async (uDoc) => {
+      const u = typeof uDoc.toObject === 'function' ? uDoc.toObject() : uDoc;
+      if (u.role === 'student' || !u.role) {
+        const wallet = await StudentWallet.findOne({ studentId: u._id }).lean();
+        const count = await Enrollment.countDocuments({ studentId: u._id, status: { $in: ['active', 'enrolled'] } });
+        u.walletBalanceRs = wallet ? (wallet.cashBalancePaise || 0) / 100 : 0;
+        u.queryTokens = wallet ? (wallet.tokenBalance ?? 0) : 0;
+        u.classroomsCount = count || 0;
+      } else if (u.role === 'teacher') {
+        const profile = await TeacherProfile.findOne({ userId: u._id }).lean();
+        const count = await Classroom.countDocuments({ teacherId: u._id, status: 'active' });
+        u.walletBalanceRs = profile ? (profile.walletPaise || 0) / 100 : 0;
+        u.queryTokens = 0;
+        u.classroomsCount = count || 0;
+        u.teacherProfile = profile || null;
+      }
+      return u;
+    })
+  );
+
+  result.docs = docsWithDetails;
+  result.results = docsWithDetails;
   res.status(200).json(new ApiResponse(200, result, 'Users'));
 });
 
 export const banUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { reason } = req.body;
-  if (!reason) throw ApiError.badRequest('Reason required');
+  const reason = req.body?.reason || 'Administrative suspension';
 
   auditLog(req, 'BAN_USER', { userId, reason });
 
@@ -332,6 +360,27 @@ export const unbanUser = asyncHandler(async (req, res) => {
 });
 
 // ── Review Moderation ─────────────────────────────────────────────────────────
+export const getAllReviews = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, search } = req.query;
+  const filter = {};
+  if (search) {
+    filter.comment = { $regex: search, $options: 'i' };
+  }
+
+  const result = await Review.paginate(filter, {
+    page: Number(page),
+    limit: Math.min(Number(limit), 50),
+    sort: { createdAt: -1 },
+    populate: [
+      { path: 'studentId', select: 'name email avatarUrl' },
+      { path: 'teacherId', select: 'name email avatarUrl' },
+      { path: 'classroomId', select: 'title subject' },
+    ],
+  });
+
+  res.status(200).json(new ApiResponse(200, result, 'Platform reviews'));
+});
+
 export const hideReview = asyncHandler(async (req, res) => {
   const { reviewId } = req.params;
   const { reason }   = req.body;
@@ -351,7 +400,11 @@ export const hideReview = asyncHandler(async (req, res) => {
 
 // ── Platform Stats ────────────────────────────────────────────────────────────
 export const getPlatformStats = asyncHandler(async (req, res) => {
-  const [userStats, classroomStats, paymentStats, openReportsCount] = await Promise.all([
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [userStats, classroomStats, paymentStats, openReportsCount, todayRevenueAgg, monthRevenueAgg, monthlyTrendAgg] = await Promise.all([
     User.aggregate([
       { $group: { _id: '$role', count: { $sum: 1 }, active: { $sum: { $cond: ['$isActive', 1, 0] } } } },
     ]),
@@ -363,9 +416,55 @@ export const getPlatformStats = asyncHandler(async (req, res) => {
       { $group: { _id: '$purpose', totalPaise: { $sum: '$totalAmountPaise' }, count: { $sum: 1 } } },
     ]),
     Report.countDocuments({ status: { $in: ['open', 'under_review'] } }),
+    Payment.aggregate([
+      { $match: { status: 'captured', createdAt: { $gte: startOfToday } } },
+      { $group: { _id: null, total: { $sum: '$totalAmountPaise' } } }
+    ]),
+    Payment.aggregate([
+      { $match: { status: 'captured', createdAt: { $gte: startOfMonth } } },
+      { $group: { _id: null, total: { $sum: '$totalAmountPaise' } } }
+    ]),
+    Payment.aggregate([
+      { $match: { status: 'captured' } },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } },
+          revenuePaise: { $sum: '$totalAmountPaise' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ])
   ]);
 
-  res.status(200).json(new ApiResponse(200, { userStats, classroomStats, paymentStats, openReportsCount }, 'Platform stats'));
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonthIdx = now.getMonth();
+  const monthlyRevenueTrend = [];
+  for (let i = 5; i >= 0; i--) {
+    let m = currentMonthIdx - i;
+    let y = now.getFullYear();
+    if (m < 0) {
+      m += 12;
+      y -= 1;
+    }
+    const found = monthlyTrendAgg.find(item => item._id.month === (m + 1) && item._id.year === y);
+    monthlyRevenueTrend.push({
+      name: monthNames[m],
+      revenue: found ? Math.round(found.revenuePaise / 100) : 0
+    });
+  }
+
+  const todayRevenue = todayRevenueAgg.length ? Math.round(todayRevenueAgg[0].total / 100) : 0;
+  const monthlyRevenue = monthRevenueAgg.length ? Math.round(monthRevenueAgg[0].total / 100) : 0;
+
+  res.status(200).json(new ApiResponse(200, {
+    userStats,
+    classroomStats,
+    paymentStats,
+    openReportsCount,
+    todayRevenue,
+    monthlyRevenue,
+    monthlyRevenueTrend
+  }, 'Platform stats'));
 });
 // ── Top Teachers ──────────────────────────────────────────────────────────────
 // Returns teachers ranked by average rating, total students, and total classrooms

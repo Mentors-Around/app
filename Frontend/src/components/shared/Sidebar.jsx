@@ -1,185 +1,246 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import {
-  LayoutDashboard, Compass, Users, Wallet, User, ShieldCheck,
-  LogOut, ChevronLeft, Menu as MenuIcon, X, ClipboardCheck,
-  FileWarning, LineChart, Settings, HeadphonesIcon, MessageSquare,
-  Heart, ClipboardList, HelpCircle, Star, GraduationCap,
-  CreditCard, BarChart3, EyeOff,
-} from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { ROLES } from '@/constants/enums';
+import useAuth from '../../hooks/useAuth';
+import { MessageSquare, MessagesSquare, FileWarning, HelpCircle } from 'lucide-react';
+import { handleComingSoon } from '../../utils/navigationFixes';
+import TeacherAvatar from './TeacherAvatar';
 import Logo from './Logo';
 
 const navConfig = {
-  [ROLES.STUDENT]: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/student/dashboard' },
-    { label: 'Discover Classrooms', icon: Compass, to: '/student/discover' },
-    { label: 'My Bookings', icon: ClipboardCheck, to: '/student/bookings' },
-    { label: 'My Queries', icon: MessageSquare, to: '/student/my-queries' },
-    { label: 'Saved Tutors', icon: Heart, to: '/student/favourites' },
-    { label: 'Monthly Tests', icon: ClipboardList, to: '/student/tests' },
-    { label: 'Wallet & Payments', icon: Wallet, to: '/student/wallet' },
-    { label: 'Profile', icon: User, to: '/student/profile' },
-    { label: 'Settings', icon: Settings, to: '/student/settings' },
+  student: [
+    {
+      section: 'Menu',
+      items: [
+        { label: 'Dashboard', icon: 'fa-solid fa-gauge-high', to: '/student/dashboard' },
+        { label: 'Discover Classrooms', icon: 'fa-solid fa-compass', to: '/student/discover' },
+        { label: 'My Queries', icon: MessagesSquare, to: '/student/my-queries', isLucide: true },
+        { label: 'Learning', icon: 'fa-solid fa-users-rectangle', to: '/student/rooms' },
+        { label: 'Wallet & Payments', icon: 'fa-solid fa-wallet', to: '/student/wallet' },
+        { label: 'Profile', icon: 'fa-solid fa-user', to: '/student/profile' },
+        { label: 'Help & Support', icon: 'fa-solid fa-headset', to: '/student/settings' },
+      ]
+    }
   ],
-  [ROLES.TEACHER]: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/teacher/dashboard' },
-    { label: 'My Classrooms', icon: Users, to: '/teacher/classrooms' },
-    { label: 'My Students', icon: GraduationCap, to: '/teacher/students' },
-    { label: 'Enrollment Queries', icon: MessageSquare, to: '/teacher/queries' },
-    { label: 'Classroom Doubts', icon: HelpCircle, to: '/teacher/doubts' },
-    { label: 'Student Reports', icon: FileWarning, to: '/teacher/reports' },
-    { label: 'Student Reviews', icon: Star, to: '/teacher/reviews' },
-    { label: 'Wallet & Payments', icon: Wallet, to: '/teacher/wallet' },
-    { label: 'KYC Verification', icon: ShieldCheck, to: '/teacher/kyc' },
-    { label: 'Profile', icon: User, to: '/teacher/profile' },
-    { label: 'Settings', icon: Settings, to: '/teacher/settings' },
+  teacher: [
+    {
+      section: '',
+      items: [
+        { label: 'Dashboard', icon: 'fa-solid fa-gauge-high', to: '/teacher/dashboard' },
+        { label: 'My Classrooms', icon: 'fa-solid fa-users-rectangle', to: '/teacher/classrooms' },
+        { label: 'Classroom Doubts', icon: HelpCircle, to: '/teacher/doubts', isLucide: true },
+        { label: 'My Students', icon: 'fa-solid fa-user-group', to: '/teacher/students' },
+        { label: 'Wallet & Payments', icon: 'fa-solid fa-wallet', to: '/teacher/wallet' },
+        { label: 'Queries', icon: MessagesSquare, to: '/teacher/queries', isLucide: true },
+        { label: 'Reviews', icon: 'fa-solid fa-star', to: '/teacher/reviews' },
+        { label: 'Profile', icon: 'fa-solid fa-user', to: '/teacher/profile' },
+        { label: 'Settings', icon: 'fa-solid fa-gear', to: '/teacher/settings' },
+        { label: 'Help & Support', icon: 'fa-solid fa-headset', to: '/contact' },
+      ]
+    }
   ],
-  [ROLES.ADMIN]: [
-    { label: 'Overview Dashboard', icon: LayoutDashboard, to: '/admin/dashboard' },
-    { label: 'Teachers', icon: GraduationCap, to: '/admin/teachers' },
-    { label: 'Students', icon: Users, to: '/admin/students' },
-    { label: 'KYC Verification', icon: ShieldCheck, to: '/admin/kyc' },
-    { label: 'Classrooms', icon: Users, to: '/admin/classrooms' },
-    { label: 'Reports', icon: FileWarning, to: '/admin/reports' },
-    { label: 'Wallet & Payments', icon: Wallet, to: '/admin/wallet' },
-    { label: 'Review Moderation', icon: EyeOff, to: '/admin/reviews' },
-    { label: 'Payout Management', icon: CreditCard, to: '/admin/payouts' },
-    { label: 'Support Requests', icon: HeadphonesIcon, to: '/admin/support' },
-    { label: 'Analytics', icon: BarChart3, to: '/admin/analytics' },
-    { label: 'Settings', icon: Settings, to: '/admin/settings' },
+  admin: [
+    {
+      section: '',
+      items: [
+        { label: 'Dashboard', icon: 'fa-solid fa-chart-pie', to: '/admin/dashboard' },
+        { label: 'Teachers', icon: 'fa-solid fa-chalkboard-user', to: '/admin/teachers' },
+        { label: 'Students', icon: 'fa-solid fa-graduation-cap', to: '/admin/students' },
+        { label: 'KYC Verification', icon: 'fa-solid fa-user-check', to: '/admin/kyc' },
+        { label: 'Classrooms', icon: 'fa-solid fa-users-rectangle', to: '/admin/classrooms' },
+        { label: 'Reports', icon: 'fa-solid fa-file-shield', to: '/admin/reports' },
+        { label: 'Wallet & Payments', icon: 'fa-solid fa-wallet', to: '/admin/wallet' },
+        { label: 'Reviews', icon: 'fa-solid fa-star', to: '/admin/reviews' },
+        { label: 'Support', icon: 'fa-solid fa-headset', to: '/admin/support' },
+        { label: 'Analytics', icon: 'fa-solid fa-chart-line', to: '/admin/analytics' },
+        { label: 'Settings', icon: 'fa-solid fa-gear', to: '/admin/settings' },
+      ]
+    }
   ],
 };
 
-const Sidebar = ({ isOpen, onClose, isCollapsed, setIsCollapsed }) => {
+const Sidebar = ({ role, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { user, role, logout } = useAuth();
-  const items = navConfig[role] || [];
-  const initials = user?.initials || user?.name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+  const { user, logout: authLogout } = useAuth();
+  const sections = navConfig[role] || [];
+
+  const initials = user?.initials || 'U';
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } finally {
-      setShowLogoutModal(false);
-      navigate('/login', { replace: true });
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('trueed_cookie_consent');
+    authLogout();
+    setShowLogoutModal(false);
+    navigate('/login');
   };
 
   return (
     <>
       <aside
         className={`fixed top-0 left-0 h-full w-[75%] max-w-[320px] bg-white border-r border-slate-200 z-50 flex flex-col transition-all duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} 
           ${isCollapsed ? 'md:w-[72px]' : 'md:w-[240px]'}`}
       >
+        {/* Header & Logo */}
         <div className={`h-16 flex items-center border-b border-slate-100 ${isCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}>
           {!isCollapsed && (
-            <Link to="/" onClick={onClose}>
-              <Logo variant="light" className="h-10 w-auto" />
+            <Link to="/" onClick={onClose} className="transition-opacity">
+              <Logo variant="light" className="h-12 w-auto" loading="lazy" />
             </Link>
           )}
-          <button
+          
+          <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden md:flex w-8 h-8 items-center justify-center rounded-lg bg-navy text-white hover:bg-navy-hover shadow-sm transition-all"
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="hidden md:flex w-8 h-8 items-center justify-center rounded-lg bg-navy text-white hover:bg-navy-light shadow-sm transition-all"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            {isCollapsed ? <MenuIcon size={16} /> : <ChevronLeft size={16} />}
+            <i className={`fa-solid ${isCollapsed ? 'fa-bars' : 'fa-chevron-left'} text-sm`} />
           </button>
+
           <button onClick={onClose} className="md:hidden w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-navy transition">
-            <X size={18} />
+            <i className="fa-solid fa-xmark text-lg" />
           </button>
         </div>
 
-        <div className={`p-4 border-b border-slate-100 bg-slate-50/30 ${isCollapsed ? 'px-2 flex justify-center' : 'px-4'}`}>
+        {/* User Profile Section (Moved to Top) */}
+        <div className={`p-4 border-b border-slate-100 bg-slate-50/30 transition-all duration-300 ${isCollapsed ? 'px-2 flex justify-center' : 'px-4'}`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-navy text-white flex items-center justify-center text-sm font-bold shrink-0">
-                {initials}
-              </div>
-            )}
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-navy truncate">{user?.name || 'User'}</p>
-                <p className="text-xs text-slate-500 font-medium truncate capitalize">{role}</p>
-              </div>
-            )}
+            <TeacherAvatar 
+              teacherId={user?.id || '1'} 
+              name={user?.name} 
+              initials={initials} 
+              className="w-10 h-10 text-sm flex-shrink-0" 
+            />
+            <div className={`flex-1 min-w-0 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 hidden' : 'opacity-100 block'}`}>
+              <p className="text-sm font-bold text-navy truncate">{user?.name || 'User Name'}</p>
+              <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1">
+                <i className="fa-solid fa-location-dot text-[10px]" /> {user?.location || 'City'}
+              </p>
+            </div>
           </div>
         </div>
 
-        <nav className={`flex-1 py-4 hide-scrollbar overflow-y-auto ${isCollapsed ? 'px-2' : 'px-3'}`}>
-          <div className={`space-y-1.5 ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
-            {items.map((item) => {
-              const isActive = pathname === item.to || (item.to !== '/admin/dashboard' && pathname.startsWith(item.to));
-              const Icon = item.icon;
-              return (
-                <div key={item.label} className="relative group/navitem w-full flex justify-center">
-                  <Link
-                    to={item.to}
-                    onClick={onClose}
-                    className={`flex items-center rounded-xl text-sm font-semibold transition-all duration-200
-                      ${isCollapsed ? 'justify-center w-10 h-10' : 'gap-3 px-3 py-2.5 w-full justify-start'}
-                      ${isActive ? 'bg-navy text-white' : 'text-slate-500 hover:bg-blue-50 hover:text-navy'}`}
-                  >
-                    <Icon size={20} className="shrink-0" />
-                    {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
-                  </Link>
-                  {isCollapsed && (
-                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 bg-navy-dark text-white text-xs font-bold px-3 py-2 rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/navitem:opacity-100 transition-all z-[9999]">
-                      {item.label}
+        {/* Navigation */}
+        <nav className={`flex-1 py-4 hide-scrollbar ${isCollapsed ? 'px-2 overflow-visible' : 'px-3 overflow-y-auto'}`}>
+          {sections.map((sectionObj, idx) => (
+            <div key={sectionObj.section} className="mb-6">
+              {!isCollapsed && sectionObj.section && (
+                <p className="px-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  {sectionObj.section}
+                  <span className="flex-1 h-px bg-slate-100 block"></span>
+                </p>
+              )}
+              {isCollapsed && idx > 0 && sectionObj.section && <div className="h-px bg-slate-100 my-4 mx-2"></div>}
+              
+              <div className={`space-y-1.5 ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
+                {sectionObj.items.map((item) => {
+                  const isActive = item.to && pathname === item.to;
+                  const isDisabled = !item.to;
+                  
+                  if (isDisabled) {
+                    return (
+                      <div key={item.label} className="relative group/navitem w-full flex justify-center">
+                        <button
+                          onClick={() => handleComingSoon(item.label)}
+                          className={`flex items-center rounded-xl text-sm font-semibold text-slate-400 cursor-pointer hover:bg-slate-50 transition-all duration-300
+                            ${isCollapsed ? 'justify-center w-10 h-10' : 'gap-4 px-3 py-2.5 w-full justify-start'}`}
+                        >
+                          <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                            {item.isLucide ? (
+                              <item.icon className="text-[22px]" />
+                            ) : (
+                              <i className={`${item.icon} text-[22px]`} />
+                            )}
+                          </span>
+                          <span className={`whitespace-nowrap transition-opacity duration-300 ${isCollapsed ? 'opacity-0 hidden' : 'opacity-100 block'}`}>{item.label}</span>
+                        </button>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div key={item.label} className="relative group/navitem w-full flex justify-center">
+                      <Link
+                        to={item.to}
+                        onClick={onClose}
+                        className={`flex items-center rounded-xl text-sm font-semibold transition-all duration-300
+                          ${isCollapsed ? 'justify-center w-10 h-10' : 'gap-4 px-3 py-2.5 w-full justify-start'}
+                          ${isActive 
+                            ? 'bg-navy text-white' 
+                            : 'text-slate-500 hover:bg-blue-50 hover:text-navy'
+                          }`}
+                      >
+                        <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                          {item.isLucide ? (
+                            <item.icon className={`text-[22px] transition-transform duration-300 ${isActive ? 'text-white' : 'text-slate-400 group-hover/navitem:text-navy'}`} />
+                          ) : (
+                            <i className={`${item.icon} text-[22px] transition-transform duration-300 ${isActive ? 'text-white' : 'text-slate-400 group-hover/navitem:text-navy'}`} />
+                          )}
+                        </span>
+                        <span className={`whitespace-nowrap transition-opacity duration-300 ${isCollapsed ? 'opacity-0 hidden' : 'opacity-100 block'}`}>{item.label}</span>
+                      </Link>
+                      {isCollapsed && (
+                        <div 
+                          className="absolute left-full top-1/2 -translate-y-1/2 ml-7 bg-[#102C57] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl whitespace-nowrap opacity-0 pointer-events-none group-hover/navitem:opacity-100 group-hover/navitem:translate-x-1 translate-x-0 transition-all duration-200 z-[9999] w-max"
+                          style={{ boxShadow: '0 10px 30px rgba(0,0,0,0.18)' }}
+                        >
+                          {item.label}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {role !== ROLES.ADMIN && (
-            <Link
-              to="/support"
-              onClick={onClose}
-              className={`mt-6 flex items-center rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 hover:text-navy transition w-full
-                ${isCollapsed ? 'justify-center w-10 h-10' : 'gap-3 px-3 py-2.5 justify-start'}`}
-            >
-              <HeadphonesIcon size={20} className="shrink-0" />
-              {!isCollapsed && <span>Help & Support</span>}
-            </Link>
-          )}
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        <div className={`p-4 border-t border-slate-100 bg-white ${isCollapsed ? 'px-2 flex justify-center' : 'px-4'}`}>
-          <button
-            onClick={() => setShowLogoutModal(true)}
-            className={`flex items-center text-sm font-bold text-slate-500 hover:text-error hover:bg-error/10 rounded-xl transition-all border border-transparent hover:border-error/20
-              ${isCollapsed ? 'justify-center w-10 h-10' : 'w-full gap-3 px-4 py-2.5 justify-start'}`}
-          >
-            <LogOut size={20} className="shrink-0" />
-            {!isCollapsed && <span>Logout</span>}
-          </button>
+        {/* Logout */}
+        <div className={`p-4 border-t border-slate-100 bg-white transition-all duration-300 ${isCollapsed ? 'px-2 flex justify-center' : 'px-4'}`}>
+          <div className={`relative group/logout ${isCollapsed ? 'w-full flex justify-center' : 'w-full'}`}>
+            <button
+              onClick={() => setShowLogoutModal(true)}
+              className={`flex items-center text-sm font-bold text-slate-500 hover:text-error transition-all duration-300 rounded-xl hover:bg-error/10 border border-transparent hover:border-error/20 ${isCollapsed ? 'justify-center w-10 h-10' : 'w-full gap-4 px-4 py-2.5 justify-start'}`}
+            >
+              <span className="w-6 h-6 flex items-center justify-center flex-shrink-0 group-hover/logout:-translate-x-1 transition-transform duration-300">
+                <i className="fa-solid fa-arrow-right-from-bracket text-[22px]" />
+              </span>
+              <span className={`whitespace-nowrap transition-opacity duration-300 ${isCollapsed ? 'opacity-0 hidden' : 'opacity-100 block'}`}>Logout</span>
+            </button>
+            {isCollapsed && (
+              <div 
+                className="absolute left-full top-1/2 -translate-y-1/2 ml-7 bg-[#102C57] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl whitespace-nowrap opacity-0 pointer-events-none group-hover/logout:opacity-100 group-hover/logout:translate-x-1 translate-x-0 transition-all duration-200 z-[9999] w-max"
+                style={{ boxShadow: '0 10px 30px rgba(0,0,0,0.18)' }}
+              >
+                Logout
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
+      {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setShowLogoutModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center animate-fadeIn" onClick={(e) => e.stopPropagation()}>
             <div className="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center mx-auto mb-5">
-              <LogOut className="text-error" size={26} />
+              <i className="fa-solid fa-arrow-right-from-bracket text-error text-2xl" />
             </div>
-            <h3 className="font-sora text-xl font-bold text-navy mb-2">Log out of TrueEd?</h3>
-            <p className="text-slate-500 text-sm mb-8">You'll need to sign in again to access your dashboard.</p>
+            <h3 className="font-sora text-xl font-bold text-navy mb-2">Are you sure you want to logout?</h3>
+            <p className="text-slate-500 text-sm mb-8">You will need to login again to access your dashboard.</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowLogoutModal(false)} className="flex-1 py-3 px-4 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 py-3 px-4 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
+              >
                 Cancel
               </button>
-              <button onClick={handleLogout} className="flex-1 py-3 px-4 bg-error text-white rounded-xl text-sm font-bold hover:bg-red-600 transition shadow-lg">
-                Yes, logout
+              <button
+                onClick={handleLogout}
+                className="flex-1 py-3 px-4 bg-error text-white rounded-xl text-sm font-bold hover:bg-red-600 transition shadow-lg"
+              >
+                Yes, Logout
               </button>
             </div>
           </div>

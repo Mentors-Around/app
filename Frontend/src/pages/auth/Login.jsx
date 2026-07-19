@@ -1,72 +1,142 @@
-// src/pages/auth/Login.jsx
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, Chrome } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import authService from '@/services/auth.service';
-import Alert from '@/components/shared/Alert';
-import { ROLES } from '@/constants/enums';
-
-const isEmailValid = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import Alert from '../../components/shared/Alert';
 
 const Login = () => {
-  const { loginWithPassword, getDashboardRoute } = useAuth();
+  const { login, loginWithPhone, sendPhoneOTP, user, getDashboardRoute } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
 
+  // Tab state: 'email' or 'phone'
+  const [activeTab, setActiveTab] = useState('email');
+  
+  // Form values
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // UI state
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
+  const [success, setSuccess] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
-  // Show messages passed from other pages (e.g. "account created, please login")
+  // References for focus
+  const emailRef = useRef(null);
+  const phoneRef = useRef(null);
+
+  // Auto-login check
   useEffect(() => {
-    if (location.state?.message) {
-      setInfo(location.state.message);
-      // Clear state so refresh doesn't re-show it
-      window.history.replaceState({}, '', location.pathname + location.search);
+    if (user) {
+      navigate(getDashboardRoute(user.role), { replace: true });
     }
-  }, [location]);
+  }, [user, navigate, getDashboardRoute]);
 
-  const handleSubmit = async (e) => {
+  // Autofocus based on tab
+  useEffect(() => {
+    if (activeTab === 'email' && emailRef.current) {
+      emailRef.current.focus();
+    } else if (activeTab === 'phone' && phoneRef.current) {
+      phoneRef.current.focus();
+    }
+  }, [activeTab]);
+
+  // Cooldown timer for OTP resend
+  useEffect(() => {
+    let timer;
+    if (otpCooldown > 0) {
+      timer = setInterval(() => {
+        setOtpCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
+
+  // Inline Validation Helpers
+  const isEmailValid = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const isPhoneValid = (p) => /^\d{10}$/.test(p.replace(/[\s-+]/g, ''));
+
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !isEmailValid(email)) return setError('Please enter a valid email address.');
-    if (!password) return setError('Password is required.');
+    if (!email) {
+      setError('Email address is required.');
+      return;
+    }
+    if (!isEmailValid(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      setError('Password is required.');
+      return;
+    }
 
     setError('');
-    setInfo('');
     setLoading(true);
     try {
-      const { user, kycPending } = await loginWithPassword(email.trim().toLowerCase(), password);
-      // Teacher with pending KYC → send them straight to KYC page
-      if (user?.role === ROLES.TEACHER && kycPending) {
-        navigate('/teacher/kyc', { replace: true });
-        return;
-      }
-      const from = location.state?.from?.pathname
-        || searchParams.get('next')
-        || null;
-      const dashRoute = getDashboardRoute(user?.role);
-      navigate(from || dashRoute, { replace: true });
+      const result = await login(email, password, rememberMe);
+      navigate(getDashboardRoute(result.role));
     } catch (err) {
-      setError(err?.message || 'Invalid credentials. Please try again.');
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
+  const handleSendOTP = async () => {
+    if (!phone) {
+      setError('Phone number is required.');
+      return;
+    }
+    const cleanPhone = phone.replace(/[\s-+]/g, '');
+    if (!isPhoneValid(cleanPhone)) {
+      setError('Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
     try {
-      // This redirects the browser to Google OAuth — no await needed
-      window.location.href = `/api/v1/auth/google?state=${encodeURIComponent(location.state?.from?.pathname || '')}`;
-    } catch {
-      setGoogleLoading(false);
-      setError('Could not initiate Google login. Please try again.');
+      await sendPhoneOTP(cleanPhone);
+      setOtpSent(true);
+      setOtpCooldown(30);
+      setSuccess('Demo OTP is 123456');
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhoneSubmit = async (e) => {
+    e.preventDefault();
+    if (!phone) {
+      setError('Phone number is required.');
+      return;
+    }
+    if (!otp) {
+      setError('Verification code (OTP) is required.');
+      return;
+    }
+    if (otp.length !== 6) {
+      setError('OTP must be exactly 6 digits.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+    try {
+      const result = await loginWithPhone(phone, otp);
+      navigate(getDashboardRoute(result.role));
+    } catch (err) {
+      setError(err.message || 'OTP verification failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -77,91 +147,201 @@ const Login = () => {
         <p className="text-slate-500 font-medium">Access your TrueEd dashboard</p>
       </div>
 
-      {info && (
-        <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold flex items-start gap-2">
-          <span className="shrink-0 mt-0.5">✓</span>
-          <span>{info}</span>
-        </div>
-      )}
-
-      <Alert message={error} type="error" show={!!error} onDismiss={() => setError('')} />
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-            Email Address
-          </label>
-          <input
-            type="email"
-            id="login-email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="e.g. student@example.com"
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
-          />
-        </div>
-
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Password</label>
-            <Link to="/forgot-password" className="text-xs font-bold text-amber hover:text-amber-600 transition">
-              Forgot Password?
-            </Link>
-          </div>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              id="login-password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
-            >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-
+      {/* Tabs */}
+      <div className="flex border-b border-slate-100 mb-6">
         <button
-          type="submit"
-          id="login-submit"
-          disabled={loading || !email || !password}
-          className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
+          onClick={() => {
+            setActiveTab('email');
+            setError('');
+            setSuccess('');
+          }}
+          className={`flex-1 py-3 text-sm font-bold border-b-2 transition ${
+            activeTab === 'email' ? 'border-navy text-navy' : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
         >
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
+          Email Login
         </button>
-      </form>
-
-      <div className="my-6 flex items-center gap-3">
-        <div className="flex-1 h-px bg-slate-200" />
-        <span className="text-xs font-semibold text-slate-400">OR</span>
-        <div className="flex-1 h-px bg-slate-200" />
+        <button
+          onClick={() => {
+            setActiveTab('phone');
+            setError('');
+            setSuccess('');
+          }}
+          className={`flex-1 py-3 text-sm font-bold border-b-2 transition ${
+            activeTab === 'phone' ? 'border-navy text-navy' : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Phone Login
+        </button>
       </div>
 
-      <button
-        type="button"
-        id="login-google"
-        onClick={handleGoogleLogin}
-        disabled={googleLoading}
-        className="w-full py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:border-navy hover:bg-slate-50 transition flex items-center justify-center gap-3 disabled:opacity-50"
-      >
-        {googleLoading ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
-        ) : (
-          <Chrome className="w-5 h-5 text-sky" />
-        )}
-        Continue with Google
-      </button>
+      {error && (
+        <Alert message={error} type="error" show={!!error} onDismiss={() => setError('')} />
+      )}
+      {success && (
+        <Alert message={success} type="success" show={!!success} onDismiss={() => setSuccess('')} />
+      )}
+
+      {/* Email Form */}
+      {activeTab === 'email' && (
+        <form onSubmit={handleEmailSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Email Address</label>
+            <input
+              ref={emailRef}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. student@example.com"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Password</label>
+              <Link to="/forgot-password" className="text-xs font-bold text-amber hover:text-amber-600 transition">
+                Forgot Password?
+              </Link>
+            </div>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-navy focus:ring-navy cursor-pointer"
+              />
+              <span className="ml-2 text-sm font-semibold text-slate-600">Remember Me</span>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !email || !password}
+            className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
+          </button>
+        </form>
+      )}
+
+      {/* Phone Form */}
+      {activeTab === 'phone' && (
+        <form onSubmit={handlePhoneSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Phone Number</label>
+            <div className="flex gap-2">
+              <input
+                ref={phoneRef}
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="e.g. 9876543210"
+                disabled={otpSent}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white disabled:opacity-60 transition"
+              />
+              {!otpSent && (
+                <button
+                  type="button"
+                  onClick={handleSendOTP}
+                  disabled={loading || !phone || otpCooldown > 0}
+                  className="px-4 bg-navy hover:bg-navy-light text-white font-bold text-sm rounded-xl transition"
+                >
+                  Send OTP
+                </button>
+              )}
+            </div>
+          </div>
+
+          {otpSent && (
+            <div className="animate-fade-in space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Enter OTP</label>
+                <input
+                  type="text"
+                  maxLength="6"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="6-digit code"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-bold focus:outline-none focus:border-navy focus:bg-white transition"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-between items-center text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpSent(false);
+                    setOtp('');
+                  }}
+                  className="font-bold text-slate-500 hover:text-navy transition"
+                >
+                  Change Phone Number
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendOTP}
+                  disabled={otpCooldown > 0}
+                  className="font-bold text-amber hover:text-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Resend OTP'}
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || otp.length !== 6}
+                className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Login'}
+              </button>
+            </div>
+          )}
+        </form>
+      )}
+
+      {/* Social Login */}
+      <div className="mt-6 relative flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-slate-200"></div>
+        </div>
+        <div className="relative bg-white px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          or continue with
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <button
+          onClick={() => alert('Google login coming soon!')}
+          className="w-full py-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition flex items-center justify-center gap-3"
+        >
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" className="w-5 h-5" />
+          Google <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Coming Soon</span>
+        </button>
+      </div>
 
       <p className="mt-8 text-center text-sm font-semibold text-slate-500">
-        Don&apos;t have an account?{' '}
+        Don't have an account?{' '}
         <Link to="/signup" className="text-navy hover:text-sky transition font-bold">
           Create Account
         </Link>

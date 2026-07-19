@@ -10,7 +10,7 @@ import {
   approveManualRefund,
   getAllClassrooms, cancelClassroom,
   getAllUsers, banUser, unbanUser,
-  hideReview,
+  getAllReviews, hideReview,
   getPlatformStats, getTopTeachers, getReportsDashboard,
   getSystemSettings, updateSystemSettings,
 } from '../controllers/admin.controller.js';
@@ -54,6 +54,7 @@ router.patch('/users/:userId/ban',      banUser);
 router.patch('/users/:userId/unban',    unbanUser);
 
 // ── Reviews ───────────────────────────────────────────────────────────────────
+router.get('/reviews',                  getAllReviews);
 router.patch('/reviews/:reviewId/hide', hideReview);
 
 // ── Stats ─────────────────────────────────────────────────────────────────────

@@ -1,261 +1,282 @@
-// src/components/shared/Topbar.jsx
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Bell, Menu, Wallet, Loader2, User, Settings, LogOut, ChevronDown } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useWallet } from '@/hooks/useWallet';
-import notificationService from '@/services/notification.service';
-import { ROLES } from '@/constants/enums';
-import { timeAgo } from '@/utils/date.util';
-import toast from 'react-hot-toast';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth';
+import { useOverlay, useOverlayRefs } from '../../contexts/OverlayContext';
+import { Search, Bell, X, Menu, CheckCircle, Calendar, CreditCard, MessageSquare, Check, CheckCheck } from 'lucide-react';
+import TeacherAvatar from './TeacherAvatar';
 
-const POLL_MS = 30000;
+const dummyTeachers = [
+  { id: 1, name: 'Kavita Verma', subject: 'Mathematics', city: 'Bangalore' },
+  { id: 2, name: 'Arun Singh', subject: 'Physics', city: 'Delhi' },
+  { id: 3, name: 'Sneha R', subject: 'English', city: 'Mumbai' },
+  { id: 4, name: 'Rahul Sharma', subject: 'Chemistry', city: 'Pune' },
+  { id: 5, name: 'Priya Patel', subject: 'Biology', city: 'Ahmedabad' },
+  { id: 6, name: 'Amit Kumar', subject: 'Computer Science', city: 'Hyderabad' },
+  { id: 7, name: 'Neha Gupta', subject: 'Hindi', city: 'Lucknow' },
+  { id: 8, name: 'Vikram Joshi', subject: 'Mathematics', city: 'Jaipur' },
+  { id: 9, name: 'Anjali Desai', subject: 'Physics', city: 'Surat' },
+  { id: 10, name: 'Sanjay Reddy', subject: 'English', city: 'Chennai' }
+];
 
 const Topbar = ({ onMenuClick }) => {
-  const { user, role, logout, getDashboardRoute } = useAuth();
-  const { wallet } = useWallet();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const initials = user?.initials || 'U';
 
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [avatarOpen, setAvatarOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const notifRef = useRef(null);
-  const avatarRef = useRef(null);
+  const sanitize = (str) => str.replace(/<[^>]*>/g, '');
 
-  const profileRoute = role === ROLES.STUDENT
-    ? '/student/profile'
-    : role === ROLES.TEACHER
-      ? '/teacher/settings'
-      : '/admin/dashboard';
+  const [query, setQuery] = useState('');
+  
+  const { activeOverlayId, toggleOverlay, closeOverlay } = useOverlay();
+  const notifRefs = useOverlayRefs('topbar-notif');
+  const mobileSearchRefs = useOverlayRefs('topbar-mobile-search');
+  const searchDropdownRefs = useOverlayRefs('topbar-search');
 
-  const settingsRoute = role === ROLES.STUDENT
-    ? '/student/settings'
-    : role === ROLES.TEACHER
-      ? '/teacher/settings'
-      : null;
+  const [notifications, setNotifications] = useState(
+    user?.role === 'teacher' 
+    ? [
+        { id: 1, text: 'New Query from Rahul Sharma', link: '/teacher/queries', isRead: false },
+        { id: 2, text: 'New Query from Priya Kapoor', link: '/teacher/queries', isRead: false },
+        { id: 3, text: 'New Query from Aditi Rao', link: '/teacher/queries', isRead: true },
+      ]
+    : [
+        { id: 1, type: 'accepted', text: 'Teacher Alex Johnson accepted your classroom query.', time: '2 hours ago', isRead: false },
+        { id: 2, type: 'reminder', text: 'Upcoming class reminder: Physics Crash Course starts in 1 hour.', time: 'Just now', isRead: false },
+        { id: 3, type: 'payment', text: 'Payment successful for Mastering Calculus.', time: '5 hours ago', isRead: true },
+        { id: 4, type: 'reply', text: 'Teacher Sarah Smith replied to your query.', time: '1 day ago', isRead: true },
+        { id: 5, type: 'announcement', text: 'Classroom announcement posted in Mathematics.', time: '2 days ago', isRead: true },
+      ]
+  );
 
-  const fetchUnread = useCallback(async () => {
-    try {
-      const { data } = await notificationService.getUnreadCount();
-      setUnreadCount(data?.data?.count ?? data?.count ?? 0);
-    } catch {
-      // silent — non-critical
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'accepted': return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+      case 'payment': return <CreditCard className="w-4 h-4 text-sky-500" />;
+      case 'reminder': return <Calendar className="w-4 h-4 text-amber-500" />;
+      case 'reply': return <MessageSquare className="w-4 h-4 text-purple-500" />;
+      case 'announcement': return <Bell className="w-4 h-4 text-indigo-500" />;
+      default: return <Bell className="w-4 h-4 text-slate-400" />;
     }
-  }, []);
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const filtered = query.trim() === '' ? [] : dummyTeachers.filter(t => 
+    t.name.toLowerCase().includes(query.toLowerCase()) || 
+    t.subject.toLowerCase().includes(query.toLowerCase())
+  );
 
   useEffect(() => {
-    fetchUnread();
-    const id = setInterval(fetchUnread, POLL_MS);
-    return () => clearInterval(id);
-  }, [fetchUnread]);
-
-  // Close panels on outside click
-  useEffect(() => {
-    const onClickOutside = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
-      if (avatarRef.current && !avatarRef.current.contains(e.target)) setAvatarOpen(false);
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
-  const openNotifPanel = async () => {
-    const opening = !notifOpen;
-    setNotifOpen(opening);
-    setAvatarOpen(false);
-    if (opening && notifications.length === 0) {
-      setLoading(true);
-      try {
-        const { data } = await notificationService.getAll({ limit: 10 });
-        setNotifications(data?.data?.items ?? data?.data ?? []);
-      } finally {
-        setLoading(false);
+    if (query.trim() !== '') {
+      if (activeOverlayId !== 'topbar-search' && activeOverlayId !== 'topbar-mobile-search') {
+         // Optionally auto open search dropdown if they type, but toggleOverlay handles this if they focus
       }
     }
+  }, [query]);
+
+  const handleResultClick = (subject) => {
+    setQuery('');
+    closeOverlay();
+    navigate(`/student/discover?subject=${encodeURIComponent(subject)}`);
   };
 
-  const markAllRead = async () => {
-    try {
-      await notificationService.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setUnreadCount(0);
-    } catch {
-      toast.error('Could not mark notifications as read');
-    }
-  };
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await logout();
-      navigate('/login', { replace: true });
-    } finally {
-      setLoggingOut(false);
-      setAvatarOpen(false);
-    }
+  const SearchDropdown = ({ isMobile }) => {
+    if (!query || (isMobile ? activeOverlayId !== 'topbar-mobile-search' : activeOverlayId !== 'topbar-search')) return null;
+    return (
+      <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden py-2 z-50 animate-slide-up-sm">
+        <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Results</p>
+        {filtered.length > 0 ? (
+          filtered.map(t => (
+            <button
+              key={t.id}
+              onClick={() => handleResultClick(t.subject)}
+              className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition flex flex-col group"
+            >
+              <span className="font-semibold text-sm text-navy group-hover:text-sky transition-colors">{t.name}</span>
+              <span className="text-xs text-muted font-medium flex items-center gap-1.5 mt-0.5">
+                <span className="bg-sky/10 text-sky px-1.5 py-0.5 rounded text-[10px]">{t.subject}</span>
+                <span>·</span>
+                <i className="fa-solid fa-location-dot text-[10px]" /> {t.city}
+              </span>
+            </button>
+          ))
+        ) : (
+          <div className="px-4 py-4 text-center text-sm text-muted">
+            No results found for "<span className="font-semibold text-navy">{query}</span>"
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      {/* Mobile menu toggle */}
-      <button
-        onClick={onMenuClick}
-        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-navy hover:bg-slate-100 transition"
-        aria-label="Open navigation"
-      >
-        <Menu size={20} />
-      </button>
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 relative">
+      {/* Left section: Hamburger (Always visible on mobile, hidden on desktop) */}
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={onMenuClick} 
+          className="block md:hidden bg-[#1B2D5B] text-white p-2 rounded-md hover:bg-blue-900 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      </div>
 
-      <div className="hidden md:block" />
+      {/* Right section: Search, Bell, Avatar */}
+      <div className="flex items-center gap-3 md:gap-4 relative">
+        
+        {/* Desktop Search */}
+        <div className="hidden md:block relative w-64 lg:w-80" ref={searchDropdownRefs.triggerRef}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 peer-focus:text-navy transition-colors pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search subjects, teachers..."
+            value={query}
+            maxLength={50}
+            onFocus={() => {
+               if (activeOverlayId !== 'topbar-search') toggleOverlay('topbar-search');
+            }}
+            onChange={(e) => {
+               setQuery(sanitize(e.target.value));
+               if (activeOverlayId !== 'topbar-search') toggleOverlay('topbar-search');
+            }}
+            className="peer w-full bg-slate-100 border-2 border-transparent focus:bg-white focus:border-navy rounded-full py-2 pl-9 pr-9 text-sm text-navy font-medium outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
+          />
+          {query && (
+            <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy p-1">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <div ref={searchDropdownRefs.overlayRef}>
+            <SearchDropdown isMobile={false} />
+          </div>
+        </div>
 
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Token balance shortcut (students only) */}
-        {role === ROLES.STUDENT && (
-          <button
-            onClick={() => navigate('/student/wallet')}
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber/10 text-amber-hover font-bold text-sm hover:bg-amber/20 transition"
-            title="View wallet"
+        {/* Mobile Search Icon */}
+        <button 
+          ref={mobileSearchRefs.triggerRef}
+          className="block md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-navy hover:bg-cream transition"
+          onClick={() => toggleOverlay('topbar-mobile-search')}
+          aria-label="Open search"
+        >
+          <Search className="w-5 h-5" />
+        </button>
+
+        <div className="relative">
+          <button 
+            ref={notifRefs.triggerRef}
+            className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-cream transition text-slate-500 hover:text-navy group" 
+            aria-label="View notifications"
+            onClick={() => toggleOverlay('topbar-notif')}
           >
-            <Wallet size={16} />
-            <span>{wallet?.tokenBalance ?? 0} tokens</span>
-          </button>
-        )}
-
-        {/* Notification bell */}
-        <div className="relative" ref={notifRef}>
-          <button
-            onClick={openNotifPanel}
-            className="relative w-9 h-9 flex items-center justify-center rounded-lg text-navy hover:bg-slate-100 transition"
-            aria-label="Notifications"
-          >
-            <Bell size={19} />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
+            <Bell className="w-5 h-5 group-hover:animate-shake" />
+            {notifications.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border border-white" />
             )}
           </button>
-
-          {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-brand-xl border border-slate-100 overflow-hidden z-50 animate-fadeIn">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                <p className="font-bold text-sm text-navy">Notifications</p>
+          
+          {activeOverlayId === 'topbar-notif' && (
+            <div ref={notifRefs.overlayRef} className="absolute top-full right-[-80px] md:right-0 mt-2 w-80 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden z-50 animate-slide-up-sm">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <span className="font-bold text-navy">Notifications</span>
                 {unreadCount > 0 && (
-                  <button onClick={markAllRead} className="text-xs font-semibold text-sky hover:underline">
-                    Mark all read
-                  </button>
+                  <span className="text-[10px] bg-error/10 text-error px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{unreadCount} New</span>
                 )}
               </div>
-              <div className="max-h-96 overflow-y-auto">
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="animate-spin text-slate-300" size={20} />
-                  </div>
-                ) : notifications.length === 0 ? (
-                  <p className="text-center text-sm text-slate-400 py-8">You&apos;re all caught up! 🎉</p>
-                ) : (
-                  notifications.map((n) => (
-                    <button
-                      key={n._id || n.id}
-                      onClick={() => {
-                        if (n.link) navigate(n.link);
-                        setNotifOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition ${!n.isRead ? 'bg-sky-50/40' : ''}`}
-                    >
-                      {!n.isRead && (
-                        <span className="inline-block w-2 h-2 rounded-full bg-sky mr-2 mb-0.5" />
-                      )}
-                      <p className="text-sm font-medium text-navy inline">{n.title || n.text}</p>
-                      {n.body && <p className="text-xs text-slate-500 mt-0.5">{n.body}</p>}
-                      <p className="text-[11px] text-slate-400 mt-1">{timeAgo(n.createdAt)}</p>
-                    </button>
+              <div className="max-h-[350px] overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map(n => (
+                    <div key={n.id} className={`px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition flex gap-3 ${!n.isRead ? 'bg-sky-50/30' : ''}`}>
+                      <div className="mt-0.5 shrink-0">
+                        {getNotificationIcon(n.type)}
+                      </div>
+                      <div className="flex-1">
+                        {n.link ? (
+                          <Link to={n.link} onClick={() => closeOverlay()} className="text-sm font-semibold text-slate-700 hover:text-navy transition-colors">
+                            {n.text}
+                          </Link>
+                        ) : (
+                          <p className="text-sm font-semibold text-slate-700">{n.text}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{n.time || 'Recently'}</span>
+                          {!n.isRead && (
+                            <button onClick={() => setNotifications(notifications.map(x => x.id === n.id ? { ...x, isRead: true } : x))} className="text-[10px] text-sky font-bold hover:underline" title="Mark as read">
+                              <Check className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   ))
+                ) : (
+                  <div className="px-4 py-8 text-center flex flex-col items-center gap-2">
+                    <CheckCheck className="w-8 h-8 text-slate-300" />
+                    <p className="text-sm font-medium text-slate-500">You're all caught up!</p>
+                  </div>
                 )}
               </div>
-              <div className="px-4 py-2 border-t border-slate-100">
-                <Link
-                  to={`/${role}/notifications`}
-                  onClick={() => setNotifOpen(false)}
-                  className="text-xs font-bold text-sky hover:underline"
-                >
-                  View all notifications →
+              <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <button onClick={() => { markAllAsRead(); closeOverlay(); }} className="text-[11px] font-bold text-slate-500 hover:text-navy transition">
+                  Mark all as read
+                </button>
+                <Link to={`/${user?.role || 'student'}/notifications`} onClick={() => closeOverlay()} className="text-[11px] font-bold text-sky hover:text-navy transition">
+                  View all
                 </Link>
               </div>
             </div>
           )}
         </div>
 
-        {/* Avatar dropdown */}
-        <div className="relative" ref={avatarRef}>
-          <button
-            onClick={() => { setAvatarOpen((v) => !v); setNotifOpen(false); }}
-            className="flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-slate-100 transition"
-            aria-label="User menu"
-          >
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name}
-                className="w-8 h-8 rounded-full object-cover border border-slate-200"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-navy text-white flex items-center justify-center text-xs font-bold">
-                {initials}
-              </div>
+        {/* Profile Avatar */}
+        <Link to={`/${user?.role || 'student'}/profile`} className="block hover:scale-105 transition-transform">
+          <TeacherAvatar 
+            teacherId={user?.id || '1'} 
+            name={user?.name} 
+            initials={initials} 
+            className="w-9 h-9 text-sm" 
+          />
+        </Link>
+      </div>
+
+      {/* Mobile Search Full Width Dropdown */}
+      <div 
+        ref={mobileSearchRefs.overlayRef}
+        className={`absolute left-0 right-0 bg-white border-b border-slate-200 px-4 py-3 md:hidden z-50 transition-all duration-300 origin-top ${activeOverlayId === 'topbar-mobile-search' ? 'top-16 opacity-100 visible' : 'top-12 opacity-0 invisible -translate-y-4 pointer-events-none'}`}>
+        <div className="flex gap-2 relative">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={query}
+              maxLength={50}
+              onChange={(e) => setQuery(sanitize(e.target.value))}
+              className="w-full bg-slate-100 border-2 border-transparent focus:bg-white focus:border-navy rounded-full py-2 pl-9 pr-8 text-sm text-navy font-medium outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy">
+                <X className="w-4 h-4" />
+              </button>
             )}
-            <div className="hidden md:block text-left">
-              <p className="text-xs font-bold text-navy leading-tight max-w-[120px] truncate">{user?.name || 'User'}</p>
-              <p className="text-[11px] text-muted capitalize">{role}</p>
-            </div>
-            <ChevronDown size={14} className="text-slate-400 hidden md:block" />
+          </div>
+          <button 
+            onClick={() => { closeOverlay(); setQuery(''); }}
+            className="px-3 text-sm font-semibold text-slate-500 hover:text-navy"
+          >
+            Cancel
           </button>
-
-          {avatarOpen && (
-            <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-brand-xl border border-slate-100 overflow-hidden z-50 animate-fadeIn py-1">
-              <div className="px-4 py-3 border-b border-slate-100">
-                <p className="text-sm font-bold text-navy truncate">{user?.name}</p>
-                <p className="text-xs text-muted truncate">{user?.email}</p>
-              </div>
-
-              <Link
-                to={profileRoute}
-                onClick={() => setAvatarOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-navy transition"
-              >
-                <User size={16} /> Profile
-              </Link>
-
-              {settingsRoute && (
-                <Link
-                  to={settingsRoute}
-                  onClick={() => setAvatarOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-navy transition"
-                >
-                  <Settings size={16} /> Settings
-                </Link>
-              )}
-
-              <div className="border-t border-slate-100 mt-1">
-                <button
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-error hover:bg-error/5 transition disabled:opacity-50"
-                >
-                  {loggingOut ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
-                  {loggingOut ? 'Logging out...' : 'Logout'}
-                </button>
-              </div>
-            </div>
-          )}
+          
+          <div className="absolute top-full left-0 right-0 w-full mt-2">
+            <SearchDropdown isMobile={true} />
+          </div>
         </div>
       </div>
     </header>
   );
 };
-
 export default Topbar;

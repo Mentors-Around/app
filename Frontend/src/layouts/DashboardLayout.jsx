@@ -1,46 +1,74 @@
-import { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import Sidebar from '@/components/shared/Sidebar';
-import Topbar from '@/components/shared/Topbar';
+import { useState, useEffect } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import Sidebar from '../components/shared/Sidebar';
+import Topbar from '../components/shared/Topbar';
+import PageTransition from '../components/PageTransition';
 
-// Wraps every authenticated route (student/teacher/admin). Auth + role
-// checks already happened in <ProtectedRoute>; this layout is presentation
-// only — no localStorage, no redirect logic here.
-const DashboardLayout = () => {
+const DashboardLayout = ({ role }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
+
+  // Route protection: redirect to /login if no user data in localStorage
+  useEffect(() => {
+    const savedToken = localStorage.getItem('trueed_token');
+    const savedRole = localStorage.getItem('trueed_role');
+    
+    // If there is no auth token, redirect to login
+    if (!savedToken) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    // Role-based route protection
+    if (role === 'admin' && savedRole !== 'admin') {
+      // Prevent non-admins from accessing admin routes
+      navigate('/login', { replace: true });
+    }
+  }, [navigate, role]);
+
+  // Prevent body scrolling when sidebar drawer is open on mobile
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    return () => document.body.classList.remove('overflow-hidden');
+  }, [sidebarOpen]);
 
   return (
     <div className="min-h-screen bg-page relative">
+      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 block md:hidden backdrop-blur-sm transition-opacity"
-          onClick={() => setSidebarOpen(false)}
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 block md:hidden backdrop-blur-sm transition-opacity" 
+          onClick={() => setSidebarOpen(false)} 
         />
       )}
-
+      
       <div className="flex">
-        <Sidebar
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
+        {/* Sidebar */}
+        <Sidebar 
+          role={role} 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
           isCollapsed={isCollapsed}
           setIsCollapsed={setIsCollapsed}
         />
-
-        <div
-          className={`flex-1 min-h-screen flex flex-col w-full relative z-30 transition-all duration-300 ease-in-out ${
-            isCollapsed ? 'md:ml-[64px]' : 'md:ml-[240px]'
-          }`}
-        >
+        
+        {/* Main content */}
+        <div className={`flex-1 min-h-screen flex flex-col w-full relative z-30 transition-all duration-300 ease-in-out ${isCollapsed ? 'md:ml-[64px]' : 'md:ml-[240px]'}`}>
           <Topbar onMenuClick={() => setSidebarOpen(true)} />
-          <main key={location.pathname} className="p-4 md:p-6 lg:p-8 flex-1 animate-fadeIn">
-            <Outlet />
+          <main className="p-4 md:p-6 lg:p-8 flex-1">
+            <PageTransition key={location.pathname}>
+              <Outlet />
+            </PageTransition>
           </main>
         </div>
       </div>
     </div>
   );
 };
-
 export default DashboardLayout;

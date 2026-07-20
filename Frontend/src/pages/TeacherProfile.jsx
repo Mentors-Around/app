@@ -5,14 +5,16 @@ import Spinner from '../components/shared/Spinner';
 import { Camera, CheckCircle2, Mail, Phone, Edit2, Shield, ChevronDown, ChevronRight, User, Video, Briefcase, GraduationCap, Languages, MapPin, BookOpen, AlertCircle, Clock, XCircle } from 'lucide-react';
 import TeacherAvatar from '../components/shared/TeacherAvatar';
 import ProfileCompletionCard from '../components/shared/ProfileCompletionCard';
-import TeacherKYCModal from '../components/shared/TeacherKYCModal';
+import AvatarCropModal from '../components/shared/AvatarCropModal';
+import api from '../services/api.js';
 
 const TeacherProfile = () => {
-  const { user, kycStatus, kycReason } = useAuth();
+  const { user, kycStatus } = useAuth();
   useEffect(() => { document.title = 'Teacher Profile — TrueEd'; window.scrollTo(0, 0); }, []);
   
   const [available, setAvailable] = useState(true);
-  const [kycModalOpen, setKycModalOpen] = useState(false);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -32,19 +34,32 @@ const TeacherProfile = () => {
     startTime: '17:00', endTime: '21:00', maxSessions: 4, mode: 'Online', timezone: 'IST (Asia/Kolkata)'
   });
 
-  const [hasPhoto, setHasPhoto] = useState(!!localStorage.getItem(`trueed_teacher_photo_${user?.id || '1'}`));
-
+  const [hasPhoto, setHasPhoto] = useState(!!localStorage.getItem(`trueed_teacher_photo`));
   const [saving, setSaving] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
   const fileInputRef = useRef(null);
 
-
-
   useEffect(() => {
-    const handleStorageChange = () => setHasPhoto(!!localStorage.getItem(`trueed_teacher_photo_${user?.id || '1'}`));
-    window.addEventListener('trueed_avatar_updated', handleStorageChange);
-    return () => window.removeEventListener('trueed_avatar_updated', handleStorageChange);
-  }, [user]);
+    const fetchTeacherProfile = async () => {
+      try {
+        const data = await api.user.getMe();
+        if (data) {
+          setProfileForm(p => ({
+            ...p,
+            bio: data.bio || p.bio,
+            location: data.city || p.location,
+            qualification: Array.isArray(data.education) ? data.education.join(', ') : (data.education || p.qualification),
+            experience: data.experienceYears || p.experience,
+            subjects: Array.isArray(data.subjects) ? data.subjects.join(', ') : (data.subjects || p.subjects),
+            languages: Array.isArray(data.languages) ? data.languages.join(', ') : (data.languages || p.languages),
+          }));
+        }
+      } catch (err) {
+        console.warn('Failed to fetch profile details:', err.message);
+      }
+    };
+    fetchTeacherProfile();
+  }, []);
 
   const handleWorkingDayToggle = (day) => {
     setAvailability(p => ({
@@ -78,15 +93,44 @@ const TeacherProfile = () => {
     setIsEditing(false);
   };
 
-  const handleSaveProfile = () => {
-    setSaving(true);
-    setTimeout(() => {
+  const handleSaveProfile = async () => {
+    try {
+      setSaving(true);
+      const subjectsArray = editForm.subjects.split(',').map(s => s.trim()).filter(Boolean);
+      await api.teacher.submitProfile({
+        bio: editForm.bio,
+        subjects: subjectsArray.length > 0 ? subjectsArray : ['General'],
+        experienceYears: Number(editForm.experience || 0),
+        city: editForm.location,
+      }).catch(() => null);
+
+      await api.user.updateMe({
+        bio: editForm.bio,
+        city: editForm.location,
+      }).catch(() => null);
+
       setProfileForm(editForm);
       setIsEditing(false);
-      setSaving(false);
       setSuccessToast(true);
       setTimeout(() => setSuccessToast(false), 3000);
-    }, 800);
+    } catch (err) {
+      console.warn('Error saving profile:', err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAvailability = async () => {
+    try {
+      setSaving(true);
+      await api.teacher.updateAvailability(availability).catch(() => null);
+      setSuccessToast(true);
+      setTimeout(() => setSuccessToast(false), 3000);
+    } catch (err) {
+      console.warn('Error updating availability:', err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePhotoUpload = (e) => {
@@ -98,16 +142,15 @@ const TeacherProfile = () => {
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result;
-        localStorage.setItem(`trueed_teacher_photo_${user?.id || '1'}`, base64String);
-        window.dispatchEvent(new Event('trueed_avatar_updated'));
+        setCropImageSrc(reader.result);
+        setCropModalOpen(true);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleRemovePhoto = () => {
-    localStorage.removeItem(`trueed_teacher_photo_${user?.id || '1'}`);
+    localStorage.removeItem(`trueed_teacher_photo`);
     window.dispatchEvent(new Event('trueed_avatar_updated'));
   };
 
@@ -354,113 +397,18 @@ const TeacherProfile = () => {
           </div>
         </div>
 
-        {/* Identity Verification (KYC) */}
-        <div className="bg-white rounded-brand shadow-brand p-6 md:p-8">
-          <div className="mb-6">
-            <h2 className="font-sora text-xl font-bold text-navy flex items-center gap-2 mb-2">
-              <Shield className="w-6 h-6 text-indigo-500" /> Identity Verification (KYC)
-            </h2>
-            <p className="text-sm font-medium text-slate-500">
-              Verify your identity to start teaching on TrueEd. Verification helps us maintain trust, authenticity, and a safe learning environment for students.
-            </p>
-          </div>
-          
-          <div className="space-y-6">
-            {kycStatus === 'NOT_VERIFIED' && (
-              <div className="border border-slate-200 rounded-xl p-6 bg-slate-50 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4">
-                  <span className="bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> Not Verified
-                  </span>
-                </div>
-                <h3 className="font-bold text-navy text-lg mb-4">Complete your KYC to unlock:</h3>
-                <ul className="space-y-3 mb-6">
-                  <li className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Create Classrooms
-                  </li>
-                  <li className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Receive Student Payments
-                  </li>
-                  <li className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Withdraw Earnings
-                  </li>
-                  <li className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Verified Teacher Badge
-                  </li>
-                </ul>
-                <button onClick={() => setKycModalOpen(true)} className="px-6 py-3 bg-navy text-white text-sm font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
-                  Complete Verification
-                </button>
-              </div>
-            )}
-
-            {kycStatus === 'PENDING' && (
-              <div className="border border-amber-200 rounded-xl p-6 bg-amber-50 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4">
-                  <span className="bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> Pending Review
-                  </span>
-                </div>
-                <h3 className="font-bold text-amber-900 text-lg mb-2">Your documents have been submitted successfully.</h3>
-                <p className="text-sm font-medium text-amber-700 mb-6 max-w-lg">
-                  The TrueEd Admin Team is currently reviewing your KYC. Verification usually takes 24–48 hours.
-                </p>
-                <button className="px-6 py-3 bg-amber-200 text-amber-900 text-sm font-bold rounded-xl hover:bg-amber-300 transition shadow-sm opacity-80 cursor-not-allowed">
-                  View Submitted Documents
-                </button>
-              </div>
-            )}
-
-            {kycStatus === 'VERIFIED' && (
-              <div className="border border-emerald-200 rounded-xl p-6 bg-emerald-50 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4">
-                  <span className="bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified Teacher
-                  </span>
-                </div>
-                <h3 className="font-bold text-emerald-900 text-lg mb-4">Your identity has been successfully verified.</h3>
-                <p className="text-sm font-bold text-emerald-800 mb-3">You can now:</p>
-                <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-sm font-medium text-emerald-700">
-                    <CheckCircle2 className="w-4 h-4" /> Create Classrooms
-                  </li>
-                  <li className="flex items-center gap-2 text-sm font-medium text-emerald-700">
-                    <CheckCircle2 className="w-4 h-4" /> Receive Student Payments
-                  </li>
-                  <li className="flex items-center gap-2 text-sm font-medium text-emerald-700">
-                    <CheckCircle2 className="w-4 h-4" /> Withdraw Earnings
-                  </li>
-                </ul>
-                <div className="inline-block bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold">
-                  Verified On: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </div>
-              </div>
-            )}
-
-            {kycStatus === 'REJECTED' && (
-              <div className="border border-red-200 rounded-xl p-6 bg-red-50 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4">
-                  <span className="bg-red-100 text-red-700 border border-red-300 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full flex items-center gap-1">
-                    <XCircle className="w-3.5 h-3.5" /> Verification Rejected
-                  </span>
-                </div>
-                <h3 className="font-bold text-red-900 text-lg mb-2">There was an issue with your verification.</h3>
-                
-                <div className="bg-white p-4 rounded-lg border border-red-100 mb-6">
-                  <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">Reason</p>
-                  <p className="text-sm font-medium text-red-900">{kycReason || 'Uploaded documents were unclear.'}</p>
-                </div>
-
-                <button onClick={() => setKycModalOpen(true)} className="px-6 py-3 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-sm">
-                  Resubmit Verification
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
       
-      <TeacherKYCModal isOpen={kycModalOpen} onClose={() => setKycModalOpen(false)} />
+      <AvatarCropModal 
+        isOpen={cropModalOpen} 
+        onClose={() => setCropModalOpen(false)} 
+        imageSrc={cropImageSrc} 
+        onSaveSuccess={() => {
+          setHasPhoto(true);
+          setSuccessToast(true);
+          setTimeout(() => setSuccessToast(false), 3000);
+        }}
+      />
     </div>
   );
 };

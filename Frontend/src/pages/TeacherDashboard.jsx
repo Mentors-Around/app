@@ -36,7 +36,7 @@ export default function TeacherDashboard() {
           setDashboardData({
             activeClassroomsCount: data.classroomStats?.active ?? data.activeClassroomsCount ?? 0,
             pendingQueriesCount: data.pendingQueries ?? data.pendingQueriesCount ?? 0,
-            resolvedQueriesCount: data.classroomStats?.completed ?? data.resolvedQueriesCount ?? 0,
+            resolvedQueriesCount: data.resolvedQueriesCount ?? data.classroomStats?.completed ?? 0,
             walletRupees: data.walletRupees ?? (data.walletPaise ? data.walletPaise / 100 : 0),
             totalEarnings: data.classroomStats?.totalEarnings ? data.classroomStats.totalEarnings / 100 : 0,
             upcomingClasses: data.upcomingClasses || []

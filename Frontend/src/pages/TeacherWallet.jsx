@@ -7,6 +7,8 @@ import TeacherWithdrawModal from '../components/shared/TeacherWithdrawModal';
 import DepositModal from '../components/shared/DepositModal';
 import AddBankAccountModal from '../components/shared/AddBankAccountModal';
 
+import api from '../services/api.js';
+
 const TeacherWallet = () => {
   const { user } = useAuth();
   const { teacherWallet, teacherBankAccounts, addBankAccount, setDefaultBankAccount, showToast, processTeacherRecharge, addTeacherTransaction, updateTeacherBalance } = useWallet();
@@ -17,29 +19,30 @@ const TeacherWallet = () => {
   const [showAddBankModal, setShowAddBankModal] = useState(false);
   const [showWithdrawError, setShowWithdrawError] = useState(false);
   
-  // Mock data for charts
-  const monthlyData = [
-    { name: 'Jan', earnings: 4500 },
-    { name: 'Feb', earnings: 5200 },
-    { name: 'Mar', earnings: 6100 },
-    { name: 'Apr', earnings: 5800 },
-    { name: 'May', earnings: 7500 },
-    { name: 'Jun', earnings: 8200 },
-  ];
-
-  const weeklyData = [
-    { day: 'Mon', amount: 120 },
-    { day: 'Tue', amount: 350 },
-    { day: 'Wed', amount: 280 },
-    { day: 'Thu', amount: 410 },
-    { day: 'Fri', amount: 550 },
-    { day: 'Sat', amount: 890 },
-    { day: 'Sun', amount: 720 },
-  ];
+  const [chartData, setChartData] = useState([
+    { name: 'Jan', earnings: 0 },
+    { name: 'Feb', earnings: 0 },
+    { name: 'Mar', earnings: 0 },
+    { name: 'Apr', earnings: 0 },
+    { name: 'May', earnings: 0 },
+    { name: 'Jun', earnings: 0 },
+  ]);
 
   useEffect(() => {
     document.title = 'Earnings Dashboard — TrueEd';
     setTransactions(teacherWallet?.transactions || []);
+
+    const fetchEarningsStats = async () => {
+      try {
+        const res = await api.teacher.getEarnings();
+        if (res?.monthlyData && Array.isArray(res.monthlyData)) {
+          setChartData(res.monthlyData);
+        }
+      } catch (err) {
+        console.warn('Failed to load earnings chart:', err.message);
+      }
+    };
+    fetchEarningsStats();
   }, [user, teacherWallet]);
 
   const handleDeposit = (amount) => {
@@ -147,7 +150,7 @@ const TeacherWallet = () => {
           <div className="h-64 w-full overflow-x-auto hide-scrollbar">
             <div className="h-full min-w-[500px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} tickFormatter={(val) => `₹${val/1000}k`} />

@@ -12,27 +12,56 @@ const mockNotifications = [
   { id: 6, type: 'reminder', title: 'Upcoming Class', text: 'Organic Chemistry lab starts soon.', time: 'Oct 14, 2026', group: 'Earlier', isRead: true },
 ];
 
+import api from '../services/api.js';
+
 export default function Notifications() {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  useEffect(() => {
-    document.title = "Notifications — TrueEd";
-  }, []);
-
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  const markAsRead = (id) => {
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const res = await api.notification.getAll().catch(() => []);
+      const list = Array.isArray(res) ? res : (res?.docs || res?.notifications || []);
+      const mapped = list.map(n => ({
+        id: n._id || n.id,
+        type: n.type || 'announcement',
+        title: n.title || 'Notification',
+        text: n.message || n.text || '',
+        time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : 'Recently',
+        group: 'Today',
+        isRead: !!n.isRead,
+      }));
+      setNotifications(mapped);
+    } catch (err) {
+      console.warn('Failed to fetch notifications:', err.message);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    document.title = "Notifications — TrueEd";
+    fetchNotifications();
+  }, []);
+
+  const markAsRead = async (id) => {
     setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+    await api.notification.markAsRead(id).catch(() => null);
   };
 
   const deleteNotification = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    await api.notification.markAllAsRead().catch(() => null);
   };
 
   const clearAll = () => {

@@ -218,6 +218,7 @@ export const api = {
     getDashboard: () => request('/teachers/me/dashboard'),
     getEarnings: () => request('/teachers/me/earnings'),
     getMyClassrooms: () => request('/teachers/me/classrooms'),
+    getMyStudents: () => request('/teachers/me/students'),
     getMyQueries: () => request('/teachers/me/queries'),
     getMyDoubts: () => request('/teachers/me/doubts'),
     getMyReviews: () => request('/teachers/me/reviews'),

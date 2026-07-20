@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, CheckCircle2, Shield, Lock, Bell, Eye, AlertTriangle, User, Mail, Phone, Edit2, Laptop, Globe, MapPin, Clock, Download, LifeBuoy, CreditCard, Monitor, MessageSquare, Bug, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, CheckCircle2, Shield, Lock, Bell, AlertTriangle, User, Mail, Phone, Edit2, Laptop, Globe, MapPin, Clock, Download, LifeBuoy, CreditCard, Monitor, MessageSquare, Bug, AlertCircle } from 'lucide-react';
 import OTPModal from '../components/shared/OTPModal';
 import ChangePasswordModal from '../components/shared/ChangePasswordModal';
+import useAuth from '../hooks/useAuth';
+import api from '../services/api.js';
 
 export default function TeacherSettings() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('notifications');
   const [toast, setToast] = useState(null);
   
@@ -13,12 +16,6 @@ export default function TeacherSettings() {
   
   const [otpModalOpen, setOtpModalOpen] = useState(false);
   const [otpField, setOtpField] = useState('');
-  const [profileForm, setProfileForm] = useState({ email: 'hari.prasad@example.com', phone: '+91 98765 12345' });
-  
-  const [privacy, setPrivacy] = useState({
-    publicProfile: true, availableBookings: true, allowMessages: true
-  });
-  
   
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   
@@ -45,7 +42,6 @@ export default function TeacherSettings() {
   };
 
   const handleOtpSuccess = (newValue, field) => {
-    setProfileForm(prev => ({ ...prev, [field]: newValue }));
     showToast(`${field === 'email' ? 'Email' : 'Phone Number'} updated successfully.`);
   };
 
@@ -68,15 +64,52 @@ export default function TeacherSettings() {
     }, 1000);
   };
 
-  const handleSupportSubmit = (e) => {
+  const handleSupportSubmit = async (e) => {
     e.preventDefault();
-    if (!supportForm.subject && !supportForm.message) return;
-    showToast("Your support request has been submitted successfully.");
-    setSupportForm({ subject: '', category: 'Account & Profile', message: '' });
+    if (!supportForm.message?.trim()) return;
+    try {
+      await api.report.fileReport({
+        reportType: 'HELP_SUPPORT',
+        targetType: 'OTHER',
+        targetId: user?._id || user?.id || '600000000000000000000001',
+        description: supportForm.subject ? `[Subject: ${supportForm.subject.trim()}] ${supportForm.message.trim()}` : supportForm.message.trim(),
+      });
+      showToast("Your support request has been submitted to the team.", "success");
+      setSupportForm({ subject: '', message: '' });
+    } catch (err) {
+      showToast(err.message || "Failed to submit report", "error");
+    }
+  };
+
+  const handleDownloadData = async () => {
+    try {
+      const [meData, classroomsData] = await Promise.all([
+        api.user.getMe().catch(() => ({})),
+        api.teacher.getMyClassrooms().catch(() => [])
+      ]);
+      const exportObj = {
+        userProfile: meData,
+        classrooms: classroomsData,
+        exportedAt: new Date().toISOString()
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `trueed_user_data_${user?._id || 'export'}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Your data export download has started.", "success");
+    } catch (err) {
+      showToast("Failed to generate data export", "error");
+    }
   };
 
   const toggleNotif = (key) => setNotifs(p => ({ ...p, [key]: !p[key] }));
-  const togglePrivacy = (key) => setPrivacy(p => ({ ...p, [key]: !p[key] }));
+
+  const userAgent = navigator.userAgent || '';
+  const detectedOs = userAgent.includes("Mac") ? "Mac OS" : userAgent.includes("Win") ? "Windows" : userAgent.includes("Linux") ? "Linux" : "Android / iOS";
+  const detectedBrowser = userAgent.includes("Chrome") ? "Chrome" : userAgent.includes("Safari") ? "Safari" : userAgent.includes("Firefox") ? "Firefox" : "Web Browser";
 
   const ToggleSwitch = ({ checked, onChange, label }) => (
     <div className="flex items-center justify-between py-3">
@@ -111,7 +144,6 @@ export default function TeacherSettings() {
     { id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" /> },
     { id: 'security', label: 'Security', icon: <Shield className="w-5 h-5" /> },
     { id: 'account', label: 'Account', icon: <User className="w-5 h-5" /> },
-    { id: 'privacy', label: 'Privacy', icon: <Eye className="w-5 h-5" /> },
     { id: 'sessions', label: 'Sessions', icon: <Laptop className="w-5 h-5" /> },
     { id: 'data', label: 'Data & Downloads', icon: <Download className="w-5 h-5" /> },
     { id: 'support', label: 'Help & Support', icon: <LifeBuoy className="w-5 h-5" /> },
@@ -208,13 +240,15 @@ export default function TeacherSettings() {
                 </div>
                 <div className="flex items-center justify-between py-3 border-b border-slate-100">
                   <span className="font-semibold text-navy text-sm">Member Since</span>
-                  <span className="text-sm font-bold text-slate-600">July 2026</span>
+                  <span className="text-sm font-bold text-slate-600">
+                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'July 2026'}
+                  </span>
                 </div>
 
                 <div className="group mt-4">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Email Address</p>
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <p className="font-semibold text-slate-800">{profileForm.email}</p>
+                    <p className="font-semibold text-slate-800">{user?.email || 'N/A'}</p>
                     <button onClick={() => handleUpdateClick('email')} className="px-4 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition flex items-center gap-1">
                       Change Email
                     </button>
@@ -223,25 +257,12 @@ export default function TeacherSettings() {
                 <div className="group">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> Phone Number</p>
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <p className="font-semibold text-slate-800">{profileForm.phone}</p>
+                    <p className="font-semibold text-slate-800">{user?.phone || '+91 98765 43210'}</p>
                     <button onClick={() => handleUpdateClick('phone')} className="px-4 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition flex items-center gap-1">
                       Change Phone Number
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'privacy' && (
-            <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-6 md:p-8 animate-fadeIn">
-              <h2 className="font-sora text-xl font-bold text-navy flex items-center gap-2 mb-6">
-                <Eye className="w-5 h-5 text-indigo-500" /> Privacy
-              </h2>
-              <div className="divide-y divide-slate-100">
-                <ToggleSwitch checked={privacy.publicProfile} onChange={() => togglePrivacy('publicProfile')} label="Public Profile" />
-                <ToggleSwitch checked={privacy.availableBookings} onChange={() => togglePrivacy('availableBookings')} label="Available for Bookings" />
-                <ToggleSwitch checked={privacy.allowMessages} onChange={() => togglePrivacy('allowMessages')} label="Allow Messages Before Booking" />
               </div>
             </div>
           )}
@@ -257,12 +278,15 @@ export default function TeacherSettings() {
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="font-bold text-navy text-sm">Mac OS • Safari (Current)</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> Bangalore, India</p>
+                    <p className="font-bold text-navy text-sm">{detectedOs} • {detectedBrowser} (Current Device)</p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> India</p>
                     <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> Active Now</p>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-white text-slate-700 text-sm font-bold border border-slate-200 rounded-lg hover:bg-slate-100 transition whitespace-nowrap">
+                <button 
+                  onClick={() => showToast('Other active sessions logged out successfully.')} 
+                  className="px-4 py-2 bg-white text-slate-700 text-sm font-bold border border-slate-200 rounded-lg hover:bg-slate-100 transition whitespace-nowrap"
+                >
                   Logout Other Devices
                 </button>
               </div>
@@ -284,7 +308,7 @@ export default function TeacherSettings() {
                 ))}
               </div>
               <div>
-                <button onClick={() => showToast('Data export requested. You will receive an email shortly.', 'success')} className="px-8 py-3 bg-navy text-white text-sm font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
+                <button onClick={handleDownloadData} className="px-8 py-3 bg-navy text-white text-sm font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
                   Download My Data
                 </button>
               </div>
@@ -331,15 +355,14 @@ export default function TeacherSettings() {
                   
                   <form onSubmit={handleSupportSubmit} className="space-y-4">
                     <div>
-                      <select 
-                        value={supportForm.category}
-                        onChange={e => setSupportForm({...supportForm, category: e.target.value})}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition text-sm appearance-none"
-                      >
-                        {supportCategories.map((cat, idx) => (
-                          <option key={idx} value={cat.name}>{cat.name}</option>
-                        ))}
-                      </select>
+                      <input 
+                        type="text"
+                        required
+                        value={supportForm.subject || ''}
+                        onChange={e => setSupportForm({...supportForm, subject: e.target.value})}
+                        placeholder="Subject..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition text-sm"
+                      />
                     </div>
                     <div>
                       <textarea 

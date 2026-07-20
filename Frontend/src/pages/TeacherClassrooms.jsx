@@ -175,6 +175,19 @@ export default function TeacherClassrooms() {
   const handleSaveClassroom = async (e) => {
     e.preventDefault();
     
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (newRoom.startDate && newRoom.startDate < todayStr) {
+      setToastMessage('Start date cannot be in the past.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+
+    if (newRoom.startDate && newRoom.endDate && newRoom.endDate <= newRoom.startDate) {
+      setToastMessage('End date must be strictly after start date.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+
     // Validation
     if (!newRoom.schedules || newRoom.schedules.length === 0) {
       setToastMessage('Please add at least one schedule.');
@@ -408,24 +421,16 @@ export default function TeacherClassrooms() {
                   <Eye className="w-4 h-4" /> View Details
                 </Link>
                 <div className="flex gap-2">
-                  <button onClick={() => openEditModal(room)} aria-label="Edit Classroom" title="Edit Classroom" className="p-2 text-slate-400 hover:text-navy hover:bg-slate-200 rounded transition cursor-pointer">
+                  <button 
+                    onClick={() => {
+                      setToastMessage('Classrooms cannot be edited after creation per platform policy.');
+                      setTimeout(() => setToastMessage(null), 3000);
+                    }} 
+                    aria-label="Classroom Locked" 
+                    title="Classrooms cannot be edited after creation" 
+                    className="p-2 text-slate-300 hover:text-slate-400 rounded transition cursor-not-allowed opacity-60"
+                  >
                     <Edit className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => toggleStatus(room.id)}
-                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition cursor-pointer" 
-                    title={room.status === 'active' ? "Deactivate Classroom" : "Activate Classroom"}
-                    aria-label={room.status === 'active' ? "Deactivate Classroom" : "Activate Classroom"}
-                  >
-                    <PowerOff className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => { setRoomToDelete(room.id); setIsDeleteModalOpen(true); }}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition cursor-pointer" 
-                    title="Delete Classroom"
-                    aria-label="Delete Classroom"
-                  >
-                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -551,11 +556,11 @@ export default function TeacherClassrooms() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                       <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Start Date</label>
-                        <input required type="date" value={newRoom.startDate} onChange={e => setNewRoom({...newRoom, startDate: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
+                        <input required type="date" min={new Date().toISOString().split('T')[0]} value={newRoom.startDate} onChange={e => setNewRoom({...newRoom, startDate: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
                       </div>
                       <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">End Date</label>
-                        <input required type="date" value={newRoom.endDate} onChange={e => setNewRoom({...newRoom, endDate: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
+                        <input required type="date" min={newRoom.startDate || new Date().toISOString().split('T')[0]} value={newRoom.endDate} onChange={e => setNewRoom({...newRoom, endDate: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" />
                       </div>
                     </div>
 

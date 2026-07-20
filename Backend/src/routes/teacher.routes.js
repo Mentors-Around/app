@@ -9,7 +9,7 @@ import {
   getMyQueries, getPublicProfile, getMyClassrooms,
   getMyDoubts, updateAvailability,
   getTeacherWallet, initiateTeacherDeposit, verifyTeacherDeposit,
-  getMyReviews, replyToReview,
+  getMyReviews, replyToReview, getMyStudents,
 } from '../controllers/teacher.controller.js';
 import { paymentLimiter }       from '../middlewares/rateLimit.middleware.js';
 import { requireIdempotencyKey } from '../middlewares/idempotency.middleware.js';
@@ -24,6 +24,7 @@ router.post('/onboarding/kyc',     authenticate, requireTeacherPending, uploadLi
 router.get('/me/dashboard',    authenticate, requireTeacher, getDashboard);
 router.get('/me/earnings',     authenticate, requireTeacher, getEarnings);
 router.get('/me/classrooms',   authenticate, requireTeacher, getMyClassrooms);
+router.get('/me/students',     authenticate, requireTeacher, getMyStudents);
 router.get('/me/queries',      authenticate, requireTeacher, getMyQueries);
 router.get('/me/doubts',       authenticate, requireTeacher, getMyDoubts);
 router.patch('/me/availability', authenticate, requireTeacher, updateAvailability);

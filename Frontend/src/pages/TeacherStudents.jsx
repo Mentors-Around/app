@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MapPin, BookOpen, GraduationCap, Clock, Activity, FileText, X, CheckCircle } from 'lucide-react';
+import api from '../services/api.js';
 
 const mockStudents = [
   { id: 1, name: 'Aarav Sharma', initials: 'AS', grade: 'Class 12', city: 'Mumbai', subjects: ['Physics', 'Math'], totalSessions: 14, lastSession: 'Oct 24, 2026', status: 'Active', attendance: '94%' },
@@ -34,54 +35,34 @@ export default function TeacherStudents() {
     const fetchStudentsData = async () => {
       try {
         setLoading(true);
-        const [queriesRes, classroomsRes] = await Promise.all([
-          api.teacher.getMyQueries().catch(() => null),
+        const [studentsData, classroomsRes] = await Promise.all([
+          api.teacher.getMyStudents().catch(() => []),
           api.teacher.getMyClassrooms().catch(() => null)
         ]);
 
         const classroomList = Array.isArray(classroomsRes) ? classroomsRes : (classroomsRes?.docs || classroomsRes?.classrooms || []);
         setClassrooms(classroomList.map(c => ({ id: c._id || c.id, name: c.title || c.name, subject: c.subject, mode: c.mode })));
 
-        const queryList = Array.isArray(queriesRes) ? queriesRes : (queriesRes?.docs || queriesRes?.queries || []);
+        const studentList = Array.isArray(studentsData) ? studentsData : (studentsData?.docs || []);
         
-        // Map students from queries / enrollments
-        if (queryList.length > 0) {
-          const studentMap = new Map();
-          queryList.forEach((q, idx) => {
-            const studentObj = typeof q.studentId === 'object' ? q.studentId : (typeof q.student === 'object' ? q.student : null);
-            const classroomObj = typeof q.classroomId === 'object' ? q.classroomId : (typeof q.classroom === 'object' ? q.classroom : null);
-            
-            const sId = studentObj?._id || q.studentId || `s_${idx}`;
-            const sName = studentObj?.name || 'Student';
-            
-            if (!studentMap.has(sId)) {
-              studentMap.set(sId, {
-                id: sId,
-                name: sName,
-                initials: sName.split(' ').map(n => n[0]).join('').toUpperCase(),
-                grade: classroomObj?.academicLevel || classroomObj?.subject || 'Class Student',
-                city: 'India',
-                subjects: classroomObj?.subject ? [classroomObj.subject] : ['General'],
-                totalSessions: 1,
-                lastSession: new Date(q.createdAt || Date.now()).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }),
-                status: q.status === 'enrolled' || q.status === 'accepted' ? 'Active' : 'Inactive',
-                attendance: '100%',
-                classrooms: classroomObj ? [{ name: classroomObj.title || 'Classroom', mode: classroomObj.mode || 'Online' }] : []
-              });
-            } else {
-              const existing = studentMap.get(sId);
-              if (classroomObj && !existing.classrooms.some(c => c.name === classroomObj.title)) {
-                existing.classrooms.push({ name: classroomObj.title || 'Classroom', mode: classroomObj.mode || 'Online' });
-              }
-            }
-          });
-          setRealStudents(Array.from(studentMap.values()));
-        } else {
-          setRealStudents(mockStudents);
-        }
+        const mapped = studentList.map((s, idx) => ({
+          id: s.id || `s_${idx}`,
+          name: s.name || 'Student',
+          initials: (s.name || 'Student').split(' ').map(n => n[0]).join('').toUpperCase(),
+          grade: s.grade || s.subject || 'Enrolled Student',
+          city: s.city || 'India',
+          subjects: [s.subject || 'General'],
+          totalSessions: 1,
+          lastSession: s.enrolledAt ? new Date(s.enrolledAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
+          status: s.status === 'DROPPED' ? 'Inactive' : 'Active',
+          attendance: '100%',
+          classrooms: s.classroom ? [{ name: s.classroom, mode: 'Online' }] : []
+        }));
+
+        setRealStudents(mapped);
       } catch (err) {
         console.warn('Failed to load students data:', err.message);
-        setRealStudents(mockStudents);
+        setRealStudents([]);
       } finally {
         setLoading(false);
       }
@@ -90,7 +71,7 @@ export default function TeacherStudents() {
     fetchStudentsData();
   }, []);
 
-  const displayStudents = realStudents.length > 0 ? realStudents : mockStudents;
+  const displayStudents = realStudents;
 
   // Compute enriched students with classrooms
   const enrichedStudents = displayStudents.map(student => {

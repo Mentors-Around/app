@@ -105,7 +105,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
   const teacherId = req.user._id;
 
   const [
-    classroomStats, pendingQueries, pendingDoubts, pendingExtraClasses, profile,
+    classroomStats, pendingQueries, resolvedQueries, totalEnrolledStudents, pendingDoubts, pendingExtraClasses, profile,
   ] = await Promise.all([
     Classroom.aggregate([
       { $match: { teacherId: new mongoose.Types.ObjectId(teacherId) } },
@@ -121,6 +121,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
       },
     ]),
     EnrollmentQuery.countDocuments({ teacherId, status: 'pending' }),
+    EnrollmentQuery.countDocuments({ teacherId, status: { $in: ['accepted', 'rejected', 'resolved', 'enrolled', 'completed', 'responded'] } }),
+    Enrollment.countDocuments({ teacherId }),
     Doubt.countDocuments({ teacherId, status: 'open' }),
     ExtraClass.countDocuments({ teacherId, status: 'pending' }),
     TeacherProfile.findOne({ userId: teacherId })
@@ -142,26 +144,53 @@ export const getDashboard = asyncHandler(async (req, res) => {
       total: 0, active: 0, completed: 0, totalStudents: 0, totalEarnings: 0,
     },
     pendingQueries,
+    resolvedQueriesCount: resolvedQueries || 0,
+    totalEnrolledStudents: totalEnrolledStudents || classroomStats[0]?.totalStudents || 0,
     pendingDoubts,
     pendingExtraClasses,
     upcomingClasses,                       // next 7 days of scheduled sessions
     walletPaise:       profile?.walletPaise       || 0,
     walletRupees:      profile?.walletRupees      || 0,
     verificationStatus: profile?.verificationStatus,
-    // Note: platformFees NOT returned — removed per product requirement
   }, 'Dashboard data'));
 });
 
 // ── GET /me/earnings ──────────────────────────────────────────────────────────
 export const getEarnings = asyncHandler(async (req, res) => {
-  const { Payout } = await import('../models/index.js');
+  const { Payout, Enrollment } = await import('../models/index.js');
 
-  const [profile, payouts] = await Promise.all([
+  const [profile, payouts, monthlyAgg] = await Promise.all([
     TeacherProfile.findOne({ userId: req.user._id })
       .select('walletPaise walletRupees stats.totalEarningsPaise stats.withdrawnPaise stats.pendingPayoutPaise')
       .lean({ virtuals: true }),
     Payout.find({ teacherId: req.user._id }).sort({ createdAt: -1 }).limit(20).lean(),
+    Enrollment.aggregate([
+      { $match: { teacherId: req.user._id } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          totalPaise: { $sum: '$feesPaidPaise' }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ])
   ]);
+
+  // Build last 6 months default chart data if empty/partial
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const now = new Date();
+  const monthlyData = [];
+  const monthMap = new Map(monthlyAgg.map(m => [m._id, m.totalPaise / 100]));
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const monthName = months[d.getMonth()];
+    monthlyData.push({
+      name: monthName,
+      earnings: monthMap.get(key) || 0
+    });
+  }
 
   res.status(200).json(new ApiResponse(200, {
     walletPaise:        profile?.walletPaise                  || 0,
@@ -170,7 +199,73 @@ export const getEarnings = asyncHandler(async (req, res) => {
     withdrawnPaise:     profile?.stats?.withdrawnPaise        || 0,
     pendingPayoutPaise: profile?.stats?.pendingPayoutPaise    || 0,
     recentPayouts:      payouts,
+    monthlyData,
   }, 'Earnings data'));
+});
+
+// ── GET /me/students ──────────────────────────────────────────────────────────
+export const getMyStudents = asyncHandler(async (req, res) => {
+  const { Enrollment, EnrollmentQuery, Classroom } = await import('../models/index.js');
+  const teacherId = req.user._id;
+
+  const [enrollments, queries, classrooms] = await Promise.all([
+    Enrollment.find({ teacherId })
+      .populate('studentId', 'name email phone city avatarUrl role')
+      .populate('classroomId', 'title subject mode schedule status')
+      .sort({ createdAt: -1 })
+      .lean(),
+    EnrollmentQuery.find({ teacherId, studentId: { $ne: null } })
+      .populate('studentId', 'name email phone city avatarUrl role')
+      .populate('classroomId', 'title subject mode schedule status')
+      .sort({ createdAt: -1 })
+      .lean(),
+    Classroom.find({ teacherId }).select('_id title subject mode').lean()
+  ]);
+
+  const studentMap = new Map();
+
+  enrollments.forEach((e) => {
+    if (e.studentId) {
+      const sId = e.studentId._id ? e.studentId._id.toString() : e.studentId.toString();
+      if (!studentMap.has(sId)) {
+        studentMap.set(sId, {
+          id: sId,
+          name: e.studentId.name || 'Student',
+          email: e.studentId.email || 'N/A',
+          phone: e.studentId.phone || 'N/A',
+          city: e.studentId.city || 'India',
+          avatarUrl: e.studentId.avatarUrl || null,
+          classroom: e.classroomId?.title || 'Classroom',
+          subject: e.classroomId?.subject || 'General',
+          status: e.status || 'ACTIVE',
+          enrolledAt: e.createdAt,
+        });
+      }
+    }
+  });
+
+  queries.forEach((q) => {
+    if (q.studentId) {
+      const sId = q.studentId._id ? q.studentId._id.toString() : q.studentId.toString();
+      if (!studentMap.has(sId)) {
+        studentMap.set(sId, {
+          id: sId,
+          name: q.studentId.name || 'Student',
+          email: q.studentId.email || 'N/A',
+          phone: q.studentId.phone || 'N/A',
+          city: q.studentId.city || 'India',
+          avatarUrl: q.studentId.avatarUrl || null,
+          classroom: q.classroomId?.title || 'Classroom Query',
+          subject: q.classroomId?.subject || 'General',
+          status: q.status === 'accepted' || q.status === 'enrolled' ? 'ACTIVE' : 'QUERY_ENROLLED',
+          enrolledAt: q.createdAt,
+        });
+      }
+    }
+  });
+
+  const students = Array.from(studentMap.values());
+  res.status(200).json(new ApiResponse(200, students, 'My students list'));
 });
 
 // ── GET /me/wallet — Teacher wallet balance ────────────────────────────────────

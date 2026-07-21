@@ -120,17 +120,61 @@ export const AuthProvider = ({ children }) => {
     throw new Error('Please login using your Email and Password.');
   };
 
-  const sendPhoneOTP = async (phone) => {
-    return { success: true };
+  const sendSignupOTP = async (email, phone, role) => {
+    try {
+      const res = await api.auth.signupSendOtp(email, phone, role);
+      return res;
+    } catch (err) {
+      throw new Error(err.message || 'Failed to send OTP code.');
+    }
   };
 
-  const verifyPhoneOTP = async (otp) => {
-    return { success: true };
+  const verifySignupOTP = async (email, phone, emailOtp, phoneOtp) => {
+    try {
+      const res = await api.auth.signupVerifyOtp(email, phone, emailOtp, phoneOtp);
+      if (res?.sessionToken) {
+        localStorage.setItem('trueed_signup_session', res.sessionToken);
+      }
+      return res;
+    } catch (err) {
+      throw new Error(err.message || 'OTP verification failed.');
+    }
+  };
+
+  const sendForgotOTP = async (channel, emailOrPhone) => {
+    try {
+      const isEmail = emailOrPhone.includes('@');
+      const payload = isEmail ? { channel: 'email', email: emailOrPhone } : { channel: 'phone', phone: emailOrPhone };
+      const res = await api.auth.forgotPasswordSendOtp(payload.channel, payload.email, payload.phone);
+      return res;
+    } catch (err) {
+      throw new Error(err.message || 'Failed to send OTP code.');
+    }
+  };
+
+  const verifyForgotOTP = async (channel, emailOrPhone, otp) => {
+    try {
+      const isEmail = emailOrPhone.includes('@');
+      const res = await api.auth.forgotPasswordVerifyOtp(
+        isEmail ? 'email' : 'phone',
+        isEmail ? emailOrPhone : undefined,
+        !isEmail ? emailOrPhone : undefined,
+        otp
+      );
+      if (res?.sessionToken) {
+        localStorage.setItem('trueed_reset_session', res.sessionToken);
+      }
+      return res;
+    } catch (err) {
+      throw new Error(err.message || 'Verification failed.');
+    }
   };
 
   const register = async (profileData) => {
     try {
-      const res = await api.auth.signupComplete(profileData);
+      const sessionToken = localStorage.getItem('trueed_signup_session');
+      const payload = { ...profileData, sessionToken };
+      const res = await api.auth.signupComplete(payload);
       const userObj = res.user || res;
       const accessToken = res.accessToken;
 
@@ -139,6 +183,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('trueed_token', accessToken);
         localStorage.setItem('trueed_profile', JSON.stringify(userObj));
         localStorage.setItem('trueed_role', userObj.role);
+        localStorage.removeItem('trueed_signup_session');
 
         setUser(userObj);
         setRole(userObj.role);
@@ -146,18 +191,42 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true, role: userObj.role };
       }
+      localStorage.removeItem('trueed_signup_session');
       return { success: true, message: res.message || 'Registration complete' };
     } catch (err) {
       throw new Error(err.message || 'Registration failed');
     }
   };
 
-  const resetPassword = async (emailOrPhone, newPassword) => {
+  const resetPassword = async (newPassword) => {
     try {
-      const res = await api.auth.resetPassword(emailOrPhone, newPassword);
+      const sessionToken = localStorage.getItem('trueed_reset_session');
+      if (!sessionToken) throw new Error('Session expired. Please request a new OTP.');
+      const res = await api.auth.resetPassword(sessionToken, newPassword);
+      localStorage.removeItem('trueed_reset_session');
       return { success: true, ...res };
     } catch (err) {
       throw new Error(err.message || 'Password reset failed');
+    }
+  };
+
+  const handleGoogleToken = async (accessToken) => {
+    localStorage.setItem('trueed_token', accessToken);
+    try {
+      const profileData = await api.user.getMe();
+      const profileUser = profileData?.user || profileData;
+      if (profileUser && profileUser._id) {
+        profileUser.initials = getInitials(profileUser.name);
+        setUser(profileUser);
+        setRole(profileUser.role);
+        setIsAuthenticated(true);
+        localStorage.setItem('trueed_profile', JSON.stringify(profileUser));
+        localStorage.setItem('trueed_role', profileUser.role);
+        return { success: true, role: profileUser.role, user: profileUser };
+      }
+    } catch (err) {
+      localStorage.removeItem('trueed_token');
+      throw err;
     }
   };
 
@@ -201,10 +270,13 @@ export const AuthProvider = ({ children }) => {
         updateKycStatus,
         login,
         loginWithPhone,
-        sendPhoneOTP,
-        verifyPhoneOTP,
+        sendSignupOTP,
+        verifySignupOTP,
+        sendForgotOTP,
+        verifyForgotOTP,
         register,
         resetPassword,
+        handleGoogleToken,
         logout,
         getDashboardRoute,
       }}

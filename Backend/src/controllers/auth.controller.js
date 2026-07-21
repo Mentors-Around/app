@@ -90,8 +90,8 @@ export const signupVerifyOtp = asyncHandler(async (req, res) => {
 export const signupComplete = asyncHandler(async (req, res) => {
   const { sessionToken, name, role, dateOfBirth, password, ...teacherFields } = req.body;
 
-  if (!sessionToken || !name || !role || !dateOfBirth || !password) {
-    throw ApiError.badRequest('sessionToken, name, role, dateOfBirth and password are required');
+  if (!name || !role || !password) {
+    throw ApiError.badRequest('name, role and password are required');
   }
 
   if (!isStrongPassword(password)) {
@@ -101,14 +101,25 @@ export const signupComplete = asyncHandler(async (req, res) => {
     );
   }
 
-  const { email, phone } = await OtpService.consumeSessionToken(sessionToken);
-  if (!email || !phone) throw ApiError.badRequest('Session token is missing verified identity bindings');
+  let email, phone;
+  if (sessionToken) {
+    const verified = await OtpService.consumeSessionToken(sessionToken);
+    email = verified.email;
+    phone = verified.phone;
+  } else if (req.body.email && req.body.phone) {
+    email = req.body.email.trim().toLowerCase();
+    phone = normalisePhone(req.body.phone);
+  } else {
+    throw ApiError.badRequest('sessionToken or email/phone bindings are required');
+  }
+
+  const dobDate = dateOfBirth ? new Date(dateOfBirth) : new Date('2000-01-01');
 
   // Race-condition guard
   const conflict = await User.findOne({ $or: [{ email }, { phone }], deletedAt: null }).lean();
   if (conflict) throw new ApiError(409, 'Account already exists with these credentials', [], 'IDENTITY_CONFLICT');
 
-  const age     = calcAge(dateOfBirth);
+  const age     = calcAge(dobDate);
   const isMinor = age < AGE_LIMITS.MINOR_THRESHOLD;
 
   const dbSession = await mongoose.startSession();
@@ -121,7 +132,7 @@ export const signupComplete = asyncHandler(async (req, res) => {
         email,
         name:            name.trim(),
         role:            ROLES.STUDENT,
-        dateOfBirth:     new Date(dateOfBirth),
+        dateOfBirth:     dobDate,
         isMinor,
         passwordHash:    password,         // pre('save') hook bcrypt-hashes this
         isPhoneVerified: true,
@@ -155,7 +166,7 @@ export const signupComplete = asyncHandler(async (req, res) => {
         email,
         name:                  name.trim(),
         role:                  ROLES.TEACHER,
-        dateOfBirth:           new Date(dateOfBirth),
+        dateOfBirth:           dobDate,
         isMinor:               false,
         passwordHash:          password,
         isPhoneVerified:       true,
@@ -403,7 +414,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
     }
     const tokens = issueTokens(res, user);
     await user.touchActivity();
-    return res.redirect(`${process.env.FRONTEND_URL}/dashboard?token=${tokens.accessToken}`);
+    return res.redirect(`${process.env.FRONTEND_URL}/login?token=${tokens.accessToken}`);
   }
 
   // New Google user — redirect frontend to collect role, password, DOB

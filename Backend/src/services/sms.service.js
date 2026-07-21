@@ -66,8 +66,9 @@ const providers = {
   },
 
   async mock(phone, message) {
-    logger.debug("[SMS MOCK]", {
-      phone:   phone.slice(-4).padStart(phone.length, "*"),
+    console.log(`\n========================================\n[PHONE OTP VERIFICATION] To: ${phone}\n${message}\n========================================\n`);
+    logger.info("[SMS MOCK]", {
+      phone,
       message,
     });
     return { success: true, mock: true };

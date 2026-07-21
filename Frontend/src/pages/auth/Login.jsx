@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import Alert from '../../components/shared/Alert';
 
 const Login = () => {
-  const { login, loginWithPhone, sendPhoneOTP, user, getDashboardRoute } = useAuth();
+  const { login, loginWithPhone, sendPhoneOTP, user, getDashboardRoute, handleGoogleToken } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Tab state: 'email' or 'phone'
   const [activeTab, setActiveTab] = useState('email');
@@ -29,6 +30,22 @@ const Login = () => {
   // References for focus
   const emailRef = useRef(null);
   const phoneRef = useRef(null);
+
+  // Check for Google token in query params
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (token) {
+      setLoading(true);
+      handleGoogleToken(token)
+        .then((res) => {
+          navigate(getDashboardRoute(res.role), { replace: true });
+        })
+        .catch((err) => {
+          setError(err.message || 'Google authentication failed.');
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [searchParams, handleGoogleToken, navigate, getDashboardRoute]);
 
   // Auto-login check
   useEffect(() => {
@@ -332,11 +349,14 @@ const Login = () => {
 
       <div className="mt-6">
         <button
-          onClick={() => alert('Google login coming soon!')}
+          onClick={() => {
+            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+            window.location.href = `${apiBase}/auth/google`;
+          }}
           className="w-full py-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition flex items-center justify-center gap-3"
         >
           <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" className="w-5 h-5" />
-          Google <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Coming Soon</span>
+          Continue with Google
         </button>
       </div>
 

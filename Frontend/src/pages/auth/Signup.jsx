@@ -43,7 +43,7 @@ const PasswordStrength = ({ password }) => {
 };
 
 const Signup = () => {
-  const { register, sendPhoneOTP, verifyPhoneOTP, user, getDashboardRoute } = useAuth();
+  const { register, sendSignupOTP, verifySignupOTP, user, getDashboardRoute } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialRole = searchParams.get('role') || 'student';
@@ -62,7 +62,8 @@ const Signup = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
-  const [otp, setOtp] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
 
   // Step 4 Profile fields
   const [school, setSchool] = useState('');
@@ -119,11 +120,11 @@ const Signup = () => {
     setError('');
     setLoading(true);
     try {
-      await sendPhoneOTP(phone);
-      setSuccess('Demo OTP code is 123456');
+      await sendSignupOTP(email, phone, role);
+      setSuccess('Verification codes sent! Check your email for Email OTP & terminal for Phone OTP.');
       setStep(3);
     } catch (err) {
-      setError(err.message || 'Failed to send verification code.');
+      setError(err.message || 'Failed to send verification codes.');
     } finally {
       setLoading(false);
     }
@@ -131,17 +132,17 @@ const Signup = () => {
 
   const handleStep3Submit = async (e) => {
     e.preventDefault();
-    if (!otp) return setError('Please enter the 6-digit verification code.');
-    if (otp.length !== 6) return setError('Verification code must be 6 digits.');
+    if (!emailOtp || emailOtp.length !== 6) return setError('Please enter the 6-digit Email OTP.');
+    if (!phoneOtp || phoneOtp.length !== 6) return setError('Please enter the 6-digit Phone OTP.');
 
     setError('');
     setLoading(true);
     try {
-      await verifyPhoneOTP(otp);
+      await verifySignupOTP(email, phone, emailOtp, phoneOtp);
       setSuccess('');
       setStep(4);
     } catch (err) {
-      setError(err.message || 'Invalid verification code.');
+      setError(err.message || 'Invalid verification code(s).');
     } finally {
       setLoading(false);
     }
@@ -158,6 +159,7 @@ const Signup = () => {
         phone: phone,
         city: city,
         role: role,
+        password: password,
       };
 
       if (!skip) {
@@ -183,7 +185,11 @@ const Signup = () => {
   };
 
   const handleFinish = () => {
-    navigate(getDashboardRoute(role));
+    if (role === 'teacher') {
+      navigate('/teacher/kyc');
+    } else {
+      navigate(getDashboardRoute(role));
+    }
   };
 
   return (
@@ -283,6 +289,28 @@ const Signup = () => {
           >
             Continue
           </button>
+
+          <div className="mt-6 relative flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative bg-white px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              or continue with
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <button
+              onClick={() => {
+                const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+                window.location.href = `${apiBase}/auth/google`;
+              }}
+              className="w-full py-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition flex items-center justify-center gap-3"
+            >
+              <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" className="w-5 h-5" />
+              Continue with Google
+            </button>
+          </div>
 
           <p className="mt-8 text-center text-sm font-semibold text-slate-500">
             Already have an account?{' '}
@@ -420,47 +448,67 @@ const Signup = () => {
         </div>
       )}
 
-      {/* Step 3: Verify Phone */}
+      {/* Step 3: Verify Dual OTPs */}
       {step === 3 && (
-        <div className="animate-fade-in text-center">
-          <div className="mb-6">
-            <h2 className="font-sora text-2xl font-bold text-navy mb-2">Verify Mobile</h2>
+        <div className="animate-fade-in text-left">
+          <div className="mb-6 text-center">
+            <h2 className="font-sora text-2xl font-bold text-navy mb-2">Verify Account</h2>
             <p className="text-slate-500 text-sm font-medium">
-              Enter the 6-digit verification code sent to
-              <br />
-              <span className="font-bold text-navy">{phone}</span>
+              We sent verification codes to your email and phone
             </p>
           </div>
 
-          <form onSubmit={handleStep3Submit}>
-            <input
-              type="text"
-              maxLength="6"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="e.g. 123456"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-center text-xl font-bold text-navy focus:outline-none focus:border-navy focus:bg-white transition mb-6"
-              autoFocus
-            />
+          <form onSubmit={handleStep3Submit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                Email OTP <span className="text-slate-400 font-normal">({email})</span>
+              </label>
+              <input
+                type="text"
+                maxLength="6"
+                value={emailOtp}
+                onChange={(e) => setEmailOtp(e.target.value)}
+                placeholder="6-digit Email OTP (Check Inbox)"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-bold text-navy focus:outline-none focus:border-navy focus:bg-white transition"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                Phone OTP <span className="text-slate-400 font-normal">({phone})</span>
+              </label>
+              <input
+                type="text"
+                maxLength="6"
+                value={phoneOtp}
+                onChange={(e) => setPhoneOtp(e.target.value)}
+                placeholder="6-digit Phone OTP (Logged to Terminal)"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-bold text-navy focus:outline-none focus:border-navy focus:bg-white transition"
+              />
+            </div>
 
             <button
               type="submit"
-              disabled={loading || otp.length !== 6}
-              className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mb-4"
+              disabled={loading || emailOtp.length !== 6 || phoneOtp.length !== 6}
+              className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Code'}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Both Codes'}
             </button>
           </form>
 
-          <button
-            onClick={() => {
-              setOtp('');
-              setStep(2);
-            }}
-            className="text-xs font-bold text-slate-500 hover:text-navy transition"
-          >
-            Change Phone Number
-          </button>
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => {
+                setEmailOtp('');
+                setPhoneOtp('');
+                setStep(2);
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-navy transition"
+            >
+              Edit Email or Phone Number
+            </button>
+          </div>
         </div>
       )}
 
@@ -594,13 +642,15 @@ const Signup = () => {
           </div>
           <h2 className="font-sora text-3xl font-bold text-navy mb-2">Account Created!</h2>
           <p className="text-slate-500 font-medium mb-8">
-            Registration is successful. Welcome to TrueEd!
+            {role === 'teacher'
+              ? 'Your teacher profile is created. Please complete KYC verification to get verified.'
+              : 'Registration is successful. Welcome to TrueEd!'}
           </p>
           <button
             onClick={handleFinish}
             className="w-full py-3.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-lg"
           >
-            Go to Dashboard
+            {role === 'teacher' ? 'Complete KYC Verification' : 'Go to Dashboard'}
           </button>
         </div>
       )}

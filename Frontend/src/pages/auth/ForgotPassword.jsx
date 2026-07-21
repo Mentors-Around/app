@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
-import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import Alert from '../../components/shared/Alert';
 
 const ForgotPassword = () => {
-  const { resetPassword, sendPhoneOTP, verifyPhoneOTP, user, getDashboardRoute } = useAuth();
+  const { resetPassword, sendForgotOTP, verifyForgotOTP, user, getDashboardRoute } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -13,6 +13,9 @@ const ForgotPassword = () => {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,12 +37,12 @@ const ForgotPassword = () => {
 
   const handleStep1Submit = async (e) => {
     e.preventDefault();
-    if (!emailOrPhone) {
+    const cleanInput = emailOrPhone.trim();
+    if (!cleanInput) {
       setError('Please enter your Email Address or Phone Number.');
       return;
     }
 
-    const cleanInput = emailOrPhone.trim();
     if (!isEmail(cleanInput) && !isPhoneValid(cleanInput)) {
       setError('Please enter a valid email address or 10-digit phone number.');
       return;
@@ -48,9 +51,12 @@ const ForgotPassword = () => {
     setError('');
     setLoading(true);
     try {
-      // Mock sending OTP
-      await sendPhoneOTP(cleanInput);
-      setSuccess('Demo OTP code is 123456');
+      await sendForgotOTP(isEmail(cleanInput) ? 'email' : 'phone', cleanInput);
+      setSuccess(
+        isEmail(cleanInput)
+          ? 'OTP code sent to your email! Please check your inbox.'
+          : 'OTP code sent to your phone! Please check terminal logs.'
+      );
       setStep(2);
     } catch (err) {
       setError(err.message || 'Failed to send OTP code.');
@@ -73,7 +79,8 @@ const ForgotPassword = () => {
     setError('');
     setLoading(true);
     try {
-      await verifyPhoneOTP(otp);
+      const cleanInput = emailOrPhone.trim();
+      await verifyForgotOTP(isEmail(cleanInput) ? 'email' : 'phone', cleanInput, otp);
       setSuccess('');
       setStep(3);
     } catch (err) {
@@ -85,15 +92,18 @@ const ForgotPassword = () => {
 
   const handleStep3Submit = async (e) => {
     e.preventDefault();
-    if (!newPassword || !confirmPassword) {
-      setError('Please enter both password fields.');
+    const p1 = newPassword.trim();
+    const p2 = confirmPassword.trim();
+
+    if (!p1 || !p2) {
+      setError('Please fill in both password fields.');
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (p1 !== p2) {
       setError('Passwords do not match.');
       return;
     }
-    if (newPassword.length < 8) {
+    if (p1.length < 8) {
       setError('Password must be at least 8 characters long.');
       return;
     }
@@ -101,7 +111,7 @@ const ForgotPassword = () => {
     setError('');
     setLoading(true);
     try {
-      await resetPassword(emailOrPhone, newPassword);
+      await resetPassword(p1);
       setStep(4);
     } catch (err) {
       setError(err.message || 'Failed to update password.');
@@ -158,7 +168,7 @@ const ForgotPassword = () => {
               disabled={loading || !emailOrPhone}
               className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset OTP'}
             </button>
           </form>
 
@@ -177,7 +187,7 @@ const ForgotPassword = () => {
           <div className="mb-6">
             <h2 className="font-sora text-2xl font-bold text-navy mb-2">Verify OTP</h2>
             <p className="text-slate-500 font-medium">
-              Enter the 6-digit code we sent to
+              Enter the 6-digit code sent to
               <br />
               <span className="font-bold text-navy">{emailOrPhone}</span>
             </p>
@@ -226,25 +236,43 @@ const ForgotPassword = () => {
           <form onSubmit={handleStep3Submit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">New Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
-                autoFocus
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
+                >
+                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Confirm Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm password"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button

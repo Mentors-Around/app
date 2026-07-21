@@ -99,10 +99,9 @@ export default function StudentSettings() {
     { id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" /> },
     { id: 'security', label: 'Security', icon: <Shield className="w-5 h-5" /> },
     { id: 'account', label: 'Account', icon: <User className="w-5 h-5" /> },
-    { id: 'privacy', label: 'Privacy', icon: <Eye className="w-5 h-5" /> },
     { id: 'sessions', label: 'Sessions', icon: <Laptop className="w-5 h-5" /> },
     { id: 'data', label: 'Data & Downloads', icon: <Download className="w-5 h-5" /> },
-    { id: 'support', label: 'Help & Support', icon: <LifeBuoy className="w-5 h-5" /> },
+    { id: 'support', label: 'Settings & Support', icon: <LifeBuoy className="w-5 h-5" /> },
     { id: 'danger', label: 'Danger Zone', icon: <AlertTriangle className="w-5 h-5" />, danger: true },
   ];
 
@@ -274,42 +273,7 @@ export default function StudentSettings() {
             </div>
           )}
 
-          {activeTab === 'privacy' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 animate-fadeIn">
-              <h2 className="font-sora text-xl font-bold text-navy flex items-center gap-2 mb-6">
-                <Eye className="w-5 h-5 text-indigo-500" /> Privacy
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-3 border-b border-slate-50">
-                  <div>
-                    <p className="font-bold text-navy">Public Profile</p>
-                    <p className="text-xs text-slate-500">Allow other students to see your profile</p>
-                  </div>
-                  <button onClick={() => setPrivacy({...privacy, publicProfile: !privacy.publicProfile})} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${privacy.publicProfile ? 'bg-success' : 'bg-slate-200'}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${privacy.publicProfile ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between py-3 border-b border-slate-50">
-                  <div>
-                    <p className="font-bold text-navy">Allow App Notifications</p>
-                    <p className="text-xs text-slate-500">Receive push notifications on this device</p>
-                  </div>
-                  <button onClick={() => setPrivacy({...privacy, allowNotifications: !privacy.allowNotifications})} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${privacy.allowNotifications ? 'bg-success' : 'bg-slate-200'}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${privacy.allowNotifications ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="font-bold text-navy">Promotional Emails</p>
-                    <p className="text-xs text-slate-500">Receive offers and promotional content</p>
-                  </div>
-                  <button onClick={() => setPrivacy({...privacy, promoEmails: !privacy.promoEmails})} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${privacy.promoEmails ? 'bg-success' : 'bg-slate-200'}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${privacy.promoEmails ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {activeTab === 'sessions' && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 animate-fadeIn">

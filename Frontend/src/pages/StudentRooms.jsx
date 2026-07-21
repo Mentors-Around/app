@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PlayCircle, Eye, Download, Award, Calendar, BookOpen, Monitor, Sparkles, CheckCircle, Star } from 'lucide-react';
+import { PlayCircle, Eye, Download, Award, Calendar, BookOpen, Monitor, Sparkles, CheckCircle, Star, Loader2 } from 'lucide-react';
 import StudentReviewModal from '../components/shared/StudentReviewModal';
+import api from '../services/api';
 
 const mockActiveClassrooms = [
   {
@@ -76,17 +77,32 @@ const getBadgeIcon = (badge) => {
 
 export default function StudentRooms() {
   const [activeTab, setActiveTab] = useState('active');
+  const [enrollments, setEnrollments] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // Review System State
   const [submittedReviews, setSubmittedReviews] = useState({});
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [reviewContext, setReviewContext] = useState(null); // The classroom being reviewed
+  const [reviewContext, setReviewContext] = useState(null);
 
   useEffect(() => {
     document.title = 'My Learning — TrueEd';
     window.scrollTo(0, 0);
-    loadReviews();
+    fetchMyEnrollments();
   }, []);
+
+  const fetchMyEnrollments = async () => {
+    try {
+      setLoading(true);
+      const res = await api.user.getSavedClassrooms().catch(() => []);
+      const list = Array.isArray(res) ? res : (res?.docs || res?.classrooms || []);
+      setEnrollments(list);
+    } catch (err) {
+      console.error('Failed to load enrollments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadReviews = () => {
     const raw = localStorage.getItem('trueed_reviews');

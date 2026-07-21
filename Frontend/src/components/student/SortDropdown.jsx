@@ -6,10 +6,9 @@ const SortDropdown = ({ value, onChange }) => {
   const isOpen = activeOverlayId === 'student-sort-dropdown';
 
   const options = [
-    { value: 'recommended', label: 'Recommended' },
+    { value: 'highestrated', label: 'Highest Rated' },
     { value: 'pricelowtohigh', label: 'Price: Low to High' },
     { value: 'pricehightolow', label: 'Price: High to Low' },
-    { value: 'highestrated', label: 'Highest Rated' },
     { value: 'mostreviews', label: 'Most Reviews' },
     { value: 'mostexperienced', label: 'Most Experienced' },
   ];

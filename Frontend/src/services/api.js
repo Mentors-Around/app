@@ -124,6 +124,12 @@ export const api = {
     
     updateMe: (data) => request('/users/me', { method: 'PATCH', body: data }),
     
+    updateUsername: (username) => request('/users/me/username', { method: 'PATCH', body: { username } }),
+    
+    getDashboardStats: () => request('/users/me/dashboard'),
+    
+    getSessions: () => request('/users/me/sessions'),
+    
     uploadAvatar: (formData) =>
       request('/users/me/avatar', { method: 'POST', body: formData }),
     

@@ -184,19 +184,11 @@ const MyQueriesPage = () => {
 
       {/* Filters */}
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto hide-scrollbar">
-        {['All', 'Classroom Queries'].map(f => (
-          <button 
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`whitespace-nowrap px-4 py-2 text-sm font-bold rounded-lg transition-all ${
-              filter === f 
-                ? 'bg-navy text-white shadow-sm' 
-                : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
-            }`}
-          >
-            {f}
-          </button>
-        ))}
+        <button 
+          className="whitespace-nowrap px-4 py-2 text-sm font-bold rounded-lg bg-navy text-white shadow-sm"
+        >
+          All Queries
+        </button>
       </div>
 
       {/* Query List */}

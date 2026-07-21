@@ -4,41 +4,43 @@ import { Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import StudentAvatar from '../components/shared/StudentAvatar';
 import ProfileCompletionCard from '../components/shared/ProfileCompletionCard';
+import api from '../services/api';
 
 export default function StudentProfile() {
-  const { user } = useAuth();
-
+  const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState({
-    fullName: user?.name || 'Aarav Sharma',
-    email: user?.email || 'aarav.sharma@example.com',
-    phone: '+91 98765 43210',
-    parentPhone: '',
-    city: 'Bangalore, Karnataka',
-    educationLevel: 'Class 12 - CBSE',
-    learningGoals: 'Improve Math scores',
-    preferredSubjects: 'Mathematics, Physics',
-    joinedSince: 'January 2026',
-    studentId: 'STU-9481'
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    username: user?.username || '',
+    isUsernameChanged: !!user?.isUsernameChanged,
+    city: user?.city || '',
+    createdAt: user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently',
   });
 
-  const [hasPhoto, setHasPhoto] = useState(!!localStorage.getItem(`trueed_student_photo_${user?.id || 'student-1'}`));
-
-
-
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
-
+  const [newUsername, setNewUsername] = useState(user?.username || '');
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
     document.title = 'My Profile — TrueEd';
     window.scrollTo(0, 0);
-    
-    const handleStorageChange = () => {
-      setHasPhoto(!!localStorage.getItem(`trueed_student_photo_${user?.id || 'student-1'}`));
-    };
-    window.addEventListener('trueed_student_avatar_updated', handleStorageChange);
-    return () => window.removeEventListener('trueed_student_avatar_updated', handleStorageChange);
+    if (user) {
+      setProfile({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        username: user.username || '',
+        isUsernameChanged: !!user.isUsernameChanged,
+        city: user.city || '',
+        createdAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently',
+      });
+      setAvatarUrl(user.avatarUrl || null);
+      setNewUsername(user.username || '');
+    }
   }, [user]);
 
   const showToast = (msg) => {
@@ -46,73 +48,70 @@ export default function StudentProfile() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-
-
   const handleEditProfileClick = () => {
     setEditForm({
-      fullName: profile.fullName, city: profile.city, educationLevel: profile.educationLevel,
-      learningGoals: profile.learningGoals, preferredSubjects: profile.preferredSubjects,
-      parentPhone: profile.parentPhone
+      name: profile.name,
+      city: profile.city,
     });
     setIsEditing(true);
   };
 
-  const handleSaveProfile = () => {
-    setProfile(prev => ({ ...prev, ...editForm }));
-    setIsEditing(false);
-    showToast("Profile updated successfully.");
+  const handleSaveProfile = async () => {
+    try {
+      const res = await api.user.updateMe(editForm);
+      updateUser(res);
+      setIsEditing(false);
+      showToast("Profile updated successfully.");
+    } catch (err) {
+      showToast(err.message || "Failed to update profile.");
+    }
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
+  const handleUsernameUpdate = async () => {
+    try {
+      const res = await api.user.updateUsername(newUsername);
+      updateUser({ username: res.username, isUsernameChanged: true });
+      setShowUsernameModal(false);
+      showToast("Username updated successfully.");
+    } catch (err) {
+      showToast(err.message || "Failed to update username.");
+    }
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         showToast("Image must be smaller than 5MB");
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        localStorage.setItem(`trueed_student_photo_${user?.id || 'student-1'}`, reader.result);
-        window.dispatchEvent(new Event('trueed_student_avatar_updated'));
-        setHasPhoto(true);
-        showToast("Profile picture updated.");
-      };
-      reader.readAsDataURL(file);
+      try {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        const res = await api.user.uploadAvatar(formData);
+        if (res?.avatarUrl) {
+          setAvatarUrl(res.avatarUrl);
+          updateUser({ avatarUrl: res.avatarUrl });
+          showToast("Profile picture updated.");
+        }
+      } catch (err) {
+        showToast(err.message || "Failed to upload picture.");
+      }
     }
   };
 
-  const handleRemoveImage = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    localStorage.removeItem(`trueed_student_photo_${user?.id || 'student-1'}`);
-    window.dispatchEvent(new Event('trueed_student_avatar_updated'));
-    setHasPhoto(false);
-    showToast("Profile picture removed.");
-  };
-
-
-
   const completionFields = [
-    { name: 'Name', isComplete: !!profile.fullName, id: 'personal-info' },
+    { name: 'Name', isComplete: !!profile.name, id: 'personal-info' },
     { name: 'Email', isComplete: !!profile.email, id: 'personal-info' },
-    { name: 'Phone', isComplete: !!profile.phone, id: 'personal-info' },
-    { name: 'Class', isComplete: !!profile.educationLevel, id: 'personal-info' },
+    { name: 'Username', isComplete: !!profile.username, id: 'personal-info' },
     { name: 'City', isComplete: !!profile.city, id: 'personal-info' },
-    { name: 'Profile Photo', isComplete: hasPhoto, id: 'avatar-section' },
-    { name: 'Learning Goals', isComplete: !!profile.learningGoals, id: 'personal-info' },
-    { name: 'Preferred Subjects', isComplete: !!profile.preferredSubjects, id: 'personal-info' }
+    { name: 'Profile Photo', isComplete: !!avatarUrl, id: 'avatar-section' },
   ];
 
   const handleFieldClick = (id) => {
     const el = document.getElementById(id);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-sky', 'ring-offset-4');
-      setTimeout(() => el.classList.remove('ring-2', 'ring-sky', 'ring-offset-4'), 2000);
     }
   };
 
@@ -126,7 +125,6 @@ export default function StudentProfile() {
         </div>
       )}
 
-
       {/* Profile Header */}
       <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-r from-navy to-sky-600"></div>
@@ -136,30 +134,39 @@ export default function StudentProfile() {
             {/* Avatar Section */}
             <div id="avatar-section" className="relative group transition-all duration-300 rounded-full">
               <div className="w-32 h-32 rounded-full border-4 border-white bg-slate-100 flex items-center justify-center text-4xl font-bold text-navy shadow-lg overflow-hidden relative z-10">
-                <StudentAvatar 
-                  studentId={user?.id || 'student-1'} 
-                  name={profile.fullName} 
-                  className="w-full h-full text-4xl" 
-                />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+                ) : (
+                  <StudentAvatar 
+                    studentId={user?.id || 'student-1'} 
+                    name={profile.name} 
+                    className="w-full h-full text-4xl" 
+                  />
+                )}
                 <label className="absolute inset-0 bg-navy/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 text-white cursor-pointer backdrop-blur-sm">
                   <Camera className="w-6 h-6" />
                   <span className="text-xs font-semibold">Update Photo</span>
                   <input type="file" accept="image/jpeg, image/png, image/webp" className="hidden" onChange={handleImageUpload} />
                 </label>
               </div>
-              
-              <div className="absolute top-0 right-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                {hasPhoto && (
-                  <button onClick={handleRemoveImage} className="w-8 h-8 rounded-full bg-error text-white flex items-center justify-center shadow hover:scale-105 transition" title="Remove Photo">
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
             </div>
 
             <div className="text-center md:text-left mb-2">
-              <h1 className="font-sora text-3xl font-extrabold text-slate-900">{profile.fullName}</h1>
-              <p className="text-slate-500 font-medium">Joined {profile.joinedSince} • ID: {profile.studentId}</p>
+              <h1 className="font-sora text-3xl font-extrabold text-slate-900">{profile.name}</h1>
+              <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
+                <span className="text-sm font-bold text-sky-600 bg-sky-50 px-3 py-1 rounded-full">
+                  @{profile.username || 'username'}
+                </span>
+                {!profile.isUsernameChanged && (
+                  <button 
+                    onClick={() => setShowUsernameModal(true)}
+                    className="text-xs font-bold text-slate-400 hover:text-navy underline"
+                  >
+                    Change (1 time left)
+                  </button>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-slate-400 mt-2">Member since {profile.createdAt}</p>
             </div>
           </div>
         </div>

@@ -1,14 +1,29 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
+import api from '../services/api';
 import DashboardSummary from '../components/student/DashboardSummary';
 import LearningOverview from '../components/student/LearningOverview';
 import ActivityFeed from '../components/student/ActivityFeed';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     document.title = "Student Dashboard — TrueEd";
+    const fetchStats = async () => {
+      try {
+        const data = await api.user.getDashboardStats();
+        setStats(data);
+      } catch (err) {
+        console.error('Failed to load dashboard stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
   }, []);
 
   return (
@@ -34,16 +49,16 @@ export default function StudentDashboard() {
       </div>
 
       {/* 2. Quick Stats */}
-      <DashboardSummary />
+      <DashboardSummary stats={stats} loading={loading} />
 
-      {/* 3. Continue Learning (Largest Section) */}
+      {/* 3. Continue Learning */}
       <section className="pt-4">
-        <LearningOverview />
+        <LearningOverview activeEnrollments={stats?.activeEnrollments} loading={loading} />
       </section>
 
-      {/* 4. Recent Activity (Expanded Width) */}
+      {/* 4. Recent Activity */}
       <section className="pt-4">
-        <ActivityFeed />
+        <ActivityFeed activities={stats?.recentActivities} loading={loading} />
       </section>
     </div>
   );

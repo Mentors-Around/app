@@ -57,6 +57,22 @@ const userSchema = new Schema(
         message:   'Invalid email address',
       },
     },
+    username: {
+      type:      String,
+      trim:      true,
+      lowercase: true,
+      sparse:    true,
+      unique:    true,
+      index:     true,
+      validate: {
+        validator: (v) => !v || /^[a-zA-Z0-9_]{3,30}$/.test(v),
+        message:   'Username must be 3-30 alphanumeric characters or underscores',
+      },
+    },
+    isUsernameChanged: {
+      type:    Boolean,
+      default: false,
+    },
     avatarUrl: {
       type:     String,
       trim:     true,

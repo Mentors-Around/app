@@ -215,13 +215,20 @@ export const signupComplete = asyncHandler(async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export const loginWithPassword = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password)  throw ApiError.badRequest('email and password are required');
-  if (!isValidEmail(email)) throw ApiError.badRequest('Invalid email address');
+  const { email, username, identifier, password } = req.body;
+  const loginId = (identifier || email || username || '').trim().toLowerCase();
+  if (!loginId || !password) throw ApiError.badRequest('Identifier and password are required');
 
-  // Always use the same generic error message — never reveal which field failed (anti-enumeration)
+  const normPhone = normalisePhone(loginId);
+
+  // Support login via email, username, or phone
   const user = await User.findOne({
-    email:     email.trim().toLowerCase(),
+    $or: [
+      { email: loginId },
+      { username: loginId },
+      { phone: normPhone },
+      { phone: loginId }
+    ],
     deletedAt: null,
   }).select('+passwordHash');
 

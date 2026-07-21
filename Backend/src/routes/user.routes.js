@@ -12,6 +12,7 @@ import {
   requestEmailChange, confirmEmailChange,
   updateParentPhone, getSupport,
   saveTeacher, unsaveTeacher, getSavedTeachers,
+  updateUsername, getDashboardStats, getSessions,
 } from '../controllers/user.controller.js';
 
 const router = Router();
@@ -21,11 +22,14 @@ router.get('/support', getSupport);
 
 router.use(authenticate);
 
-// ── Profile ───────────────────────────────────────────────────────────────────
-router.get('/me',          getMe);
-router.patch('/me',        updateMe);
-router.post('/me/avatar',  uploadLimiter, ...handleProfileUpload, uploadAvatar);
-router.delete('/me',       deleteMe);
+// ── Profile & Dashboard ───────────────────────────────────────────────────────
+router.get('/me',                  getMe);
+router.patch('/me',                updateMe);
+router.patch('/me/username',       updateUsername);
+router.get('/me/dashboard',        getDashboardStats);
+router.get('/me/sessions',         getSessions);
+router.post('/me/avatar',          uploadLimiter, ...handleProfileUpload, uploadAvatar);
+router.delete('/me',               deleteMe);
 router.post('/me/change-password', changePassword);
 
 // ── Phone number change (2-step OTP) ──────────────────────────────────────────

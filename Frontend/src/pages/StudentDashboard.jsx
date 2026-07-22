@@ -6,6 +6,8 @@ import DashboardSummary from '../components/student/DashboardSummary';
 import LearningOverview from '../components/student/LearningOverview';
 import ActivityFeed from '../components/student/ActivityFeed';
 
+import StudentAvatar from '../components/shared/StudentAvatar';
+
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
@@ -43,8 +45,8 @@ export default function StudentDashboard() {
             </Link>
           </div>
         </div>
-        <div className="hidden md:flex w-32 h-32 rounded-full bg-white/10 backdrop-blur-md border-4 border-white/20 shadow-xl items-center justify-center flex-shrink-0">
-          <span className="text-4xl font-bold text-white">{user?.initials || 'U'}</span>
+        <div className="hidden md:flex w-32 h-32 rounded-full bg-white/10 backdrop-blur-md border-4 border-white/20 shadow-xl items-center justify-center flex-shrink-0 overflow-hidden">
+          <StudentAvatar studentId={user?.id || user?._id} name={user?.name} initials={user?.initials} className="w-full h-full text-4xl" />
         </div>
       </div>
 

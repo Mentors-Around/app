@@ -5,6 +5,7 @@ import { tutors as allTutors } from '../data/tutors';
 import SortDropdown from '../components/student/SortDropdown';
 import TutorCard from '../components/shared/TutorCard';
 import Pagination from '../components/shared/Pagination';
+import api from '../services/api';
 
 
 const PER_PAGE = 6;
@@ -203,29 +204,16 @@ const StudentDiscover = () => {
     document.title = 'Discover Tutors — TrueEd';
     const fetchClassrooms = async () => {
       try {
-        const [discoverRes, searchRes] = await Promise.all([
-          api.classroom.discover().catch(() => []),
-          api.classroom.search().catch(() => []),
-        ]);
+        const discoverRes = await api.classroom.discover().catch(() => null);
         
-        const rawList = [
-          ...(Array.isArray(discoverRes) ? discoverRes : (discoverRes?.docs || discoverRes?.classrooms || [])),
-          ...(Array.isArray(searchRes) ? searchRes : (searchRes?.docs || searchRes?.classrooms || []))
-        ];
+        const rawList = Array.isArray(discoverRes)
+          ? discoverRes
+          : (discoverRes?.results || discoverRes?.docs || discoverRes?.classrooms || []);
 
-        // Unique classrooms by _id / id
-        const uniqueMap = new Map();
-        rawList.forEach(c => {
-          const idKey = (c._id || c.id)?.toString();
-          if (idKey && !uniqueMap.has(idKey)) {
-            uniqueMap.set(idKey, c);
-          }
-        });
-        const list = Array.from(uniqueMap.values());
-
-        const mapped = list.map(c => ({
+        const mapped = rawList.map(c => ({
           id: c._id || c.id,
           name: c.teacherId?.name || c.teacherName || 'Verified Tutor',
+          avatarUrl: c.teacherId?.avatarUrl || null,
           subject: c.subject || 'General Education',
           rating: c.teacherId?.rating || c.rating || 4.9,
           reviews: c.teacherId?.reviewsCount || c.reviewsCount || 12,
@@ -234,7 +222,9 @@ const StudentDiscover = () => {
           bio: c.description || c.title || '',
           location: c.city || c.teacherId?.city || 'Online',
           mode: c.mode === 'online' ? 'Online' : (c.mode === 'offline' ? 'Offline' : 'Both'),
-          tags: [c.subject, c.skillLevel, c.mode, c.grade].filter(Boolean),
+          tags: [c.subject, c.skillLevel, c.mode, c.academicLevel].filter(Boolean),
+          title: c.title,
+          classroomId: c._id || c.id,
         }));
         setBackendTutors(mapped);
       } catch (err) {
@@ -387,7 +377,7 @@ const StudentDiscover = () => {
     }
 
     return list;
-  }, [filters, sortBy, searchQuery, locationQuery]);
+  }, [backendTutors, filters, sortBy, searchQuery, locationQuery]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);

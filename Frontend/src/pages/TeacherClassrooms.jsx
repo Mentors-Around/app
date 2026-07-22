@@ -51,7 +51,7 @@ export default function TeacherClassrooms() {
   const [editingClassroomId, setEditingClassroomId] = useState(null);
   
   const [newRoom, setNewRoom] = useState({
-    name: '', subject: '', classLevel: '', unlimitedStudents: true, description: '', mode: 'Online', price: '',
+    name: '', subject: '', classLevel: '', customClassLevel: '', unlimitedStudents: true, description: '', mode: 'Online', price: '',
     maxStudents: 10, startDate: '', endDate: '',
     schedules: [{ id: 1, days: [], startTime: '', endTime: '' }]
   });
@@ -65,7 +65,7 @@ export default function TeacherClassrooms() {
   const CLASS_LEVELS = [
     'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 
     'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12',
-    'JEE', 'NEET', 'CUET', 'UPSC', 'Programming', 'Spoken English', 'Music', 'Karate', 'Other'
+    'JEE', 'NEET', 'CUET', 'UPSC', 'College', 'Programming', 'Spoken English', 'Music', 'Karate', 'Other'
   ];
 
   const handleScheduleDayToggle = (scheduleId, day) => {
@@ -222,15 +222,19 @@ export default function TeacherClassrooms() {
         return;
       }
 
+      const finalAcademicLevel = (newRoom.classLevel === 'College' || newRoom.classLevel === 'Other')
+        ? `${newRoom.classLevel}: ${newRoom.customClassLevel || ''}`
+        : (newRoom.classLevel || 'Class 10');
+
       const payload = {
         title: newRoom.name,
         subject: newRoom.subject,
         classroomType: 'academic',
-        academicLevel: newRoom.classLevel || 'Class 10',
+        academicLevel: finalAcademicLevel,
         description: newRoom.description || '',
         feesPaise: Math.round(Number(newRoom.price || 0) * 100),
         totalHoursPlanned: Number(totalTeachingHours) > 0 ? Number(totalTeachingHours) : 20,
-        maxStudents: newRoom.unlimitedStudents ? 99999 : Number(newRoom.maxStudents || 30),
+        maxStudents: newRoom.unlimitedStudents ? 500 : Number(newRoom.maxStudents || 30),
         startDate: newRoom.startDate,
         endDate: newRoom.endDate,
         mode: (newRoom.mode || 'Online').toLowerCase(),
@@ -238,16 +242,23 @@ export default function TeacherClassrooms() {
         ...(newRoom.mode?.toLowerCase() === 'offline' ? { offlineAddress: newRoom.offlineAddress || 'Teacher Training Center' } : {})
       };
 
-      await api.classroom.create(payload);
-      setToastMessage('Classroom created successfully');
+      if (editingClassroomId) {
+        await api.classroom.update(editingClassroomId, payload);
+        setToastMessage('Classroom updated successfully');
+      } else {
+        await api.classroom.create(payload);
+        setToastMessage('Classroom created successfully');
+      }
       fetchMyClassrooms();
       closeModal();
     } catch (err) {
-      setToastMessage(err.message || 'Failed to create classroom');
+      setToastMessage(err.message || `Failed to ${editingClassroomId ? 'update' : 'create'} classroom`);
     }
     
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+
 
   const openEditModal = (room) => {
     // Migration for legacy classrooms that don't have the new schedules array
@@ -264,10 +275,21 @@ export default function TeacherClassrooms() {
       migratedSchedules = [{ id: 1, days: [], startTime: '', endTime: '' }];
     }
 
+    let classLevel = room.classLevel || '';
+    let customClassLevel = '';
+    if (classLevel.startsWith('College: ')) {
+      customClassLevel = classLevel.replace('College: ', '');
+      classLevel = 'College';
+    } else if (classLevel.startsWith('Other: ')) {
+      customClassLevel = classLevel.replace('Other: ', '');
+      classLevel = 'Other';
+    }
+
     setNewRoom({
       name: room.name,
       subject: room.subject,
-      classLevel: room.classLevel || '',
+      classLevel: classLevel,
+      customClassLevel: customClassLevel,
       unlimitedStudents: room.unlimitedStudents ?? true,
       description: room.description || '',
       mode: room.mode,
@@ -289,7 +311,7 @@ export default function TeacherClassrooms() {
       return;
     }
     setNewRoom({
-      name: '', subject: '', classLevel: '', unlimitedStudents: true, description: '', mode: 'Online', price: '',
+      name: '', subject: '', classLevel: '', customClassLevel: '', unlimitedStudents: true, description: '', mode: 'Online', price: '',
       maxStudents: 10, startDate: '', endDate: '',
       schedules: [{ id: 1, days: [], startTime: '', endTime: '' }]
     });
@@ -498,6 +520,20 @@ export default function TeacherClassrooms() {
                       ))}
                     </select>
                   </div>
+
+                  {(newRoom.classLevel === 'College' || newRoom.classLevel === 'Other') && (
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Describe Class / Level *</label>
+                      <input 
+                        required 
+                        type="text" 
+                        value={newRoom.customClassLevel || ''} 
+                        onChange={e => setNewRoom({...newRoom, customClassLevel: e.target.value})} 
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" 
+                        placeholder={newRoom.classLevel === 'College' ? "e.g. B.Tech CSE 3rd Year" : "e.g. Art & Craft Workshop"} 
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Subject</label>

@@ -75,17 +75,27 @@ const Login = () => {
   }, [otpCooldown]);
 
   // Inline Validation Helpers
-  const isEmailValid = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const isIdentifierValid = (val) => {
+    if (!val || !val.trim()) return false;
+    if (val.includes('@')) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+    }
+    const cleaned = val.replace(/[\s-+]/g, '');
+    if (/^\d+$/.test(cleaned)) {
+      return cleaned.length >= 10;
+    }
+    return val.trim().length >= 3;
+  };
   const isPhoneValid = (p) => /^\d{10}$/.test(p.replace(/[\s-+]/g, ''));
 
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
-      setError('Email address is required.');
+      setError('Username, Email or Phone Number is required.');
       return;
     }
-    if (!isEmailValid(email)) {
-      setError('Please enter a valid email address.');
+    if (!isIdentifierValid(email)) {
+      setError('Please enter a valid Username, Email or Phone Number.');
       return;
     }
     if (!password) {
@@ -164,34 +174,6 @@ const Login = () => {
         <p className="text-slate-500 font-medium">Access your TrueEd dashboard</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-100 mb-6">
-        <button
-          onClick={() => {
-            setActiveTab('email');
-            setError('');
-            setSuccess('');
-          }}
-          className={`flex-1 py-3 text-sm font-bold border-b-2 transition ${
-            activeTab === 'email' ? 'border-navy text-navy' : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          Email Login
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('phone');
-            setError('');
-            setSuccess('');
-          }}
-          className={`flex-1 py-3 text-sm font-bold border-b-2 transition ${
-            activeTab === 'phone' ? 'border-navy text-navy' : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          Phone Login
-        </button>
-      </div>
-
       {error && (
         <Alert message={error} type="error" show={!!error} onDismiss={() => setError('')} />
       )}
@@ -199,143 +181,65 @@ const Login = () => {
         <Alert message={success} type="success" show={!!success} onDismiss={() => setSuccess('')} />
       )}
 
-      {/* Email Form */}
-      {activeTab === 'email' && (
-        <form onSubmit={handleEmailSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Email Address</label>
+      {/* Email/Username/Phone Form */}
+      <form onSubmit={handleEmailSubmit} className="space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Username, Email or Phone Number</label>
+          <input
+            ref={emailRef}
+            type="text"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter valid credentials"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Password</label>
+            <Link to="/forgot-password" className="text-xs font-bold text-amber hover:text-amber-600 transition">
+              Forgot Password?
+            </Link>
+          </div>
+          <div className="relative">
             <input
-              ref={emailRef}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. student@example.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
+        </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Password</label>
-              <Link to="/forgot-password" className="text-xs font-bold text-amber hover:text-amber-600 transition">
-                Forgot Password?
-              </Link>
-            </div>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy transition"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
+        <div className="flex items-center justify-between pt-1">
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-navy focus:ring-navy cursor-pointer"
+            />
+            <span className="ml-2 text-sm font-semibold text-slate-600">Remember Me</span>
+          </label>
+        </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-navy focus:ring-navy cursor-pointer"
-              />
-              <span className="ml-2 text-sm font-semibold text-slate-600">Remember Me</span>
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !email || !password}
-            className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
-          </button>
-        </form>
-      )}
-
-      {/* Phone Form */}
-      {activeTab === 'phone' && (
-        <form onSubmit={handlePhoneSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Phone Number</label>
-            <div className="flex gap-2">
-              <input
-                ref={phoneRef}
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. 9876543210"
-                disabled={otpSent}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white disabled:opacity-60 transition"
-              />
-              {!otpSent && (
-                <button
-                  type="button"
-                  onClick={handleSendOTP}
-                  disabled={loading || !phone || otpCooldown > 0}
-                  className="px-4 bg-navy hover:bg-navy-light text-white font-bold text-sm rounded-xl transition"
-                >
-                  Send OTP
-                </button>
-              )}
-            </div>
-          </div>
-
-          {otpSent && (
-            <div className="animate-fade-in space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Enter OTP</label>
-                <input
-                  type="text"
-                  maxLength="6"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="6-digit code"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-bold focus:outline-none focus:border-navy focus:bg-white transition"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex justify-between items-center text-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtp('');
-                  }}
-                  className="font-bold text-slate-500 hover:text-navy transition"
-                >
-                  Change Phone Number
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSendOTP}
-                  disabled={otpCooldown > 0}
-                  className="font-bold text-amber hover:text-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Resend OTP'}
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || otp.length !== 6}
-                className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2"
-              >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Login'}
-              </button>
-            </div>
-          )}
-        </form>
-      )}
+        <button
+          type="submit"
+          disabled={loading || !email || !password}
+          className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
+        >
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
+        </button>
+      </form>
 
       {/* Social Login */}
       <div className="mt-6 relative flex items-center justify-center">

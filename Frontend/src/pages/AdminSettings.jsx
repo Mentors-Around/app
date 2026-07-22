@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Save, AlertTriangle, CheckCircle, Percent, IndianRupee, ServerCrash } from 'lucide-react';
+import { Save, AlertTriangle, CheckCircle, Percent, IndianRupee, ServerCrash, Camera } from 'lucide-react';
 import Spinner from '../components/shared/Spinner';
+import useAuth from '../hooks/useAuth';
+import TeacherAvatar from '../components/shared/TeacherAvatar';
+import AvatarCropModal from '../components/shared/AvatarCropModal';
 
 export default function AdminSettings() {
   useEffect(() => { document.title = "Settings — Admin Dashboard"; }, []);
+
+  const { user } = useAuth();
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [selectedImageSrc, setSelectedImageSrc] = useState(null);
 
   const [settings, setSettings] = useState({
     platformFee: 10,
@@ -14,6 +21,22 @@ export default function AdminSettings() {
   
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const handleImageFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size must be smaller than 5MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSelectedImageSrc(reader.result);
+        setCropModalOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = () => {
     setSaving(true);
@@ -34,8 +57,39 @@ export default function AdminSettings() {
         </div>
       </div>
 
+      {/* Profile Picture Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 flex items-center gap-6">
+        <div className="relative group transition-all duration-300 rounded-full">
+          <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-50 relative">
+            <TeacherAvatar 
+              teacherId={user?.id || 'admin_id'} 
+              name={user?.name} 
+              initials={user?.name ? user.name.charAt(0) : 'A'} 
+              className="w-full h-full text-2xl flex-shrink-0" 
+            />
+            <label className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+              <Camera className="w-5 h-5 text-white" />
+              <input type="file" accept="image/*" onChange={handleImageFileSelect} className="hidden" />
+            </label>
+          </div>
+        </div>
+        <div>
+          <h3 className="font-sora font-bold text-lg text-navy">Profile Picture</h3>
+          <p className="text-xs text-slate-500 mt-1 font-medium">Upload and crop your profile photo. Standard limits apply.</p>
+          <button 
+            type="button" 
+            onClick={() => {
+              const el = document.querySelector('input[type="file"]');
+              if (el) el.click();
+            }}
+            className="mt-3 px-4 py-2 bg-navy text-white text-xs font-bold rounded-lg hover:bg-navy-light transition shadow-sm"
+          >
+            Upload Photo
+          </button>
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 space-y-8">
-        
         {/* Financial Settings */}
         <div>
           <h2 className="font-sora text-lg font-bold text-navy mb-4 border-b border-slate-100 pb-2">Financial Settings</h2>
@@ -130,6 +184,13 @@ export default function AdminSettings() {
           </button>
         </div>
       </div>
+
+      <AvatarCropModal 
+        isOpen={cropModalOpen}
+        onClose={() => setCropModalOpen(false)}
+        imageSrc={selectedImageSrc}
+        onSaveSuccess={() => {}}
+      />
     </div>
   );
 }

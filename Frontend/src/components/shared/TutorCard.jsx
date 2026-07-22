@@ -47,6 +47,7 @@ const TutorCard = ({ tutor }) => {
             teacherId={tutor.id} 
             name={tutor.name} 
             initials={tutor.initials} 
+            avatarUrl={tutor.avatarUrl}
             className="w-14 h-14 text-xl flex-shrink-0" 
           />
           <div className="flex-1 min-w-0 pt-0.5">

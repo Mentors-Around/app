@@ -6,7 +6,7 @@ import StudentAvatar from '../components/shared/StudentAvatar';
 import ProfileCompletionCard from '../components/shared/ProfileCompletionCard';
 import api from '../services/api';
 
-import ImageCropModal from '../components/shared/ImageCropModal';
+import AvatarCropModal from '../components/shared/AvatarCropModal';
 
 export default function StudentProfile() {
   const { user, updateUser } = useAuth();
@@ -41,7 +41,6 @@ export default function StudentProfile() {
         createdAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently',
       });
       setAvatarUrl(user.avatarUrl || null);
-      setNewUsername(user.username || '');
     }
   }, [user]);
 
@@ -99,21 +98,20 @@ export default function StudentProfile() {
     }
   };
 
-  const handleCropComplete = async (croppedBlob, croppedDataUrl) => {
+  const handleCropComplete = async (croppedBlob) => {
     try {
-      setAvatarUrl(croppedDataUrl);
       const formData = new FormData();
       formData.append('avatar', croppedBlob, 'avatar.jpg');
-      const res = await api.user.uploadAvatar(formData).catch(() => null);
+      const res = await api.user.uploadAvatar(formData);
       if (res?.avatarUrl) {
         setAvatarUrl(res.avatarUrl);
         updateUser({ avatarUrl: res.avatarUrl });
-      } else {
-        updateUser({ avatarUrl: croppedDataUrl });
       }
       showToast("Profile picture updated successfully.");
     } catch (err) {
       showToast(err.message || "Failed to update profile picture.");
+    } finally {
+      setCropModalOpen(false);
     }
   };
 
@@ -289,11 +287,14 @@ export default function StudentProfile() {
         </div>
       )}
       {/* Image Crop Modal */}
-      <ImageCropModal
+      <AvatarCropModal
         isOpen={cropModalOpen}
         imageSrc={selectedImageSrc}
         onClose={() => setCropModalOpen(false)}
-        onCropComplete={handleCropComplete}
+        onSaveSuccess={(newUrl) => {
+          setAvatarUrl(newUrl);
+          showToast("Profile picture updated successfully.");
+        }}
       />
     </div>
   );

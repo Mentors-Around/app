@@ -378,15 +378,6 @@ classroomSchema.statics.discoverForStudent = async function (studentId, { page =
   const filter = {
     status: CLASSROOM_STATUS.ACTIVE,
     _id:    { $nin: excludeIds },
-    ...(subjects.length > 0 && {
-      $or: [
-        { subject:       { $in: subjects } },
-        { stream:        { $in: streams } },
-        { tags:          { $in: tags } },
-        { teacherId:     { $in: teacherIds } },
-        { classroomType: { $in: types } },
-      ],
-    }),
   };
 
   return this.paginate(filter, {

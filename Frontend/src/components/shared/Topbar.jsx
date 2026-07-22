@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
+import api from '../../services/api';
 import { useOverlay, useOverlayRefs } from '../../contexts/OverlayContext';
 import { Search, Bell, X, Menu, CheckCircle, Calendar, CreditCard, MessageSquare, Check, CheckCheck } from 'lucide-react';
 import TeacherAvatar from './TeacherAvatar';
@@ -243,7 +244,7 @@ const Topbar = ({ onMenuClick }) => {
         </div>
 
         {/* Profile Avatar */}
-        <Link to={`/${user?.role || 'student'}/profile`} className="block hover:scale-105 transition-transform">
+        <Link to={user?.role === 'admin' ? '/admin/settings' : `/${user?.role || 'student'}/profile`} className="block hover:scale-105 transition-transform">
           <TeacherAvatar 
             teacherId={user?.id || '1'} 
             name={user?.name} 

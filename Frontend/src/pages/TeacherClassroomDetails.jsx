@@ -646,7 +646,7 @@ export default function TeacherClassroomDetails() {
               <form onSubmit={handleSaveSession} className="space-y-6">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Topic Name</label>
-                  <input required type="text" value={sessionForm.topic} onChange={e => setSessionForm({...sessionForm, topic: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" placeholder="e.g. Thermodynamics Part 1" />
+                  <input required type="text" value={sessionForm.topic} onChange={e => setSessionForm({...sessionForm, topic: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" placeholder="e.g. Introduction & Basics, Algebra Part 1, or Chapter 1" />
                 </div>
                 
                 <div>

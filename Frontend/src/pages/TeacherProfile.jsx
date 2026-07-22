@@ -9,7 +9,7 @@ import AvatarCropModal from '../components/shared/AvatarCropModal';
 import api from '../services/api.js';
 
 const TeacherProfile = () => {
-  const { user, kycStatus } = useAuth();
+  const { user, updateUser, kycStatus } = useAuth();
   useEffect(() => { document.title = 'Teacher Profile — TrueEd'; window.scrollTo(0, 0); }, []);
   
   const [available, setAvailable] = useState(true);
@@ -34,7 +34,12 @@ const TeacherProfile = () => {
     startTime: '17:00', endTime: '21:00', maxSessions: 4, mode: 'Online', timezone: 'IST (Asia/Kolkata)'
   });
 
-  const [hasPhoto, setHasPhoto] = useState(!!localStorage.getItem(`trueed_teacher_photo`));
+  const [hasPhoto, setHasPhoto] = useState(!!user?.avatarUrl);
+  
+  useEffect(() => {
+    setHasPhoto(!!user?.avatarUrl);
+  }, [user]);
+
   const [saving, setSaving] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
   const fileInputRef = useRef(null);
@@ -149,9 +154,15 @@ const TeacherProfile = () => {
     }
   };
 
-  const handleRemovePhoto = () => {
-    localStorage.removeItem(`trueed_teacher_photo`);
-    window.dispatchEvent(new Event('trueed_avatar_updated'));
+  const handleRemovePhoto = async () => {
+    try {
+      await api.user.updateMe({ avatarUrl: '' });
+      updateUser({ avatarUrl: null });
+      localStorage.removeItem(`trueed_teacher_photo`);
+      window.dispatchEvent(new Event('trueed_avatar_updated'));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
 

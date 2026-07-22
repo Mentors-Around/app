@@ -184,10 +184,18 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
 export const discoverClassrooms = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
 
-  const result = await Classroom.discoverForStudent(req.user._id, {
-    page:  Number(page),
-    limit: Math.min(Number(limit), 20),
-  });
+  let result;
+  if (req.user?._id) {
+    result = await Classroom.discoverForStudent(req.user._id, {
+      page:  Number(page),
+      limit: Math.min(Number(limit), 20),
+    });
+  } else {
+    result = await Classroom.search({
+      page:  Number(page),
+      limit: Math.min(Number(limit), 20),
+    });
+  }
 
   res.status(200).json(new ApiResponse(200, result, 'Discover classrooms'));
 });

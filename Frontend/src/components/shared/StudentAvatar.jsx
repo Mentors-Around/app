@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import useAuth from '../../hooks/useAuth';
 
-const StudentAvatar = ({ studentId, name, initials, className = '' }) => {
+const StudentAvatar = ({ studentId, name, initials, className = '', avatarUrl }) => {
   const [photo, setPhoto] = useState(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -24,10 +26,17 @@ const StudentAvatar = ({ studentId, name, initials, className = '' }) => {
     };
   }, [studentId]);
 
-  if (photo) {
+  // Priority 1: explicitly passed avatarUrl prop
+  // Priority 2: logged-in user's avatar from auth context (if matching studentId)
+  // Priority 3: photo state (from localStorage)
+  const currentPhoto = avatarUrl || 
+    ((user?._id === studentId || user?.id === studentId) ? user?.avatarUrl : null) || 
+    photo;
+
+  if (currentPhoto) {
     return (
       <img 
-        src={photo} 
+        src={currentPhoto} 
         alt={name || 'Student Avatar'} 
         className={`rounded-full object-cover shadow-sm ${className}`}
       />

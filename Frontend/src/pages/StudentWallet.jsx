@@ -36,15 +36,19 @@ const StudentWallet = () => {
         const res = await api.user.getPayments().catch(() => []);
         const list = Array.isArray(res) ? res : (res?.docs || res?.payments || []);
         if (list.length > 0) {
-          const mapped = list.map(p => ({
-            id: p._id || p.id,
-            date: p.createdAt || new Date().toISOString(),
-            type: p.purpose || p.type || 'Payment',
-            amount: (p.amountPaise || 0) / 100,
-            status: p.status || 'Completed',
-            isCredit: p.type === 'deposit' || p.isCredit,
-            title: p.description || p.purpose || 'Transaction',
-          }));
+          const mapped = list.map(p => {
+            const rawTitle = p.description || p.purpose || p.type || 'Transaction';
+            const cleanTitle = rawTitle.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            return {
+              id: p._id || p.id,
+              date: p.createdAt || new Date().toISOString(),
+              type: p.purpose || p.type || 'Payment',
+              amount: Math.abs(p.amountPaise ? p.amountPaise / 100 : (p.amount || 0)),
+              status: p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Captured',
+              isCredit: p.type === 'deposit' || p.isCredit || (p.amountPaise > 0 && !p.purpose?.includes('enrollment')),
+              title: cleanTitle,
+            };
+          });
           setTransactions(mapped);
         } else {
           setTransactions(studentWallet?.transactions || []);

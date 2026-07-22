@@ -32,35 +32,45 @@ const Topbar = ({ onMenuClick }) => {
   const mobileSearchRefs = useOverlayRefs('topbar-mobile-search');
   const searchDropdownRefs = useOverlayRefs('topbar-search');
 
-  const [notifications, setNotifications] = useState(
-    user?.role === 'teacher' 
-    ? [
-        { id: 1, text: 'New Query from Rahul Sharma', link: '/teacher/queries', isRead: false },
-        { id: 2, text: 'New Query from Priya Kapoor', link: '/teacher/queries', isRead: false },
-        { id: 3, text: 'New Query from Aditi Rao', link: '/teacher/queries', isRead: true },
-      ]
-    : [
-        { id: 1, type: 'accepted', text: 'Teacher Alex Johnson accepted your classroom query.', time: '2 hours ago', isRead: false },
-        { id: 2, type: 'reminder', text: 'Upcoming class reminder: Physics Crash Course starts in 1 hour.', time: 'Just now', isRead: false },
-        { id: 3, type: 'payment', text: 'Payment successful for Mastering Calculus.', time: '5 hours ago', isRead: true },
-        { id: 4, type: 'reply', text: 'Teacher Sarah Smith replied to your query.', time: '1 day ago', isRead: true },
-        { id: 5, type: 'announcement', text: 'Classroom announcement posted in Mathematics.', time: '2 days ago', isRead: true },
-      ]
-  );
+  const [notifications, setNotifications] = useState([]);
 
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'accepted': return <CheckCircle className="w-4 h-4 text-emerald-500" />;
-      case 'payment': return <CreditCard className="w-4 h-4 text-sky-500" />;
-      case 'reminder': return <Calendar className="w-4 h-4 text-amber-500" />;
-      case 'reply': return <MessageSquare className="w-4 h-4 text-purple-500" />;
-      case 'announcement': return <Bell className="w-4 h-4 text-indigo-500" />;
-      default: return <Bell className="w-4 h-4 text-slate-400" />;
-    }
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      try {
+        const res = await api.notification.getAll().catch(() => []);
+        const list = Array.isArray(res) ? res : (res?.docs || res?.notifications || []);
+        if (list.length > 0) {
+          const mapped = list.map(n => ({
+            id: n._id || n.id,
+            type: n.type || 'announcement',
+            text: n.message || n.title || n.text || 'New notification',
+            time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+            isRead: !!n.isRead,
+            link: n.link || (user?.role === 'teacher' ? '/teacher/queries' : '/student/my-queries'),
+          }));
+          setNotifications(mapped);
+        } else {
+          setNotifications([]);
+        }
+      } catch (err) {
+        console.warn('Failed to load notifications:', err);
+      }
+    };
+    if (user) fetchNotifs();
+  }, [user]);
+
+  const markAllAsRead = async () => {
+    try {
+      await api.notification.markAllAsRead().catch(() => null);
+    } catch (e) {}
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  const markSingleAsRead = async (id) => {
+    try {
+      await api.notification.markAsRead(id).catch(() => null);
+    } catch (e) {}
+    setNotifications(notifications.map(x => x.id === id ? { ...x, isRead: true } : x));
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -205,7 +215,7 @@ const Topbar = ({ onMenuClick }) => {
                         <div className="flex items-center justify-between mt-1.5">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{n.time || 'Recently'}</span>
                           {!n.isRead && (
-                            <button onClick={() => setNotifications(notifications.map(x => x.id === n.id ? { ...x, isRead: true } : x))} className="text-[10px] text-sky font-bold hover:underline" title="Mark as read">
+                            <button onClick={() => markSingleAsRead(n.id)} className="text-[10px] text-sky font-bold hover:underline" title="Mark as read">
                               <Check className="w-3 h-3" />
                             </button>
                           )}

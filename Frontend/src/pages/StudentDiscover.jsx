@@ -203,24 +203,40 @@ const StudentDiscover = () => {
     document.title = 'Discover Tutors — TrueEd';
     const fetchClassrooms = async () => {
       try {
-        const res = await api.classroom.discover().catch(() => []);
-        const list = Array.isArray(res) ? res : (res?.docs || res?.classrooms || []);
-        if (list.length > 0) {
-          const mapped = list.map(c => ({
-            id: c._id || c.id,
-            name: c.teacherId?.name || c.teacherName || 'Verified Tutor',
-            subject: c.subject || 'General Education',
-            rating: c.teacherId?.rating || c.rating || 4.9,
-            reviews: c.teacherId?.reviewsCount || c.reviewsCount || 12,
-            price: (c.feesPaise || 150000) / 100,
-            experience: '5+ years',
-            bio: c.description || c.title || '',
-            location: c.city || c.teacherId?.city || 'Online',
-            mode: c.mode === 'online' ? 'Online' : (c.mode === 'offline' ? 'Offline' : 'Both'),
-            tags: [c.subject, c.skillLevel, c.mode, c.grade].filter(Boolean),
-          }));
-          setBackendTutors(mapped);
-        }
+        const [discoverRes, searchRes] = await Promise.all([
+          api.classroom.discover().catch(() => []),
+          api.classroom.search().catch(() => []),
+        ]);
+        
+        const rawList = [
+          ...(Array.isArray(discoverRes) ? discoverRes : (discoverRes?.docs || discoverRes?.classrooms || [])),
+          ...(Array.isArray(searchRes) ? searchRes : (searchRes?.docs || searchRes?.classrooms || []))
+        ];
+
+        // Unique classrooms by _id / id
+        const uniqueMap = new Map();
+        rawList.forEach(c => {
+          const idKey = (c._id || c.id)?.toString();
+          if (idKey && !uniqueMap.has(idKey)) {
+            uniqueMap.set(idKey, c);
+          }
+        });
+        const list = Array.from(uniqueMap.values());
+
+        const mapped = list.map(c => ({
+          id: c._id || c.id,
+          name: c.teacherId?.name || c.teacherName || 'Verified Tutor',
+          subject: c.subject || 'General Education',
+          rating: c.teacherId?.rating || c.rating || 4.9,
+          reviews: c.teacherId?.reviewsCount || c.reviewsCount || 12,
+          price: (c.feesPaise || 150000) / 100,
+          experience: c.teacherId?.experienceYears ? `${c.teacherId.experienceYears}+ years` : '5+ years',
+          bio: c.description || c.title || '',
+          location: c.city || c.teacherId?.city || 'Online',
+          mode: c.mode === 'online' ? 'Online' : (c.mode === 'offline' ? 'Offline' : 'Both'),
+          tags: [c.subject, c.skillLevel, c.mode, c.grade].filter(Boolean),
+        }));
+        setBackendTutors(mapped);
       } catch (err) {
         console.warn('Failed to load DB classrooms:', err);
       }
@@ -277,7 +293,7 @@ const StudentDiscover = () => {
   const hasAnyActive = Object.values(isActive).some(v => v);
 
   const filtered = useMemo(() => {
-    let list = backendTutors.length > 0 ? [...backendTutors] : [...allTutors];
+    let list = [...backendTutors];
 
     const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
     if (classroomsRaw) {

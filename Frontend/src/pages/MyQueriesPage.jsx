@@ -24,21 +24,56 @@ const MyQueriesPage = () => {
   const fetchQueries = async () => {
     try {
       setLoading(true);
-      const res = await api.enrollment.getMyQueries();
-      const list = Array.isArray(res) ? res : (res?.queries || []);
-      const mapped = list.map(q => ({
-        id: q._id || q.id,
-        studentId: q.student?._id || q.student || user?.id,
-        teacherName: q.teacher?.name || 'Teacher',
-        classroomName: q.classroom?.title || q.classroomName || 'Classroom Query',
-        classroomId: q.classroom?._id || q.classroom || q.classroomId,
-        status: q.status || 'pending',
-        message: q.initialMessage || q.message || '',
-        createdAt: q.createdAt,
-        paymentDeadline: q.paymentDeadline,
-        events: q.history || q.events || []
-      }));
-      setQueries(mapped);
+      const res = await api.enrollment.getMyQueries().catch(() => null);
+      const list = Array.isArray(res) ? res : (res?.queries || res?.docs || []);
+      
+      const localQueriesRaw = localStorage.getItem('trueed_classroom_queries');
+      let localList = [];
+      if (localQueriesRaw) {
+        try {
+          localList = JSON.parse(localQueriesRaw);
+        } catch (e) {}
+      }
+
+      const combinedMap = new Map();
+      
+      localList.forEach(q => {
+        const idKey = (q.id || q._id)?.toString();
+        if (idKey) {
+          combinedMap.set(idKey, {
+            id: q.id || q._id,
+            studentId: q.studentId || user?.id,
+            teacherName: q.teacherName || q.teacher?.name || 'Teacher',
+            classroomName: q.classroomName || q.classroom?.title || 'Classroom Query',
+            classroomId: q.classroomId || q.classroom?._id || q.classroom,
+            status: q.status || 'pending',
+            message: q.initialMessage || q.message || '',
+            createdAt: q.createdAt || new Date().toISOString(),
+            paymentDeadline: q.paymentDeadline,
+            events: q.history || q.events || []
+          });
+        }
+      });
+
+      list.forEach(q => {
+        const idKey = (q._id || q.id)?.toString();
+        if (idKey) {
+          combinedMap.set(idKey, {
+            id: q._id || q.id,
+            studentId: q.student?._id || q.student || user?.id,
+            teacherName: q.teacher?.name || q.teacherName || 'Teacher',
+            classroomName: q.classroom?.title || q.classroomName || 'Classroom Query',
+            classroomId: q.classroom?._id || q.classroom || q.classroomId,
+            status: q.status || 'pending',
+            message: q.initialMessage || q.message || '',
+            createdAt: q.createdAt,
+            paymentDeadline: q.paymentDeadline,
+            events: q.history || q.events || []
+          });
+        }
+      });
+
+      setQueries(Array.from(combinedMap.values()));
     } catch (err) {
       console.warn('Failed to load student queries:', err.message);
     } finally {

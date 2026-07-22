@@ -6,6 +6,8 @@ import StudentAvatar from '../components/shared/StudentAvatar';
 import ProfileCompletionCard from '../components/shared/ProfileCompletionCard';
 import api from '../services/api';
 
+import ImageCropModal from '../components/shared/ImageCropModal';
+
 export default function StudentProfile() {
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState({
@@ -78,25 +80,40 @@ export default function StudentProfile() {
     }
   };
 
-  const handleImageUpload = async (e) => {
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [selectedImageSrc, setSelectedImageSrc] = useState(null);
+
+  const handleImageFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        showToast("Image must be smaller than 5MB");
+        showToast("Image size must be smaller than 5MB.");
         return;
       }
-      try {
-        const formData = new FormData();
-        formData.append('avatar', file);
-        const res = await api.user.uploadAvatar(formData);
-        if (res?.avatarUrl) {
-          setAvatarUrl(res.avatarUrl);
-          updateUser({ avatarUrl: res.avatarUrl });
-          showToast("Profile picture updated.");
-        }
-      } catch (err) {
-        showToast(err.message || "Failed to upload picture.");
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSelectedImageSrc(reader.result);
+        setCropModalOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropComplete = async (croppedBlob, croppedDataUrl) => {
+    try {
+      setAvatarUrl(croppedDataUrl);
+      const formData = new FormData();
+      formData.append('avatar', croppedBlob, 'avatar.jpg');
+      const res = await api.user.uploadAvatar(formData).catch(() => null);
+      if (res?.avatarUrl) {
+        setAvatarUrl(res.avatarUrl);
+        updateUser({ avatarUrl: res.avatarUrl });
+      } else {
+        updateUser({ avatarUrl: croppedDataUrl });
       }
+      showToast("Profile picture updated successfully.");
+    } catch (err) {
+      showToast(err.message || "Failed to update profile picture.");
     }
   };
 
@@ -146,7 +163,7 @@ export default function StudentProfile() {
                 <label className="absolute inset-0 bg-navy/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 text-white cursor-pointer backdrop-blur-sm">
                   <Camera className="w-6 h-6" />
                   <span className="text-xs font-semibold">Update Photo</span>
-                  <input type="file" accept="image/jpeg, image/png, image/webp" className="hidden" onChange={handleImageUpload} />
+                  <input type="file" accept="image/jpeg, image/png, image/webp" className="hidden" onChange={handleImageFileSelect} />
                 </label>
               </div>
             </div>
@@ -192,12 +209,26 @@ export default function StudentProfile() {
           <div className="group">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Full Name</p>
             {isEditing ? (
-              <input type="text" value={editForm.fullName} onChange={e => setEditForm({...editForm, fullName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
+              <input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
             ) : (
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <p className="font-semibold text-slate-800">{profile.fullName}</p>
+                <p className="font-semibold text-slate-800">{profile.name}</p>
               </div>
             )}
+          </div>
+
+          <div className="group">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Email Address</p>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <p className="font-semibold text-slate-800">{profile.email}</p>
+            </div>
+          </div>
+
+          <div className="group">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> Phone Number</p>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <p className="font-semibold text-slate-800">{profile.phone || <span className="text-slate-400 italic">Not set</span>}</p>
+            </div>
           </div>
 
           <div className="group">
@@ -210,44 +241,11 @@ export default function StudentProfile() {
               </div>
             )}
           </div>
-
-          <div className="group">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> Education Level (Class)</p>
-            {isEditing ? (
-              <input type="text" value={editForm.educationLevel} onChange={e => setEditForm({...editForm, educationLevel: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
-            ) : (
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <p className="font-semibold text-slate-800">{profile.educationLevel || <span className="text-slate-400 italic">Not set</span>}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="group">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><Target className="w-3.5 h-3.5" /> Learning Goals</p>
-            {isEditing ? (
-              <input type="text" value={editForm.learningGoals} onChange={e => setEditForm({...editForm, learningGoals: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
-            ) : (
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <p className="font-semibold text-slate-800">{profile.learningGoals || <span className="text-slate-400 italic">Not set</span>}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="group">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Preferred Subjects</p>
-            {isEditing ? (
-              <input type="text" value={editForm.preferredSubjects} onChange={e => setEditForm({...editForm, preferredSubjects: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-semibold focus:outline-none focus:border-navy focus:bg-white transition" />
-            ) : (
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <p className="font-semibold text-slate-800">{profile.preferredSubjects || <span className="text-slate-400 italic">Not set</span>}</p>
-              </div>
-            )}
-          </div>
         </div>
 
         {isEditing && (
           <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-end gap-4">
-            <button onClick={handleCancelEdit} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition">
+            <button onClick={() => setIsEditing(false)} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition">
               Cancel
             </button>
             <button onClick={handleSaveProfile} className="px-6 py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-sm">
@@ -256,6 +254,47 @@ export default function StudentProfile() {
           </div>
         )}
       </div>
+
+      {/* Username Change Modal */}
+      {showUsernameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-sora text-xl font-bold text-navy">Change Username</h3>
+            <p className="text-xs text-slate-500 font-medium">You can change your username ONLY ONCE across TrueEd. Make sure to choose carefully.</p>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">New Username</label>
+              <input 
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="e.g. olivia_2026"
+                className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-navy"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button 
+                onClick={() => setShowUsernameModal(false)}
+                className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUsernameUpdate}
+                className="flex-1 py-2.5 bg-navy text-white rounded-xl font-bold hover:bg-navy-light transition shadow-sm"
+              >
+                Save Username
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image Crop Modal */}
+      <ImageCropModal
+        isOpen={cropModalOpen}
+        imageSrc={selectedImageSrc}
+        onClose={() => setCropModalOpen(false)}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 }

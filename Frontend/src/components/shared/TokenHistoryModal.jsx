@@ -1,17 +1,39 @@
-import React from 'react';
-import { X, CheckCircle, Clock, Search, RotateCcw, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, CheckCircle, Clock, Search, RotateCcw, AlertCircle, Loader2 } from 'lucide-react';
 import { formatDate } from '../../utils/dateFormatter';
+import api from '../../services/api';
 
 const TokenHistoryModal = ({ isOpen, onClose, currentTokens }) => {
-  if (!isOpen) return null;
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock token history
-  const history = [
-    { id: 1, type: 'refund', reason: 'Teacher did not respond in 24h', amount: '+1', timestamp: new Date().toISOString() },
-    { id: 2, type: 'used', reason: 'Sent query to Teacher (Aditi Rao)', amount: '-1', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-    { id: 3, type: 'purchase', reason: 'Purchased Token Pack (10 Tokens)', amount: '+10', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-    { id: 4, type: 'used', reason: 'Sent classroom query', amount: '-1', timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() }
-  ];
+  useEffect(() => {
+    if (isOpen) {
+      const fetchHistory = async () => {
+        try {
+          setLoading(true);
+          const res = await api.user.getPayments().catch(() => []);
+          const list = Array.isArray(res) ? res : (res?.docs || res?.payments || []);
+          const tokenTxns = list.filter(p => p.type === 'token_purchase' || p.purpose === 'tokens' || p.description?.toLowerCase().includes('token'));
+          const mapped = tokenTxns.map((p, idx) => ({
+            id: p._id || idx,
+            type: p.amountPaise > 0 ? 'purchase' : 'refund',
+            reason: p.description || p.notes?.purpose || 'Token Purchase',
+            amount: `+${p.tokensCount || Math.round((p.amountPaise || 1000) / 100)}`,
+            timestamp: p.createdAt || new Date().toISOString(),
+          }));
+          setHistory(mapped);
+        } catch (err) {
+          console.warn('Failed to load token history:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchHistory();
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -32,7 +54,11 @@ const TokenHistoryModal = ({ isOpen, onClose, currentTokens }) => {
         </div>
 
         <div className="p-0 overflow-y-auto flex-1">
-          {history.length > 0 ? (
+          {loading ? (
+            <div className="p-10 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-navy animate-spin" />
+            </div>
+          ) : history.length > 0 ? (
             <div className="divide-y divide-slate-100">
               {history.map(item => (
                 <div key={item.id} className="p-5 flex items-center gap-4 hover:bg-slate-50 transition-colors">

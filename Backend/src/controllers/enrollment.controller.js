@@ -614,3 +614,53 @@ export const submitReview = asyncHandler(async (req, res) => {
 
   res.status(201).json(new ApiResponse(201, review, 'Review submitted'));
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /queries/:queryId — Student withdraws a PENDING query (gets token back)
+// ─────────────────────────────────────────────────────────────────────────────
+export const withdrawQuery = asyncHandler(async (req, res) => {
+  const { queryId } = req.params;
+
+  const query = await EnrollmentQuery.findById(queryId);
+  if (!query) throw ApiError.notFound('Query');
+
+  // Only the student who sent the query can withdraw it
+  if (query.studentId.toString() !== req.user._id.toString()) {
+    throw ApiError.forbidden('You do not own this query');
+  }
+
+  // Only pending queries can be withdrawn (not already accepted/enrolled/rejected)
+  if (query.status !== QUERY_STATUS.PENDING) {
+    throw new ApiError(
+      400,
+      `Cannot withdraw a query with status: ${query.status}. Only pending queries can be withdrawn.`,
+      [],
+      'INVALID_QUERY_STATUS'
+    );
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    // Atomically close the query and refund 1 token
+    query.status = QUERY_STATUS.LAPSED; // student withdrew = lapsed/closed_inactive
+    await query.save({ session });
+
+    await WalletService.refundToken(
+      req.user._id,
+      query._id,
+      'Token refunded — query withdrawn by student',
+      session
+    );
+
+    await session.commitTransaction();
+    logger.info('Query withdrawn by student', { queryId, studentId: req.user._id });
+
+    res.status(200).json(new ApiResponse(200, null, 'Query withdrawn and 1 token refunded to your wallet'));
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
+});

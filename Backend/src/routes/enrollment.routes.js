@@ -10,6 +10,7 @@ import {
   sendQuery, acceptQuery, rejectQuery,
   enrollInClassroom, verifyEnrollmentPayment,
   getStudentEnrollments, getMyQueries, submitReview, getStudentDashboard,
+  withdrawQuery,
 } from '../controllers/enrollment.controller.js';
 
 const router = Router();
@@ -42,6 +43,9 @@ router.post(
 // Student tabs: active | accepted | enrolled | rejected | expired
 // Teacher tabs: active | accepted | enrolled | rejected | expired | refunded
 router.get('/queries', getMyQueries);
+
+// ── Student: withdraw a pending query (refunds 1 token) ───────────────────────
+router.delete('/queries/:queryId', requireStudent, withdrawQuery);
 
 // ── Student: enrolled classrooms dashboard (active | completed) ───────────────
 router.get('/me/dashboard', requireStudent, getStudentDashboard);

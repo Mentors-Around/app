@@ -60,67 +60,24 @@ const MyQueriesPage = () => {
     } catch { return ''; }
   };
 
-  const handleWithdraw = (queryId) => {
-    if(!window.confirm("Are you sure you want to withdraw this query? The teacher will no longer see it.")) return;
-    
-    // Mock refund token
-    // Mock refund token
-    const currentTokens = parseInt(localStorage.getItem('trueed_student_tokens') || '0', 10);
-    localStorage.setItem('trueed_student_tokens', (currentTokens + 1).toString());
-    
-    setQueries(queries.map(q => q.id === queryId ? {
-      ...q,
-      status: 'closed_inactive',
-      events: [...(q.events || []), {
-        id: `e_${Date.now()}`, type: 'system_action', actionType: 'teacher_rejected', timestamp: new Date().toISOString(), content: 'Query was withdrawn by the student.'
-      }]
-    } : q));
-    showToast('Query withdrawn and 1 token refunded.');
+  const handleWithdraw = async (queryId) => {
+    if (!window.confirm('Are you sure you want to withdraw this query? Your token will be refunded.')) return;
+    try {
+      await api.enrollment.withdrawQuery(queryId);
+      setQueries(queries.map(q => q.id === queryId ? {
+        ...q,
+        status: 'lapsed',
+        events: [...(q.events || []), {
+          id: `e_${Date.now()}`, type: 'system_action', actionType: 'withdrawn', timestamp: new Date().toISOString(), content: 'Query withdrawn by student. 1 token refunded.'
+        }]
+      } : q));
+      showToast('Query withdrawn and 1 token refunded to your wallet.');
+    } catch (err) {
+      showToast(err.message || 'Failed to withdraw query.');
+    }
   };
 
-  const handleEnroll = (query) => {
-    // Check wallet balance mock via useWallet or direct check here
-    if (tokens < 1) { // Assuming enrollment might cost a token or wallet amount? Wait, user requirement said "Global Wallet Balance Check". In TrueEd, tokens are for queries, maybe money for classrooms? Let's just mock successful payment here and assume it's checked.
-        // Actually, user requirement says "Wallet Balance >= Purchase Amount". For simplicity, let's just proceed for now or mock a check.
-        // I will just do a mock success for now as it's a UI flow.
-    }
 
-    const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
-    let classrooms = classroomsRaw ? JSON.parse(classroomsRaw) : [];
-    const classroomIndex = classrooms.findIndex(c => c.id === query.classroomId);
-    
-    // Add student to classroom
-    if (classroomIndex !== -1) {
-      classrooms[classroomIndex].students = (classrooms[classroomIndex].students || 0) + 1;
-      localStorage.setItem('trueed_teacher_classrooms', JSON.stringify(classrooms));
-      
-      const classroom = classrooms[classroomIndex];
-      const joinedRaw = localStorage.getItem('trueed_student_joined_rooms');
-      let joined = joinedRaw ? JSON.parse(joinedRaw) : [];
-      if (!joined.some(j => j.id === classroom.id)) {
-        joined.push({ ...classroom, joinedAt: new Date().toISOString() });
-        localStorage.setItem('trueed_student_joined_rooms', JSON.stringify(joined));
-      }
-    }
-
-    // Update query status to enrolled
-    const allClassQ = JSON.parse(localStorage.getItem('trueed_classroom_queries') || '[]');
-    const updatedClassQ = allClassQ.map(q => q.id === query.id ? { 
-      ...q, 
-      status: 'enrolled',
-      events: [...(q.events || []), { id: `e_${Date.now()}`, type: 'system_action', actionType: 'enrolled', timestamp: new Date().toISOString(), content: 'Payment successful. You are now enrolled.' }]
-    } : q);
-    localStorage.setItem('trueed_classroom_queries', JSON.stringify(updatedClassQ));
-
-    setQueries(queries.map(q => q.id === query.id ? { 
-      ...q, 
-      status: 'enrolled',
-      events: [...(q.events || []), { id: `e_${Date.now()}`, type: 'system_action', actionType: 'enrolled', timestamp: new Date().toISOString(), content: 'Payment successful. You are now enrolled.' }]
-    } : q));
-    
-    setEnrollToast(true);
-    setTimeout(() => setEnrollToast(false), 3000);
-  };
 
   const handlePayment = (query) => {
     openPaymentModal({
@@ -131,8 +88,19 @@ const MyQueriesPage = () => {
         teacherName: query.teacherName || query.teacher,
         price: query.price || 1500
       },
-      onSuccess: () => {
-        handleEnroll(query);
+      onSuccess: async () => {
+        try {
+          await api.enrollment.enrollInClassroom(query.id, 'wallet');
+          setQueries(queries.map(q => q.id === query.id ? {
+            ...q,
+            status: 'enrolled',
+            events: [...(q.events || []), { id: `e_${Date.now()}`, type: 'system_action', actionType: 'enrolled', timestamp: new Date().toISOString(), content: 'Payment successful. You are now enrolled.' }]
+          } : q));
+          setEnrollToast(true);
+          setTimeout(() => setEnrollToast(false), 3000);
+        } catch (err) {
+          setEnrollError(err.message || 'Enrollment failed. Please try again.');
+        }
       }
     });
   };
@@ -182,19 +150,36 @@ const MyQueriesPage = () => {
 
       <TokenHistoryModal isOpen={tokenHistoryOpen} onClose={() => setTokenHistoryOpen(false)} currentTokens={tokens} />
 
-      {/* Filters */}
+      {/* Status Filter Tabs */}
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto hide-scrollbar">
-        <button 
-          className="whitespace-nowrap px-4 py-2 text-sm font-bold rounded-lg bg-navy text-white shadow-sm"
-        >
-          All Queries
-        </button>
+        {[
+          { id: 'All', label: 'All Queries' },
+          { id: 'Active', label: 'Active / Pending' },
+          { id: 'Accepted', label: 'Accepted & Waiting Payment' },
+          { id: 'Rejected', label: 'Rejected' },
+          { id: 'Expired', label: 'Expired / Closed' },
+        ].map(tab => (
+          <button 
+            key={tab.id}
+            onClick={() => setFilter(tab.id)}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+              filter === tab.id 
+                ? 'bg-navy text-white shadow-sm' 
+                : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Query List */}
       <div className="space-y-6">
         {queries.filter(q => {
-          if (filter === 'Classroom Queries') return true;
+          if (filter === 'Active') return q.status === 'open' || q.status === 'pending' || q.status === 'in_progress';
+          if (filter === 'Accepted') return q.status === 'accepted' || q.status === 'approved_waiting_payment';
+          if (filter === 'Rejected') return q.status === 'rejected' || q.status === 'auto_rejected';
+          if (filter === 'Expired') return q.status === 'approval_expired' || q.status === 'closed_inactive' || q.status === 'expired';
           return true;
         }).length === 0 ? (
           <div className="bg-white p-12 rounded-xl border border-slate-200 text-center shadow-sm">
@@ -208,7 +193,13 @@ const MyQueriesPage = () => {
             </Link>
           </div>
         ) : (
-          queries.filter(q => q).map(query => (
+          queries.filter(q => {
+            if (filter === 'Active') return q.status === 'open' || q.status === 'pending' || q.status === 'in_progress';
+            if (filter === 'Accepted') return q.status === 'accepted' || q.status === 'approved_waiting_payment';
+            if (filter === 'Rejected') return q.status === 'rejected' || q.status === 'auto_rejected';
+            if (filter === 'Expired') return q.status === 'approval_expired' || q.status === 'closed_inactive' || q.status === 'expired';
+            return true;
+          }).map(query => (
             <div key={query.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row gap-8">
               
               {/* Left Info & Progress */}

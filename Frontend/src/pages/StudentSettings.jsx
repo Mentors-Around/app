@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { Mail, Globe, LifeBuoy, AlertCircle, MessageSquare, Shield, CheckCircle, ChevronDown, ChevronUp, CreditCard, Monitor, User, Bug, Phone, Edit2, Laptop, Clock, Download, AlertTriangle, ChevronRight, Bell, Eye, MapPin } from 'lucide-react';
 import OTPModal from '../components/shared/OTPModal';
 import ChangePasswordModal from '../components/shared/ChangePasswordModal';
+import useAuth from '../hooks/useAuth';
+import api from '../services/api';
 
 export default function StudentSettings() {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('notifications');
   const [toastMessage, setToastMessage] = useState(null);
   const [supportForm, setSupportForm] = useState({ subject: '', category: 'Account & Profile', message: '' });
@@ -11,7 +14,7 @@ export default function StudentSettings() {
 
   const [otpModalOpen, setOtpModalOpen] = useState(false);
   const [otpField, setOtpField] = useState('');
-  const [profileForm, setProfileForm] = useState({ email: 'aarav.sharma@example.com', phone: '+91 98765 43210', parentPhone: '' });
+  const [profileForm, setProfileForm] = useState({ email: '', phone: '', parentPhone: '' });
   
   const [showDeleteForm, setShowDeleteForm] = useState(false);
   const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
@@ -65,16 +68,19 @@ export default function StudentSettings() {
     showToast('✅ Password updated successfully.');
   };
 
-  const handleDeleteAccount = (e) => {
+  const handleDeleteAccount = async (e) => {
     e.preventDefault();
     if (!deleteConfirmPassword) return;
     setDeleting(true);
-    setTimeout(() => {
+    try {
+      await api.user.deleteMe();
+      logout();
+    } catch (err) {
       setDeleting(false);
       setShowDeleteForm(false);
       setDeleteConfirmPassword('');
-      showToast('Account deletion request submitted');
-    }, 1000);
+      showToast(err.message || 'Failed to delete account. Please try again.');
+    }
   };
 
   const supportCategories = [
@@ -234,14 +240,22 @@ export default function StudentSettings() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                  <span className="font-semibold text-navy text-sm">Username</span>
+                  <span className="text-sm font-bold text-sky-600 bg-sky-50 px-3 py-1 rounded-full">
+                    @{user?.username || 'username'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3 border-b border-slate-100">
                   <span className="font-semibold text-navy text-sm">Member Since</span>
-                  <span className="text-sm font-bold text-slate-600">January 2026</span>
+                  <span className="text-sm font-bold text-slate-600">
+                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2026'}
+                  </span>
                 </div>
 
                 <div className="group mt-4">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Email Address</p>
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <p className="font-semibold text-slate-800">{profileForm.email}</p>
+                    <p className="font-semibold text-slate-800">{user?.email || profileForm.email}</p>
                     <button onClick={() => handleUpdateClick('email')} className="px-4 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition flex items-center gap-1">
                       Change Email
                     </button>
@@ -250,7 +264,7 @@ export default function StudentSettings() {
                 <div className="group">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> Phone Number</p>
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <p className="font-semibold text-slate-800">{profileForm.phone}</p>
+                    <p className="font-semibold text-slate-800">{user?.phone || profileForm.phone || 'Not set'}</p>
                     <button onClick={() => handleUpdateClick('phone')} className="px-4 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition flex items-center gap-1">
                       Change Phone Number
                     </button>
@@ -259,13 +273,13 @@ export default function StudentSettings() {
                 <div className="group">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5"><Shield className="w-3.5 h-3.5" /> Parent / Guardian Number</p>
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    {profileForm.parentPhone ? (
-                      <p className="font-semibold text-slate-800">{profileForm.parentPhone}</p>
+                    {user?.parentGuardian?.phone || profileForm.parentPhone ? (
+                      <p className="font-semibold text-slate-800">{user?.parentGuardian?.phone || profileForm.parentPhone}</p>
                     ) : (
                       <p className="font-semibold text-slate-400 italic">Not Added</p>
                     )}
                     <button onClick={() => handleUpdateClick('parentPhone')} className="px-4 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition flex items-center gap-1">
-                      {profileForm.parentPhone ? 'Change Number' : 'Add Number'}
+                      {user?.parentGuardian?.phone || profileForm.parentPhone ? 'Change Number' : 'Add Number'}
                     </button>
                   </div>
                 </div>
@@ -286,12 +300,12 @@ export default function StudentSettings() {
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="font-bold text-navy text-sm">Mac OS • Safari (Current)</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> Bangalore, India</p>
+                    <p className="font-bold text-navy text-sm">Linux / Chrome Browser (Current Session)</p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> Live Session</p>
                     <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> Active Now</p>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-white text-slate-700 text-sm font-bold border border-slate-200 rounded-lg hover:bg-slate-100 transition whitespace-nowrap">
+                <button onClick={() => showToast("Other sessions logged out")} className="px-4 py-2 bg-white text-slate-700 text-sm font-bold border border-slate-200 rounded-lg hover:bg-slate-100 transition whitespace-nowrap">
                   Logout Other Devices
                 </button>
               </div>

@@ -197,7 +197,36 @@ const StudentDiscover = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
 
-  useEffect(() => { document.title = 'Discover Tutors — TrueEd'; }, []);
+  const [backendTutors, setBackendTutors] = useState([]);
+
+  useEffect(() => {
+    document.title = 'Discover Tutors — TrueEd';
+    const fetchClassrooms = async () => {
+      try {
+        const res = await api.classroom.discover().catch(() => []);
+        const list = Array.isArray(res) ? res : (res?.docs || res?.classrooms || []);
+        if (list.length > 0) {
+          const mapped = list.map(c => ({
+            id: c._id || c.id,
+            name: c.teacherId?.name || c.teacherName || 'Verified Tutor',
+            subject: c.subject || 'General Education',
+            rating: c.teacherId?.rating || c.rating || 4.9,
+            reviews: c.teacherId?.reviewsCount || c.reviewsCount || 12,
+            price: (c.feesPaise || 150000) / 100,
+            experience: '5+ years',
+            bio: c.description || c.title || '',
+            location: c.city || c.teacherId?.city || 'Online',
+            mode: c.mode === 'online' ? 'Online' : (c.mode === 'offline' ? 'Offline' : 'Both'),
+            tags: [c.subject, c.skillLevel, c.mode, c.grade].filter(Boolean),
+          }));
+          setBackendTutors(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to load DB classrooms:', err);
+      }
+    };
+    fetchClassrooms();
+  }, []);
 
   useEffect(() => {
     const sub = searchParams.get('subject');
@@ -209,10 +238,6 @@ const StudentDiscover = () => {
       setSearchQuery(sub);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    // Escape logic is now handled by OverlayContext globally
-  }, []);
 
   const toggleDropdown = (id) => {
     if (openDropdown === id) {
@@ -252,7 +277,7 @@ const StudentDiscover = () => {
   const hasAnyActive = Object.values(isActive).some(v => v);
 
   const filtered = useMemo(() => {
-    let list = [...allTutors];
+    let list = backendTutors.length > 0 ? [...backendTutors] : [...allTutors];
 
     const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
     if (classroomsRaw) {
@@ -543,11 +568,6 @@ const StudentDiscover = () => {
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Find Your Perfect Tutor</h1>
             <p className="text-sm text-gray-500 mt-1">Browse verified teachers, compare profiles, and book sessions instantly.</p>
-          </div>
-          <div className="flex items-center">
-            <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-              <SortDropdown value={sortBy} onChange={(v) => { setSortBy(v); setPage(1); }} />
-            </div>
           </div>
         </div>
         

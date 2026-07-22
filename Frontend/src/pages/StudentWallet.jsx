@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, ArrowDownToLine, ArrowUpFromLine, Clock, CheckCircle, X, History, ExternalLink, ChevronRight, Mail, ArrowUpRight, ArrowDownRight, Landmark, Pencil, Trash2, Shield } from 'lucide-react';
+import { Wallet, ArrowDownToLine, ArrowUpFromLine, Clock, CheckCircle, X, History, ExternalLink, ChevronRight, Mail, ArrowUpRight, ArrowDownRight, Landmark, Pencil, Trash2, Shield, Loader2 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import { useWallet } from '../contexts/WalletContext';
 import PasswordVerificationModal from '../components/shared/PasswordVerificationModal';
 import DepositModal from '../components/shared/DepositModal';
 import AddBankAccountModal from '../components/shared/AddBankAccountModal';
+import api from '../services/api';
 
 const StudentWallet = () => {
   const { user } = useAuth();
   const { updateStudentBalance, showToast, processStudentRecharge, addStudentTransaction, studentWallet, tokens, openTokenModal, studentBankAccount, addStudentBankAccount, removeStudentBankAccount } = useWallet();
 
   const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -28,7 +30,33 @@ const StudentWallet = () => {
 
   useEffect(() => {
     document.title = 'Wallet & Payments — TrueEd';
-    setTransactions(studentWallet?.transactions || []);
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        const res = await api.user.getPayments().catch(() => []);
+        const list = Array.isArray(res) ? res : (res?.docs || res?.payments || []);
+        if (list.length > 0) {
+          const mapped = list.map(p => ({
+            id: p._id || p.id,
+            date: p.createdAt || new Date().toISOString(),
+            type: p.purpose || p.type || 'Payment',
+            amount: (p.amountPaise || 0) / 100,
+            status: p.status || 'Completed',
+            isCredit: p.type === 'deposit' || p.isCredit,
+            title: p.description || p.purpose || 'Transaction',
+          }));
+          setTransactions(mapped);
+        } else {
+          setTransactions(studentWallet?.transactions || []);
+        }
+      } catch (err) {
+        console.warn('Failed to load payments:', err);
+        setTransactions(studentWallet?.transactions || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPayments();
   }, [user, studentWallet]);
 
   const handleDeposit = (amount) => {
@@ -102,6 +130,29 @@ const StudentWallet = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
+  const downloadStatement = () => {
+    if (transactions.length === 0) return;
+    const headers = ['Date', 'Title', 'Type', 'Amount (\u20b9)', 'Credit/Debit', 'Status'];
+    const rows = transactions.map(txn => [
+      formatDate(txn.date),
+      `"${txn.title}"`,
+      txn.type,
+      txn.amount,
+      txn.isCredit ? 'Credit' : 'Debit',
+      txn.status,
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `TrueEd_Statement_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Transaction rendering component
   const TransactionList = ({ txns }) => (
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-8">
@@ -109,7 +160,7 @@ const StudentWallet = () => {
         <h3 className="font-sora font-bold text-base sm:text-lg text-navy flex items-center gap-2">
           <History className="w-5 h-5 text-sky" /> Recent Transactions
         </h3>
-        <button className="text-sm font-bold text-sky hover:text-navy transition flex items-center gap-1 self-start sm:self-auto">
+        <button onClick={downloadStatement} disabled={transactions.length === 0} className="text-sm font-bold text-sky hover:text-navy transition flex items-center gap-1 self-start sm:self-auto disabled:opacity-40 disabled:cursor-not-allowed">
           Download Statement <Download className="w-4 h-4 ml-1" />
         </button>
       </div>

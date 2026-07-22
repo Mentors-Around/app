@@ -145,6 +145,8 @@ export const api = {
     unsaveTeacher: (id) => request(`/users/me/saved-teachers/${id}`, { method: 'DELETE' }),
     
     getPayments: () => request('/users/me/payments'),
+    
+    deleteMe: () => request('/users/me', { method: 'DELETE' }),
   },
 
   // ── CLASSROOM ──────────────────────────────────────────────────────────────
@@ -213,7 +215,10 @@ export const api = {
     
     getStudentDashboard: () => request('/enrollments/me/dashboard'),
     
-    getStudentEnrollments: () => request('/enrollments'),
+    getStudentEnrollments: (tab) => request(`/enrollments${tab ? `?tab=${tab}` : ''}`),
+    
+    withdrawQuery: (queryId) =>
+      request(`/enrollments/queries/${queryId}`, { method: 'DELETE' }),
     
     submitReview: (enrollmentId, rating, comment) =>
       request(`/enrollments/${enrollmentId}/review`, { method: 'POST', body: { rating, comment } }),

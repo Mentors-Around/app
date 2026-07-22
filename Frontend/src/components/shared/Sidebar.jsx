@@ -17,7 +17,7 @@ const navConfig = {
         { label: 'Learning', icon: 'fa-solid fa-users-rectangle', to: '/student/rooms' },
         { label: 'Wallet & Payments', icon: 'fa-solid fa-wallet', to: '/student/wallet' },
         { label: 'Profile', icon: 'fa-solid fa-user', to: '/student/profile' },
-        { label: 'Help & Support', icon: 'fa-solid fa-headset', to: '/student/settings' },
+        { label: 'Settings & Support', icon: 'fa-solid fa-headset', to: '/student/settings' },
       ]
     }
   ],

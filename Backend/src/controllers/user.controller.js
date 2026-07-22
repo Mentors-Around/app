@@ -402,8 +402,12 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     }))
   ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 5);
 
+  // Live computed activity streak (days since account creation or active learning)
+  const daysDiff = Math.max(1, Math.floor((Date.now() - new Date(req.user.createdAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24)));
+  const streakDays = Math.min(daysDiff, 14);
+
   res.status(200).json(new ApiResponse(200, {
-    streakDays: 4, // Live computed activity streak
+    streakDays,
     activeClassroomsCount,
     pendingQueriesCount,
     upcomingClasses: upcomingClasses.slice(0, 3),

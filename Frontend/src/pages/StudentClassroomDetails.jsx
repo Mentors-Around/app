@@ -31,33 +31,51 @@ const StudentClassroomDetails = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
 
   useEffect(() => {
-    const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
-    if (classroomsRaw) {
-      try {
-        const classrooms = JSON.parse(classroomsRaw);
-        const found = classrooms.find(c => c?.id?.toString() === classroomId?.toString());
-        if (found) {
-          setClassroom(found);
-          document.title = `${found.name} — TrueEd`;
+    const loadClassroom = async () => {
+      setIsLoading(true);
+      let found = null;
+      const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
+      if (classroomsRaw) {
+        try {
+          const classrooms = JSON.parse(classroomsRaw);
+          found = classrooms.find(c => (c?._id || c?.id)?.toString() === classroomId?.toString());
+        } catch (err) {
+          console.error("Error parsing classrooms:", err);
+        }
+      }
+
+      if (!found) {
+        try {
+          const res = await api.classroom.getDetail(classroomId).catch(() => null);
+          if (res) {
+            const c = res.classroom || res;
+            found = {
+              id: c._id || c.id,
+              name: c.title || c.name || 'Classroom Details',
+              teacher: c.teacherId?.name || c.teacherName || 'Tutor',
+              subject: c.subject || 'General Education',
+              price: (c.feesPaise || 150000) / 100,
+              description: c.description || '',
+              schedule: c.schedule || [],
+              mode: c.mode || 'online',
+            };
+            if (c.teacherId) setTeacher(c.teacherId);
+          }
+        } catch (err) {
+          console.warn("API classroom fetch error:", err);
+        }
+      }
+
+      if (found) {
+        setClassroom(found);
+        document.title = `${found.name} — TrueEd`;
+        if (!teacher) {
           const tutor = tutors.find(t => t?.name === found.teacher);
           if (tutor) setTeacher(tutor);
-          
-          // Track recently viewed (Priority 2 Logic)
-          try {
-            const viewedStr = localStorage.getItem('trueed_recently_viewed');
-            let viewed = viewedStr ? JSON.parse(viewedStr) : [];
-            viewed = viewed.filter(id => id !== found.id.toString());
-            viewed.unshift(found.id.toString());
-            if (viewed.length > 5) viewed = viewed.slice(0, 5);
-            localStorage.setItem('trueed_recently_viewed', JSON.stringify(viewed));
-          } catch (err) {
-            console.error("Error updating recently viewed", err);
-          }
         }
-      } catch (err) {
-        console.error("Error parsing classrooms:", err);
       }
-    }
+    };
+    loadClassroom();
 
     // Check enrollment status
     const studentProfileStr = localStorage.getItem('trueed_student_profile');

@@ -1,59 +1,108 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Edit, CalendarDays, Users, IndianRupee, Play, Pause, CheckCircle, Plus } from 'lucide-react';
+import api from '../services/api.js';
 
 export default function TeacherClassroomDetails() {
   const { id } = useParams();
-  
+
+  const fallbackClassroom = {
+    id,
+    name: 'Loading...',
+    subject: '',
+    mode: 'Online',
+    price: 0,
+    capacity: 0,
+    enrolled: 0,
+    description: '',
+    scheduleDays: [],
+    startTime: '',
+    endTime: '',
+    schedule: '',
+    status: 'inactive',
+    sessions: [],
+    liveSettings: { meetingPlatform: 'Google Meet', meetingLink: '', accessTimeMinutes: 15 },
+  };
+
+  const [classroom, setClassroom] = useState(fallbackClassroom);
+  const [isLoadingClassroom, setIsLoadingClassroom] = useState(true);
+
+  // Load classroom from real API on mount
   useEffect(() => {
     document.title = `Classroom Details — TrueEd`;
-  }, []);
-
-  const [classrooms, setClassrooms] = useState(() => {
-    const saved = localStorage.getItem('trueed_teacher_classrooms');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [classroom, setClassroom] = useState(() => {
-    const found = classrooms.find(c => c.id.toString() === id);
-    if (found) {
-      if (!found.sessions) found.sessions = [];
-      return found;
-    }
-    // Fallback if not found
-    return {
-      id,
-      name: 'Classroom Not Found',
-      subject: 'Unknown',
-      mode: 'Online',
-      price: 0,
-      capacity: 0,
-      enrolled: 0,
-      description: 'Please go back and select a valid classroom.',
-      scheduleDays: [],
-      startTime: '',
-      endTime: '',
-      schedule: '',
-      status: 'inactive',
-      sessions: []
+    const fetchClassroom = async () => {
+      setIsLoadingClassroom(true);
+      try {
+        const res = await api.classroom.getDetail(id);
+        if (res) {
+          const c = res.classroom || res;
+          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          // Deduplicate schedule days across slots
+          const scheduleDays = Array.isArray(c.schedule)
+            ? [...new Set(c.schedule.map(s => dayNames[s.day]).filter(Boolean))]
+            : [];
+          const firstSlot = c.schedule?.[0];
+          setClassroom(prev => ({
+            ...prev,
+            id:          c._id || c.id || id,
+            _id:         c._id || c.id || id,
+            name:        c.title || c.name || 'Classroom',
+            subject:     c.subject || '',
+            mode:        c.mode ? (c.mode.charAt(0).toUpperCase() + c.mode.slice(1)) : 'Online',
+            price:       c.feesPaise ? c.feesPaise / 100 : 0,
+            capacity:    c.maxStudents || 0,
+            enrolled:    c.stats?.enrolledStudents || 0,
+            description: c.description || '',
+            scheduleDays,
+            startTime:   firstSlot?.startTime || '',
+            endTime:     firstSlot?.endTime || '',
+            schedule:    scheduleDays.length ? `${scheduleDays.join(', ')} (${firstSlot?.startTime || ''} - ${firstSlot?.endTime || ''})` : 'Flexible',
+            startDate:   c.startDate ? c.startDate.split('T')[0] : '',
+            endDate:     c.endDate   ? c.endDate.split('T')[0]   : '',
+            status:      c.status || 'active',
+            classLevel:  c.academicLevel || '',
+            liveSettings: {
+              meetingPlatform:    c.meetingPlatform || 'Google Meet',
+              meetingLink:        c.gmeetLink || '',
+              accessTimeMinutes:  c.accessTimeMinutes || 15,
+            },
+            sessions: prev.sessions || [],
+          }));
+          setLiveSettingsForm({
+            meetingPlatform:   c.meetingPlatform || 'Google Meet',
+            meetingLink:       c.gmeetLink || '',
+            accessTimeMinutes: c.accessTimeMinutes || 15,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load classroom from API:', err.message);
+        // Fallback: try localStorage
+        const saved = localStorage.getItem('trueed_teacher_classrooms');
+        if (saved) {
+          try {
+            const list = JSON.parse(saved);
+            const found = list.find(c => c.id?.toString() === id);
+            if (found) {
+              if (!found.sessions) found.sessions = [];
+              setClassroom(found);
+              setLiveSettingsForm({
+                meetingPlatform:   found.liveSettings?.meetingPlatform || 'Google Meet',
+                meetingLink:       found.liveSettings?.meetingLink || '',
+                accessTimeMinutes: found.liveSettings?.accessTimeMinutes || 15,
+              });
+            }
+          } catch (e) {}
+        }
+      } finally {
+        setIsLoadingClassroom(false);
+      }
     };
-  });
-
-  useEffect(() => {
-    if (classroom.name !== 'Classroom Not Found') {
-      const updatedClassrooms = classrooms.map(c => c.id.toString() === id ? classroom : c);
-      setClassrooms(updatedClassrooms);
-      localStorage.setItem('trueed_teacher_classrooms', JSON.stringify(updatedClassrooms));
-    }
-  }, [classroom]); // Sync classroom state with local storage
-
-  const [students] = useState([
-    { id: 1, name: 'Aarav Sharma', initials: 'AS', joinedDate: 'Oct 10, 2026', attendance: '95%' },
-    { id: 2, name: 'Priya Patel', initials: 'PP', joinedDate: 'Oct 12, 2026', attendance: '88%' },
-    { id: 3, name: 'Rohan Gupta', initials: 'RG', joinedDate: 'Oct 15, 2026', attendance: '100%' },
-  ]);
+    fetchClassroom();
+  }, [id]);
+  const [students, setStudents] = useState([]);
 
   const [toastMessage, setToastMessage] = useState(null);
+
 
   // Modals
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
@@ -156,24 +205,22 @@ export default function TeacherClassroomDetails() {
     setIsSessionModalOpen(false);
   };
 
-  const handleSaveLiveSettings = (e) => {
+  const handleSaveLiveSettings = async (e) => {
     e.preventDefault();
     const updatedLiveSettings = { ...liveSettingsForm };
-    setClassroom(p => ({
-      ...p,
-      liveSettings: updatedLiveSettings
-    }));
-    
-    // Save to localStorage immediately
-    const saved = localStorage.getItem('trueed_teacher_classrooms');
-    if (saved) {
-      let teacherClassrooms = JSON.parse(saved);
-      teacherClassrooms = teacherClassrooms.map(c => c.id === classroom.id ? { ...c, liveSettings: updatedLiveSettings } : c);
-      localStorage.setItem('trueed_teacher_classrooms', JSON.stringify(teacherClassrooms));
+    try {
+      // Persist gmeetLink to MongoDB via API — enrolled students will see this
+      await api.classroom.update(classroom.id || classroom._id, {
+        gmeetLink:         liveSettingsForm.meetingLink,
+        meetingPlatform:   liveSettingsForm.meetingPlatform,
+        accessTimeMinutes: liveSettingsForm.accessTimeMinutes,
+      });
+      setClassroom(p => ({ ...p, liveSettings: updatedLiveSettings }));
+      setIsLiveSettingsModalOpen(false);
+      showToast('Live class settings saved to database successfully ✓');
+    } catch (err) {
+      showToast(`Failed to save settings: ${err.message || 'Please try again'}`);
     }
-    
-    setIsLiveSettingsModalOpen(false);
-    showToast('Live class settings updated successfully');
   };
 
   const handleReportSubmit = (e) => {

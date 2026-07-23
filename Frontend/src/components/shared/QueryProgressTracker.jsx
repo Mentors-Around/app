@@ -4,15 +4,15 @@ import { Check } from 'lucide-react';
 const QueryProgressTracker = ({ currentStatus }) => {
   // Map our backend statuses to the UI steps
   const steps = [
-    { id: 'submitted', label: 'Submitted', statuses: ['pending_review'] },
-    { id: 'reviewing', label: 'Teacher Reviewing', statuses: ['waiting_for_student', 'approved_waiting_payment'] },
-    { id: 'action', label: 'Waiting for Action', statuses: ['approved_waiting_payment', 'waiting_for_student'] },
-    { id: 'enrolled', label: 'Resolved / Enrolled', statuses: ['enrolled', 'resolved'] }
+    { id: 'submitted', label: 'Submitted', statuses: [] },
+    { id: 'reviewing', label: 'Teacher Reviewing', statuses: ['pending'] },
+    { id: 'action', label: 'Waiting for Action', statuses: ['accepted'] },
+    { id: 'enrolled', label: 'Resolved / Enrolled', statuses: ['enrolled'] }
   ];
 
   // Determine current step index
   let currentIndex = 0;
-  if (['rejected', 'auto_rejected', 'approval_expired', 'closed_inactive'].includes(currentStatus)) {
+  if (['rejected', 'expired', 'lapsed', 'auto_rejected', 'approval_expired', 'closed_inactive'].includes(currentStatus)) {
     // If it's a closed/failure state, we don't necessarily show progress, or we just highlight where it stopped.
     // For simplicity, we just return null or a simplified view.
     return (
@@ -22,8 +22,9 @@ const QueryProgressTracker = ({ currentStatus }) => {
     );
   }
 
-  if (['enrolled', 'resolved'].includes(currentStatus)) currentIndex = 3;
-  else if (['approved_waiting_payment', 'waiting_for_student'].includes(currentStatus)) currentIndex = 2;
+  if (currentStatus === 'enrolled') currentIndex = 3;
+  else if (currentStatus === 'accepted') currentIndex = 2;
+  else if (currentStatus === 'pending') currentIndex = 1;
   else currentIndex = 0;
 
   return (

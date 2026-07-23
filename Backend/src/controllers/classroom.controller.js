@@ -120,6 +120,8 @@ export const updateClassroom = asyncHandler(async (req, res) => {
     totalHoursPlanned, endDate, maxStudents, offlineFacility,
     skillLevel, minimumQualification, prerequisites, minimumAge,
     academicLevel,
+    // ── Live class settings ───────────────────────────────────────────────────
+    gmeetLink, meetingPlatform, accessTimeMinutes,
   } = req.body;
 
   ClassroomService.validateScheduleUpdate(classroom, { totalPlannedHours: totalHoursPlanned, endDate });
@@ -146,6 +148,10 @@ export const updateClassroom = asyncHandler(async (req, res) => {
   if (prerequisites !== undefined)        updates.prerequisites        = prerequisites;
   if (minimumAge !== undefined)           updates.minimumAge           = minimumAge ? Number(minimumAge) : null;
   if (academicLevel !== undefined)        updates.academicLevel        = academicLevel?.trim() || null;
+  // Live class link — only meaningful for online/hybrid classrooms
+  if (gmeetLink !== undefined)            updates.gmeetLink            = gmeetLink?.trim() || null;
+  if (meetingPlatform !== undefined)      updates.meetingPlatform      = meetingPlatform?.trim() || null;
+  if (accessTimeMinutes !== undefined)    updates.accessTimeMinutes    = Number(accessTimeMinutes) || 15;
 
   const updated = await Classroom.findByIdAndUpdate(
     classroom._id,
@@ -425,4 +431,57 @@ export const reportFromClassroom = asyncHandler(async (req, res) => {
   }
 
   res.status(201).json(new ApiResponse(201, { reportId: report._id }, 'Report submitted. Our team will review it.'));
+});
+
+// ── POST /:classroomId/join — Student joins class session (marks attendance) ──
+export const joinClass = asyncHandler(async (req, res) => {
+  const { classroomId } = req.params;
+
+  const classroom = await Classroom.findById(classroomId)
+    .select('gmeetLink offlineFacility mode status teacherId title schedule')
+    .lean();
+  if (!classroom) throw ApiError.notFound('Classroom');
+
+  if (classroom.status !== CLASSROOM_STATUS.ACTIVE) {
+    throw new ApiError(400, 'This classroom is not currently active', [], 'CLASSROOM_INACTIVE');
+  }
+
+  // Verify the requester is enrolled
+  const enrollment = await Enrollment.findOne({
+    studentId:   req.user._id,
+    classroomId,
+    status:      'active',
+  });
+
+  if (!enrollment) {
+    throw ApiError.forbidden('You are not enrolled in this classroom');
+  }
+
+  // Increment classes attended (idempotent within the same calendar day)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const lastAttended = enrollment.lastAttendedAt ? new Date(enrollment.lastAttendedAt) : null;
+  if (lastAttended) lastAttended.setHours(0, 0, 0, 0);
+
+  const alreadyMarkedToday = lastAttended && lastAttended.getTime() === today.getTime();
+
+  if (!alreadyMarkedToday) {
+    await Enrollment.findByIdAndUpdate(enrollment._id, {
+      $inc: { classesAttended: 1 },
+      lastAttendedAt: new Date(),
+    });
+    logger.info('Attendance marked', { classroomId, studentId: req.user._id });
+  }
+
+  const meetingLink = classroom.gmeetLink ||
+    (classroom.schedule && classroom.schedule.find(s => s.isConducted === false)?.gmeetLink) ||
+    null;
+
+  res.status(200).json(new ApiResponse(200, {
+    meetingLink,
+    mode:            classroom.mode,
+    offlineAddress:  classroom.offlineFacility?.address || null,
+    classroomTitle:  classroom.title,
+    attendanceMarked: !alreadyMarkedToday,
+  }, alreadyMarkedToday ? 'Attendance already recorded for today' : 'Attendance marked successfully'));
 });

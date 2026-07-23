@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Calendar, Clock, Monitor, BookOpen, Users, PlayCircle, Shield, X, AlertCircle, ArrowLeft, Send, CheckCircle2, PartyPopper, ArrowRight, Wallet, Star } from 'lucide-react';
+import { Calendar, Clock, Monitor, BookOpen, Users, PlayCircle, Shield, X, AlertCircle, ArrowLeft, Send, CheckCircle2, PartyPopper, ArrowRight, Wallet, Star, Lock, Eye, EyeOff } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import { useWallet } from '../contexts/WalletContext';
 import { tutors } from '../data/tutors';
@@ -13,220 +13,186 @@ const StudentClassroomDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { openPaymentModal, requireTokens, tokens } = useWallet();
+  const { tokens } = useWallet();
   const [classroom, setClassroom] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [teacher, setTeacher] = useState(null);
   
   const [isEnrolled, setIsEnrolled] = useState(false);
 
-  
-  // New Enrollment Flow States
+  // Enrollment Flow States
   const [classroomQuery, setClassroomQuery] = useState(null);
   const [showQueryModal, setShowQueryModal] = useState(false);
   const [queryForm, setQueryForm] = useState({ message: '' });
   const [queryError, setQueryError] = useState(null);
   const [querySuccessToast, setQuerySuccessToast] = useState(false);
+  const [isSubmittingQuery, setIsSubmittingQuery] = useState(false);
+
+  // Payment/Enrollment States
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [enrollPassword, setEnrollPassword] = useState('');
+  const [showEnrollPassword, setShowEnrollPassword] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState(null);
 
   const [existingReview, setExistingReview] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
+  // Load classroom + enrollment/query status from real API
   useEffect(() => {
+    if (!classroomId) return;
     const loadClassroom = async () => {
       setIsLoading(true);
-      let found = null;
-      
-      // Try backend first
       try {
+        // Fetch classroom details (backend returns gmeetLink only for enrolled users)
         const res = await api.classroom.getDetail(classroomId);
         if (res) {
           const c = res.classroom || res;
-          found = {
-            id: c._id || c.id,
-            name: c.title || c.name || 'Classroom Details',
-            teacher: c.teacherId?.name || c.teacherName || 'Tutor',
-            subject: c.subject || 'General Education',
-            price: (c.feesPaise || 150000) / 100,
-            description: c.description || '',
-            schedule: c.schedule || [],
-            mode: c.mode || 'online',
-            scheduleDays: c.schedule ? c.schedule.map(s => {
-              const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-              return days[s.day];
-            }).filter(Boolean) : [],
-            startTime: c.schedule?.[0]?.startTime || '',
-            endTime: c.schedule?.[0]?.endTime || '',
-            startDate: c.startDate,
-            endDate: c.endDate,
-            students: c.stats?.enrolledStudents || 0,
-            maxStudents: c.maxStudents,
-            unlimitedStudents: false
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const found = {
+            id:               c._id || c.id,
+            _id:              c._id || c.id,
+            name:             c.title || c.name || 'Classroom Details',
+            teacher:          c.teacherId?.name || c.teacherName || 'Tutor',
+            teacherId:        c.teacherId?._id || c.teacherId,
+            subject:          c.subject || 'General Education',
+            price:            (c.feesPaise || 0) / 100,
+            feesPaise:        c.feesPaise || 0,
+            description:      c.description || '',
+            schedule:         c.schedule || [],
+            mode:             c.mode || 'online',
+            scheduleDays:     Array.isArray(c.schedule)
+                                ? c.schedule.map(s => days[s.day]).filter(Boolean)
+                                : [],
+            startTime:        c.schedule?.[0]?.startTime || '',
+            endTime:          c.schedule?.[0]?.endTime || '',
+            startDate:        c.startDate,
+            endDate:          c.endDate,
+            students:         c.stats?.enrolledStudents || 0,
+            maxStudents:      c.maxStudents,
+            unlimitedStudents: !c.maxStudents || c.maxStudents >= 9999,
+            classLevel:       c.academicLevel || c.classroomType || 'General',
+            gmeetLink:        c.gmeetLink || null,
+            status:           c.status,
           };
-          if (c.teacherId) setTeacher(c.teacherId);
-          
+          setClassroom(found);
+          document.title = `${found.name} — TrueEd`;
+          if (c.teacherId && typeof c.teacherId === 'object') {
+            setTeacher(c.teacherId);
+          }
+          // Set enrollment status from backend response
           if (res.enrollmentStatus === 'enrolled' || res.enrollmentStatus === 'teacher_owner') {
             setIsEnrolled(true);
           }
         }
       } catch (err) {
-        console.warn("API classroom fetch error:", err);
+        console.warn('API classroom fetch error:', err);
       }
 
-      // Fallback to local storage if not found on backend
-      if (!found) {
-        const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
-        if (classroomsRaw) {
-          try {
-            const classrooms = JSON.parse(classroomsRaw);
-            found = classrooms.find(c => (c?._id || c?.id)?.toString() === classroomId?.toString());
-          } catch (err) {
-            console.error("Error parsing classrooms:", err);
+      // Load existing query from API (only for logged-in students)
+      if (user?._id && user?.role === 'student') {
+        try {
+          const queriesRes = await api.enrollment.getMyQueries();
+          const list = Array.isArray(queriesRes) ? queriesRes
+            : (queriesRes?.docs || queriesRes?.queries || []);
+          // Find an active/pending/accepted query for this classroom
+          const existing = list.find(q => {
+            const qClassId = (q.classroomId?._id || q.classroomId)?.toString();
+            return qClassId === classroomId?.toString() &&
+              ['pending', 'accepted'].includes(q.status);
+          });
+          if (existing) {
+            setClassroomQuery({ ...existing, id: existing._id || existing.id });
           }
+        } catch (e) {
+          // Non-critical: leave classroomQuery as null
         }
       }
 
-      if (found) {
-        setClassroom(found);
-        document.title = `${found.name} — TrueEd`;
-        if (!teacher) {
-          const tutor = tutors.find(t => t?.name === found.teacher);
-          if (tutor) setTeacher(tutor);
-        }
-      }
+      setIsLoading(false);
     };
-
     loadClassroom();
-
-    // Check enrollment status local storage fallback
-    const studentProfileStr = localStorage.getItem('trueed_student_profile');
-    if (studentProfileStr) {
-      try {
-        const profile = JSON.parse(studentProfileStr);
-        const enrolled = profile.enrolledClassrooms || [];
-        if (enrolled.some(c => c?.id?.toString() === classroomId?.toString())) {
-          setIsEnrolled(true);
-        }
-      } catch (err) {
-        console.error("Error parsing student profile:", err);
-      }
-    }
-    
-    // Check classroom query status
-    const queriesRaw = localStorage.getItem('trueed_classroom_queries');
-    if (queriesRaw) {
-      try {
-        const queries = JSON.parse(queriesRaw);
-        const myQuery = queries.find(q => 
-          q.classroomId?.toString() === classroomId?.toString() && 
-          q.studentId === (user?.id || 'student-1')
-        );
-        if (myQuery) {
-          setClassroomQuery(myQuery);
-        }
-      } catch (err) {}
-    }
-    
-    // Check existing review
-    const reviewsRaw = localStorage.getItem('trueed_reviews');
-    if (reviewsRaw) {
-      try {
-        const reviews = JSON.parse(reviewsRaw);
-        const myReview = reviews.find(r => 
-          r.enrollmentId === `enroll_${classroomId}` && 
-          r.studentId === (user?.id || 'student-1')
-        );
-        if (myReview) {
-          setExistingReview(myReview);
-        }
-      } catch (err) {}
-    }
-
-    setIsLoading(false);
-  }, [classroomId]);
+  }, [classroomId, user?._id]);
 
   useEffect(() => {
-    if (location.search.includes('query=true')) {
+    if (location.search.includes('query=true') && user?.role === 'student') {
       setShowQueryModal(true);
     }
-  }, [location.search]);
+  }, [location.search, user?.role]);
 
-  const handleQuerySubmit = (e) => {
+  // Send enrollment query — calls real backend API (deducts 1 query token)
+  const handleQuerySubmit = async (e) => {
     e.preventDefault();
-    if (!queryForm.message) return;
-
-    requireTokens(1, () => {
-      const newQuery = {
-        id: Date.now(),
-        type: 'classroom',
-        classroomId: classroom.id.toString(),
-        classroomName: classroom.name,
-        subject: classroom.subject,
-        teacherId: classroom.teacherId || 'teacher-1',
-        teacherName: classroom.teacher || teacher?.name || 'Teacher User',
-        teacherInitials: teacher?.initials || 'T',
-        studentId: user?.id || 'student-1',
-        studentName: user?.name || 'Student User',
-        studentInitials: user?.initials || 'ST',
-        message: queryForm.message,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      };
-
-      const queriesRaw = localStorage.getItem('trueed_classroom_queries');
-      const existing = queriesRaw ? JSON.parse(queriesRaw) : [];
-      existing.push(newQuery);
-      localStorage.setItem('trueed_classroom_queries', JSON.stringify(existing));
-
-      setClassroomQuery(newQuery);
+    if (!queryForm.message.trim()) {
+      setQueryError('Please write a message to the teacher.');
+      return;
+    }
+    if (!user) {
+      setQueryError('You must be logged in to send a query.');
+      return;
+    }
+    if (tokens < 1) {
+      setQueryError('You need at least 1 query token. Please buy tokens from your wallet.');
+      return;
+    }
+    setIsSubmittingQuery(true);
+    setQueryError(null);
+    try {
+      const newQuery = await api.enrollment.sendQuery({
+        classroomId: classroom.id || classroom._id,
+        message: queryForm.message.trim(),
+      });
+      // Backend returns the query object
+      setClassroomQuery({ ...newQuery, id: newQuery._id || newQuery.id, status: 'pending' });
       setShowQueryModal(false);
       setQuerySuccessToast(true);
       setTimeout(() => setQuerySuccessToast(false), 5000);
       setQueryForm({ message: '' });
-    });
+    } catch (err) {
+      setQueryError(err.message || 'Failed to send query. Please try again.');
+    } finally {
+      setIsSubmittingQuery(false);
+    }
   };
 
-  const handleReviewSubmit = (reviewData) => {
-    const reviewsRaw = localStorage.getItem('trueed_reviews');
-    let reviews = reviewsRaw ? JSON.parse(reviewsRaw) : [];
-    
-    // Check if updating
-    const existingIndex = reviews.findIndex(r => r.id === reviewData.id);
-    if (existingIndex >= 0) {
-      reviews[existingIndex] = reviewData;
-    } else {
-      reviews.push(reviewData);
-    }
-    
-    localStorage.setItem('trueed_reviews', JSON.stringify(reviews));
+  const handleReviewSubmit = async (reviewData) => {
     setExistingReview(reviewData);
     setShowReviewModal(false);
   };
 
+  // Proceed to enrollment — opens password confirmation modal
   const handleEnrollClick = () => {
-    openPaymentModal({
-      type: 'classroom',
-      details: classroom,
-      onSuccess: () => {
-        // Add to student profile enrolled
-        const profileStr = localStorage.getItem('trueed_student_profile');
-        let profile = profileStr ? JSON.parse(profileStr) : { enrolledClassrooms: [] };
-        profile.enrolledClassrooms = profile.enrolledClassrooms || [];
-        if (!profile.enrolledClassrooms.some(c => c.id === classroom.id)) {
-          profile.enrolledClassrooms.push(classroom);
-        }
-        localStorage.setItem('trueed_student_profile', JSON.stringify(profile));
+    setEnrollError(null);
+    setEnrollPassword('');
+    setShowPasswordModal(true);
+  };
 
-        // Add to joined rooms
-        const joinedStr = localStorage.getItem('trueed_student_joined_rooms');
-        let joinedRooms = joinedStr ? JSON.parse(joinedStr) : [];
-        if (!joinedRooms.some(r => r.id === classroom.id)) {
-          joinedRooms.push(classroom);
-        }
-        localStorage.setItem('trueed_student_joined_rooms', JSON.stringify(joinedRooms));
-
-        setIsEnrolled(true);
-      }
-    });
+  // Execute wallet enrollment after password confirmed
+  const handleConfirmEnrollment = async () => {
+    if (!enrollPassword.trim()) {
+      setEnrollError('Please enter your password to confirm the payment.');
+      return;
+    }
+    if (!classroomQuery?.id) {
+      setEnrollError('No accepted query found. Please contact support.');
+      return;
+    }
+    setIsEnrolling(true);
+    setEnrollError(null);
+    try {
+      await api.enrollment.enrollInClassroom(classroomQuery.id, 'wallet', enrollPassword);
+      setIsEnrolled(true);
+      setShowPasswordModal(false);
+      setClassroomQuery(prev => prev ? { ...prev, status: 'enrolled' } : null);
+      setQuerySuccessToast(true);
+      setTimeout(() => setQuerySuccessToast(false), 5000);
+      // Navigate to the lobby after successful enrollment
+      setTimeout(() => navigate(`/student/lobby/${classroom.id || classroom._id}`), 1500);
+    } catch (err) {
+      setEnrollError(err.message || 'Enrollment failed. Please check your password and wallet balance.');
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   const formatTime12hr = (time24) => {
@@ -576,8 +542,14 @@ const StudentClassroomDetails = () => {
                 <button type="button" onClick={() => setShowQueryModal(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition shadow-sm">
                   Cancel
                 </button>
-                <button type="submit" className="flex-1 py-3.5 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition shadow-sm">
-                  Send Query
+                <button
+                  type="submit"
+                  disabled={isSubmittingQuery}
+                  className="flex-1 py-3.5 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmittingQuery ? (
+                    <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Sending...</>
+                  ) : 'Send Query'}
                 </button>
               </div>
             </form>
@@ -585,11 +557,83 @@ const StudentClassroomDetails = () => {
         </div>
       )}
 
-      {/* Query Success Toast */}
+      {/* Query Success / Enrollment Toast */}
       {querySuccessToast && (
         <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[60] animate-fade-in">
           <CheckCircle2 className="w-5 h-5 text-success" />
-          Classroom Query Sent Successfully!
+          {isEnrolled ? '🎉 Enrolled successfully! Redirecting to classroom...' : 'Classroom Query Sent Successfully!'}
+        </div>
+      )}
+
+      {/* Password Confirmation Modal for Enrollment Payment */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <div>
+                <h2 className="font-sora font-bold text-xl text-navy">Confirm Enrollment</h2>
+                <p className="text-xs font-semibold text-slate-500 mt-1">Enter your password to authorise payment</p>
+              </div>
+              <button onClick={() => setShowPasswordModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl">
+                <p className="text-sm font-bold text-navy mb-1">💳 Payment Summary</p>
+                <div className="flex justify-between text-sm font-semibold text-slate-700">
+                  <span>{classroom?.name}</span>
+                  <span>₹{classroom?.price?.toFixed(2)}</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Amount will be deducted from your TrueEd wallet</p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">
+                  <Lock className="w-3.5 h-3.5 inline mr-1" /> Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showEnrollPassword ? 'text' : 'password'}
+                    placeholder="Enter your account password"
+                    value={enrollPassword}
+                    onChange={e => setEnrollPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleConfirmEnrollment()}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-1 focus:ring-navy outline-none pr-12"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEnrollPassword(p => !p)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy"
+                  >
+                    {showEnrollPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              {enrollError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{enrollError}
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmEnrollment}
+                  disabled={isEnrolling}
+                  className="flex-[2] py-3.5 bg-success text-white font-bold rounded-xl hover:bg-green-600 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isEnrolling ? (
+                    <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing...</>
+                  ) : <><CheckCircle2 className="w-4 h-4" />Confirm & Pay ₹{classroom?.price?.toFixed(2)}</>}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

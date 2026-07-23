@@ -16,6 +16,7 @@ import {
   createClassroom, updateClassroom, searchClassrooms,
   getClassroomDetail, requestEarlyEnd, uploadClassroomMedia,
   voteEarlyEnd, getEnrolledStudents, discoverClassrooms, reportFromClassroom,
+  joinClass,
 } from '../controllers/classroom.controller.js';
 
 import {
@@ -177,5 +178,8 @@ router.get('/:classroomId/tests',  authenticate, requireTeacher, listClassroomTe
 
 // ── Report from classroom (enrolled student → report teacher; teacher → report student) ──
 router.post('/:classroomId/report', authenticate, reportFromClassroom);
+
+// ── Student joins a live class session (marks attendance) ─────────────────────
+router.post('/:classroomId/join', authenticate, requireStudent, joinClass);
 
 export default router;

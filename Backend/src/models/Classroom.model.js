@@ -192,6 +192,17 @@ const classroomSchema = new Schema(
       trim:    true,
       default: null,
     },
+    meetingPlatform: {
+      type:    String,
+      trim:    true,
+      default: 'Google Meet',
+    },
+    accessTimeMinutes: {
+      type:    Number,
+      default: 15,
+      min:     0,
+      max:     120,
+    },
 
     // ── Mode ──────────────────────────────────────────────────────────────────
     mode:            enumField(CLASSROOM_MODE, CLASSROOM_MODE.ONLINE),

@@ -187,6 +187,9 @@ export const api = {
     createDoubt: (id, data) => request(`/classrooms/${id}/doubts`, { method: 'POST', body: data }),
     answerDoubt: (id, doubtId, text) => request(`/classrooms/${id}/doubts/${doubtId}/answer`, { method: 'PATCH', body: { answer: text } }),
     upvoteDoubt: (id, doubtId) => request(`/classrooms/${id}/doubts/${doubtId}/upvote`, { method: 'POST' }),
+
+    // Join live class (marks attendance, returns meeting link)
+    joinClass: (classroomId) => request(`/classrooms/${classroomId}/join`, { method: 'POST' }),
   },
 
   // ── ENROLLMENTS & QUERIES ──────────────────────────────────────────────────
@@ -204,11 +207,15 @@ export const api = {
     rejectQuery: (id, reason = '') =>
       request(`/enrollments/queries/${id}/reject`, { method: 'PATCH', body: { reason } }),
     
-    enrollInClassroom: (queryId, paymentMethod = 'wallet') =>
+    enrollInClassroom: (queryId, paymentMethod = 'wallet', password = '') =>
       request(`/enrollments/queries/${queryId}/enroll`, {
         method: 'POST',
         headers: { 'Idempotency-Key': generateIdempotencyKey() },
-        body: { paymentMethod },
+        body: {
+          paymentMethod,
+          useWalletCash: true,
+          password,
+        },
       }),
     
     getMyQueries: (tab) => request(`/enrollments/queries${tab ? `?tab=${tab}` : ''}`),

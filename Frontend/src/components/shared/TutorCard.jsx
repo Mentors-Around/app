@@ -27,9 +27,17 @@ const TutorCard = ({ tutor }) => {
   const colors = getSubjectColor(tutor.subject);
   const badge = tutor.badge ? badgeConfig[tutor.badge] : null;
 
+  const isClassroom = !!tutor.classroomId;
+
   return (
     <div 
-      onClick={() => navigate(`/tutor/${tutor.id}`)}
+      onClick={() => {
+        if (isClassroom) {
+          navigate(`/classroom/${tutor.classroomId}`);
+        } else {
+          navigate(`/tutor/${tutor.id}`);
+        }
+      }}
       className={`bg-white rounded-brand border border-gray-200 overflow-hidden hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col h-full group relative cursor-pointer ${tutor.badge === 'Expert' ? 'border-t-4 border-t-amber-400' : ''}`}
     >
       {/* Save Heart */}
@@ -51,10 +59,19 @@ const TutorCard = ({ tutor }) => {
             className="w-14 h-14 text-xl flex-shrink-0" 
           />
           <div className="flex-1 min-w-0 pt-0.5">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="font-sora font-extrabold text-navy text-lg leading-none">{tutor.name}</span>
-              {tutor.verified && <i className="fa-solid fa-circle-check text-sky text-sm" title="Verified" />}
-              {tutor.quickResponse && <span className="flex items-center justify-center w-5 h-5 bg-amber-100 text-amber-600 rounded-full text-xs shadow-sm border border-amber-200" title="Quick Responder">⚡</span>}
+            <div className="flex flex-col mb-1">
+              <span className="font-sora font-extrabold text-navy text-lg leading-snug">
+                {isClassroom ? tutor.title : tutor.name}
+              </span>
+              {isClassroom && (
+                <span className="text-xs font-semibold text-slate-500 mt-0.5 flex items-center gap-1">
+                  by {tutor.name}
+                  {tutor.verified && <i className="fa-solid fa-circle-check text-sky text-[10px]" title="Verified" />}
+                </span>
+              )}
+              {!isClassroom && tutor.verified && (
+                <i className="fa-solid fa-circle-check text-sky text-sm ml-1" title="Verified" />
+              )}
             </div>
             
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -123,11 +140,11 @@ const TutorCard = ({ tutor }) => {
         
         <div className="flex flex-col gap-2">
           <Link
-            to={`/tutor/${tutor.id}`}
+            to={isClassroom ? `/classroom/${tutor.classroomId}` : `/tutor/${tutor.id}`}
             onClick={(e) => e.stopPropagation()}
             className="w-full py-3 bg-gradient-to-r from-navy to-blue-600 text-white rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
           >
-            <i className="fa-regular fa-user" /> View Profile
+            {isClassroom ? 'View Classroom' : 'View Profile'}
           </Link>
         </div>
       </div>

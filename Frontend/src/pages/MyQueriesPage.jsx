@@ -21,59 +21,57 @@ const MyQueriesPage = () => {
   const [filter, setFilter] = useState('All');
   const [tokenHistoryOpen, setTokenHistoryOpen] = useState(false);
 
+  // Password Modal State for MyQueries page
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedQuery, setSelectedQuery] = useState(null);
+  const [enrollPassword, setEnrollPassword] = useState('');
+  const [showEnrollPassword, setShowEnrollPassword] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
   const fetchQueries = async () => {
     try {
       setLoading(true);
       const res = await api.enrollment.getMyQueries().catch(() => null);
       const list = Array.isArray(res) ? res : (res?.queries || res?.docs || []);
       
-      const localQueriesRaw = localStorage.getItem('trueed_classroom_queries');
-      let localList = [];
-      if (localQueriesRaw) {
-        try {
-          localList = JSON.parse(localQueriesRaw);
-        } catch (e) {}
-      }
-
-      const combinedMap = new Map();
-      
-      localList.forEach(q => {
-        const idKey = (q.id || q._id)?.toString();
-        if (idKey) {
-          combinedMap.set(idKey, {
-            id: q.id || q._id,
-            studentId: q.studentId || user?.id,
-            teacherName: q.teacherName || q.teacher?.name || 'Teacher',
-            classroomName: q.classroomName || q.classroom?.title || 'Classroom Query',
-            classroomId: q.classroomId || q.classroom?._id || q.classroom,
-            status: q.status || 'pending',
-            message: q.initialMessage || q.message || '',
-            createdAt: q.createdAt || new Date().toISOString(),
-            paymentDeadline: q.paymentDeadline,
-            events: q.history || q.events || []
-          });
-        }
+      const mapped = list.map(q => {
+        const classroom = q.classroomId || {};
+        const teacher = q.teacherId || classroom.teacherId || {};
+        return {
+          id:              q._id || q.id,
+          studentId:       q.studentId?._id || q.studentId || user?._id,
+          teacherName:     teacher.name || q.teacherName || 'Teacher',
+          classroomName:   classroom.title || q.classroomName || 'Classroom Query',
+          classroomId:     classroom._id || q.classroomId,
+          price:           classroom.feesPaise ? classroom.feesPaise / 100 : 1500,
+          status:          q.status || 'pending',
+          message:         q.message || '',
+          createdAt:       q.createdAt,
+          paymentDeadline: q.studentEnrollDeadline || q.paymentDeadline || new Date(new Date(q.createdAt).getTime() + 24 * 60 * 60 * 1000).toISOString(),
+          events:          q.events || [
+            {
+              id:        'e1',
+              type:      'system_action',
+              timestamp: q.createdAt,
+              content:   `Query submitted: "${q.message || ''}"`,
+            },
+            q.teacherMessage ? {
+              id:        'e2',
+              type:      'system_action',
+              timestamp: q.updatedAt,
+              content:   `Teacher response: "${q.teacherMessage}"`,
+            } : null,
+            q.status === 'enrolled' ? {
+              id:        'e3',
+              type:      'system_action',
+              timestamp: q.updatedAt,
+              content:   'Payment successful. You are now enrolled.',
+            } : null,
+          ].filter(Boolean),
+        };
       });
 
-      list.forEach(q => {
-        const idKey = (q._id || q.id)?.toString();
-        if (idKey) {
-          combinedMap.set(idKey, {
-            id: q._id || q.id,
-            studentId: q.student?._id || q.student || user?.id,
-            teacherName: q.teacher?.name || q.teacherName || 'Teacher',
-            classroomName: q.classroom?.title || q.classroomName || 'Classroom Query',
-            classroomId: q.classroom?._id || q.classroom || q.classroomId,
-            status: q.status || 'pending',
-            message: q.initialMessage || q.message || '',
-            createdAt: q.createdAt,
-            paymentDeadline: q.paymentDeadline,
-            events: q.history || q.events || []
-          });
-        }
-      });
-
-      setQueries(Array.from(combinedMap.values()));
+      setQueries(mapped);
     } catch (err) {
       console.warn('Failed to load student queries:', err.message);
     } finally {
@@ -112,32 +110,35 @@ const MyQueriesPage = () => {
     }
   };
 
-
-
   const handlePayment = (query) => {
-    openPaymentModal({
-      type: 'classroom',
-      details: {
-        id: query.classroomId,
-        name: query.classroomName,
-        teacherName: query.teacherName || query.teacher,
-        price: query.price || 1500
-      },
-      onSuccess: async () => {
-        try {
-          await api.enrollment.enrollInClassroom(query.id, 'wallet');
-          setQueries(queries.map(q => q.id === query.id ? {
-            ...q,
-            status: 'enrolled',
-            events: [...(q.events || []), { id: `e_${Date.now()}`, type: 'system_action', actionType: 'enrolled', timestamp: new Date().toISOString(), content: 'Payment successful. You are now enrolled.' }]
-          } : q));
-          setEnrollToast(true);
-          setTimeout(() => setEnrollToast(false), 3000);
-        } catch (err) {
-          setEnrollError(err.message || 'Enrollment failed. Please try again.');
-        }
-      }
-    });
+    setSelectedQuery(query);
+    setEnrollPassword('');
+    setEnrollError(null);
+    setShowPasswordModal(true);
+  };
+
+  const handleConfirmEnrollment = async () => {
+    if (!enrollPassword.trim()) {
+      setEnrollError('Password is required.');
+      return;
+    }
+    setIsEnrolling(true);
+    setEnrollError(null);
+    try {
+      await api.enrollment.enrollInClassroom(selectedQuery.id, 'wallet', enrollPassword);
+      setQueries(queries.map(q => q.id === selectedQuery.id ? {
+        ...q,
+        status: 'enrolled',
+        events: [...(q.events || []), { id: `e_${Date.now()}`, type: 'system_action', actionType: 'enrolled', timestamp: new Date().toISOString(), content: 'Payment successful. You are now enrolled.' }]
+      } : q));
+      setEnrollToast(true);
+      setShowPasswordModal(false);
+      setTimeout(() => setEnrollToast(false), 3000);
+    } catch (err) {
+      setEnrollError(err.message || 'Enrollment failed. Please check your password.');
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   return (
@@ -277,10 +278,10 @@ const MyQueriesPage = () => {
                 </div>
 
                 {/* Expiry Warning for Payments */}
-                {query.status === 'approved_waiting_payment' && (
+                {query.status === 'accepted' && (
                   <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col gap-2 mb-6">
                     <p className="text-sm text-amber-700 font-bold">Action Required: Complete Payment</p>
-                    <p className="text-xs text-amber-600 font-medium">Your seat is temporarily reserved. Complete payment before the deadline to secure it.</p>
+                    <p className="text-xs text-amber-600 font-medium">Your request has been accepted by the teacher. Complete payment before the deadline to secure your seat.</p>
                     <div className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg border inline-flex items-center gap-2 w-max ${
                       getPaymentTimer(query.paymentDeadline)?.isUrgent ? 'text-red-600 bg-red-100 border-red-200' : 'text-amber-600 bg-white border-amber-200'
                     }`}>
@@ -356,6 +357,78 @@ const MyQueriesPage = () => {
           ))
         )}
       </div>
+
+      {/* Password Confirmation Modal for Enrollment Payment */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <div>
+                <h2 className="font-sora font-bold text-xl text-navy">Confirm Enrollment</h2>
+                <p className="text-xs font-semibold text-slate-500 mt-1">Enter your password to authorize payment</p>
+              </div>
+              <button onClick={() => setShowPasswordModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl">
+                <p className="text-sm font-bold text-navy mb-1">💳 Payment Summary</p>
+                <div className="flex justify-between text-sm font-semibold text-slate-700">
+                  <span className="truncate max-w-[200px]">{selectedQuery?.classroomName}</span>
+                  <span>₹{selectedQuery?.price?.toFixed(2)}</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Amount will be deducted from your TrueEd wallet</p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showEnrollPassword ? 'text' : 'password'}
+                    placeholder="Enter your account password"
+                    value={enrollPassword}
+                    onChange={e => setEnrollPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleConfirmEnrollment()}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-1 focus:ring-navy outline-none pr-12"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEnrollPassword(p => !p)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy text-xs font-bold"
+                  >
+                    {showEnrollPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+              {enrollError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{enrollError}
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmEnrollment}
+                  disabled={isEnrolling}
+                  className="flex-[2] py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isEnrolling ? (
+                    <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing...</>
+                  ) : <><CheckCircle className="w-4 h-4" />Confirm & Pay ₹{selectedQuery?.price?.toFixed(2)}</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

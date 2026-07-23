@@ -60,7 +60,11 @@ const enrollmentSchema = new Schema(
     status: enumField(ENROLLMENT_STATUS, ENROLLMENT_STATUS.ACTIVE),
     // ── Progress tracking ────────────────────────────────────────────────────
     // Classes attended (updated by attendance service)
-    classesAttended: { type: Number, default: 0, min: 0 },
+    classesAttended:      { type: Number, default: 0, min: 0 },
+    // Last date attendance was marked (used for idempotent daily tracking)
+    lastAttendedAt:       { type: Date,   default: null },
+    // Assignments completed by student
+    assignmentsCompleted: { type: Number, default: 0, min: 0 },
     // ── Vote on early completion ──────────────────────────────────────────────
     earlyEndVote:   { type: Boolean, default: null },  // null = not voted
     earlyEndVotedAt:{ type: Date,    default: null },

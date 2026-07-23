@@ -24,13 +24,17 @@ const getBadgeIcon = (badge) => {
   }
 };
 
-/** Map an enrollment doc + populated classroomId into a flat UI object */
+/** Map an enrollment doc + populated classroomId into a flat UI object.
+ *  Returns null if classroomId population failed (we skip those). */
 const mapEnrollment = (enr) => {
   const classroom = enr.classroomId || {};
   const teacher   = classroom.teacherId || {};
+  // Guard: if classroom._id is missing, population failed — skip this record
+  const classroomMongoId = classroom._id?.toString();
+  if (!classroomMongoId) return null;
   return {
     enrollmentId: enr._id,
-    id:           classroom._id || enr._id,
+    id:           classroomMongoId,  // Always classroom._id for correct lobby navigation
     name:         classroom.title || 'Untitled Classroom',
     teacher:      teacher.name || 'Tutor',
     teacherAvatar: teacher.avatarUrl || null,
@@ -85,8 +89,11 @@ export default function StudentRooms() {
         return Array.isArray(raw) ? raw : [];
       };
 
-      setActiveRooms(toList(activeRes).map(mapEnrollment));
-      setCompletedRooms(toList(completedRes).map(mapEnrollment));
+      // Filter out null entries where classroom population failed
+      const safeMap = (list) => toList(list).map(mapEnrollment).filter(Boolean);
+
+      setActiveRooms(safeMap(activeRes));
+      setCompletedRooms(safeMap(completedRes));
     } catch (err) {
       console.error('Failed to load enrollments:', err);
       setError('Failed to load your classrooms. Please refresh.');

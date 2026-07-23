@@ -109,134 +109,51 @@ const ClassroomLobby = () => {
         const interval = setInterval(checkTime, 60000);
         return interval;
       } catch (err) {
-        console.error("Failed to load classroom details from API", err);
-        return loadFromLocalStorage();
+        console.error('Failed to load classroom details from API:', err);
+        // If API fails, show a proper error state (don't fall back to localStorage for security)
+        setError('Could not load classroom details. Please check your connection and try again.');
+        setStatus({ state: 'unauthorized', message: 'Failed to load classroom.' });
       }
     };
 
     let intervalId;
 
-    const loadFromLocalStorage = () => {
-      const saved = localStorage.getItem('trueed_teacher_classrooms');
-      if (!saved) {
-        setError("Classroom not found.");
-        setStatus({ state: 'unauthorized', message: 'Classroom not found.' });
-        return;
-      }
-
-      let allClassrooms = [];
-      try {
-        allClassrooms = JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse classrooms in lobby", e);
-      }
-      const room = allClassrooms.find(c => c?.id?.toString() === id?.toString());
-
-      if (!room) {
-        setError("Classroom not found.");
-        setStatus({ state: 'unauthorized', message: 'Classroom not found.' });
-        return;
-      }
-
-      // Security Check: Enrolled
-      const studentProfileStr = localStorage.getItem('trueed_student_profile');
-      const joinedRoomsStr = localStorage.getItem('trueed_student_joined_rooms');
-      
-      let isEnrolled = false;
-      
-      if (studentProfileStr) {
-        try {
-          const profile = JSON.parse(studentProfileStr);
-          const enrolled = profile.enrolledClassrooms || [];
-          if (enrolled.some(c => c?.id?.toString() === id?.toString())) {
-            isEnrolled = true;
-          }
-        } catch (e) {
-          console.error("Failed to parse student profile in lobby", e);
-        }
-      }
-      
-      if (joinedRoomsStr) {
-        try {
-          const joinedRooms = JSON.parse(joinedRoomsStr);
-          if (joinedRooms.some(c => c?.id?.toString() === id?.toString())) {
-            isEnrolled = true;
-          }
-        } catch (e) {
-          console.error("Failed to parse joined rooms in lobby", e);
-        }
-      }
-      
-      if (user.role === 'teacher') {
-        isEnrolled = true;
-      }
-
-      if (!isEnrolled) {
-        setError("You are not authorized to join this classroom. Please enroll first.");
-        setStatus({ state: 'unauthorized', message: 'You are not enrolled in this classroom.' });
-        return;
-      }
-
-      setClassroom(room);
-      if (room.liveSettings && room.liveSettings.meetingLink) {
-        setJoinUrl(room.liveSettings.meetingLink);
-      }
-
-      const checkTime = () => {
-        const now = new Date();
-        
-        if (!room.startTime || !room.endTime) {
-          setStatus({ state: 'active', message: 'Session is Live' });
-          return;
-        }
-
-        const parseTimeToDate = (timeStr) => {
-          const d = new Date();
-          if (!timeStr || typeof timeStr !== 'string') return d;
-          const parts = timeStr.split(':');
-          if (parts.length < 2) return d;
-          const [h, m] = parts;
-          d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
-          return d;
-        };
-
-        const startDate = parseTimeToDate(room.startTime);
-        const endDate = parseTimeToDate(room.endTime);
-        const accessMinutes = room.liveSettings.accessTimeMinutes || 15;
-        
-        const accessTime = new Date(startDate.getTime() - accessMinutes * 60000);
-
-        if (now > endDate) {
-          setStatus({ state: 'ended', message: 'Session has ended for today.' });
-        } else if (now < accessTime) {
-          const diffMs = accessTime - now;
-          const diffMins = Math.ceil(diffMs / 60000);
-          setStatus({ state: 'waiting', message: `Join Available In ${diffMins} Minute${diffMins > 1 ? 's' : ''}` });
-        } else {
-          setStatus({ state: 'active', message: 'Session Starts In a few minutes / is live' });
-        }
-      };
-
-      checkTime();
-      const interval = setInterval(checkTime, 60000);
-      return interval;
-    };
-
-    fetchClassroom().then(id => {
-      if (id) intervalId = id;
+    fetchClassroom().then(intervalId_ => {
+      if (intervalId_) intervalId = intervalId_;
     });
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-
   }, [id, user]);
 
-  const handleSecureJoin = () => {
-    // Simulated backend validation flow
-    if (status.state === 'active' && joinUrl) {
-      // In a real app: POST /api/classrooms/:id/join -> returns meetingLink or 302 redirect
-      window.open(joinUrl, '_blank');
+  const [isJoining, setIsJoining] = useState(false);
+
+  const handleSecureJoin = async () => {
+    if (status.state !== 'active') return;
+    setIsJoining(true);
+    try {
+      // POST to backend: marks attendance + returns meeting link
+      const joinRes = await api.classroom.joinClass(id);
+      const link = joinRes?.meetingLink || joinUrl;
+      if (link) {
+        window.open(link, '_blank', 'noopener,noreferrer');
+      } else {
+        setError('No meeting link configured. Please ask your teacher to add one in Live Settings.');
+      }
+    } catch (err) {
+      // If it's a 400 (not enrolled), show error; otherwise still allow join with cached URL
+      if (err.status === 403 || err.status === 401) {
+        setError('You are not authorized to join this class.');
+        setStatus({ state: 'unauthorized', message: 'Not enrolled.' });
+      } else if (joinUrl) {
+        // Attendance marking failed but we have a URL — allow join
+        window.open(joinUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        setError(`Failed to join: ${err.message || 'Please try again.'}`);
+      }
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -322,9 +239,16 @@ const ClassroomLobby = () => {
                   <div className="flex items-center justify-center gap-2 text-sm font-bold text-success mb-1">
                     <span className="w-2 h-2 bg-success rounded-full animate-pulse"></span> Session Live Now
                   </div>
-                  <button onClick={handleSecureJoin} className="w-full py-4 bg-navy hover:bg-navy-light text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(15,23,42,0.15)] hover:shadow-[0_8px_25px_rgba(15,23,42,0.25)] hover:-translate-y-0.5 transition-all duration-300">
-                    <Video className="w-5 h-5" />
-                    Join Live Class
+                  <button
+                    onClick={handleSecureJoin}
+                    disabled={isJoining}
+                    className="w-full py-4 bg-navy hover:bg-navy-light text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(15,23,42,0.15)] hover:shadow-[0_8px_25px_rgba(15,23,42,0.25)] hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {isJoining ? (
+                      <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Joining...</>
+                    ) : (
+                      <><Video className="w-5 h-5" />Join Live Class</>
+                    )}
                   </button>
                 </>
               )}

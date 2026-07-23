@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
+import api from '../services/api';
 import { ArrowLeft, Video, Clock, ShieldCheck, AlertCircle, FileText, Megaphone, Calendar, Monitor, Users, CheckCircle, ListChecks, PlayCircle, BookOpen } from 'lucide-react';
 
 const ClassroomLobby = () => {
@@ -15,26 +16,6 @@ const ClassroomLobby = () => {
 
   useEffect(() => {
     document.title = "Classroom Lobby — TrueEd";
-    const saved = localStorage.getItem('trueed_teacher_classrooms');
-    if (!saved) {
-      setError("Classroom not found.");
-      setStatus({ state: 'unauthorized', message: 'Classroom not found.' });
-      return;
-    }
-
-    let allClassrooms = [];
-    try {
-      allClassrooms = JSON.parse(saved);
-    } catch (e) {
-      console.error("Failed to parse classrooms in lobby", e);
-    }
-    const room = allClassrooms.find(c => c?.id?.toString() === id?.toString());
-
-    if (!room) {
-      setError("Classroom not found.");
-      setStatus({ state: 'unauthorized', message: 'Classroom not found.' });
-      return;
-    }
 
     // Security Check: User is logged in
     if (!user) {
@@ -43,89 +24,211 @@ const ClassroomLobby = () => {
       return;
     }
 
-    // Security Check: Enrolled
-    const studentProfileStr = localStorage.getItem('trueed_student_profile');
-    const joinedRoomsStr = localStorage.getItem('trueed_student_joined_rooms');
-    
-    let isEnrolled = false;
-    
-    if (studentProfileStr) {
+    const fetchClassroom = async () => {
       try {
-        const profile = JSON.parse(studentProfileStr);
-        const enrolled = profile.enrolledClassrooms || [];
-        if (enrolled.some(c => c?.id?.toString() === id?.toString())) {
-          isEnrolled = true;
+        const res = await api.classroom.getDetail(id);
+        if (!res || !res.classroom) {
+          throw new Error("Classroom not found");
         }
-      } catch (e) {
-        console.error("Failed to parse student profile in lobby", e);
-      }
-    }
-    
-    if (joinedRoomsStr) {
-      try {
-        const joinedRooms = JSON.parse(joinedRoomsStr);
-        if (joinedRooms.some(c => c?.id?.toString() === id?.toString())) {
-          isEnrolled = true;
+
+        const c = res.classroom;
+        const enrollmentStatus = res.enrollmentStatus;
+
+        const isAuthorized = enrollmentStatus === 'enrolled' || enrollmentStatus === 'teacher_owner';
+        if (!isAuthorized) {
+          setError("You are not authorized to join this classroom. Please enroll first.");
+          setStatus({ state: 'unauthorized', message: 'You are not enrolled in this classroom.' });
+          return;
         }
-      } catch (e) {
-        console.error("Failed to parse joined rooms in lobby", e);
-      }
-    }
-    
-    if (!isEnrolled) {
-      setError("You are not authorized to join this classroom. Please enroll first.");
-      setStatus({ state: 'unauthorized', message: 'You are not enrolled in this classroom.' });
-      return;
-    }
 
-    setClassroom(room);
+        // Map backend classroom object to frontend structure expected by Lobby
+        const mappedRoom = {
+          ...c,
+          id: c._id || c.id,
+          name: c.title || c.name,
+          teacher: c.teacherId?.name || c.teacher || 'Teacher',
+          liveSettings: {
+            meetingLink: c.gmeetLink || (c.schedule && c.schedule[0]?.gmeetLink) || '',
+            accessTimeMinutes: 15
+          }
+        };
 
-    // Calculate Status
-    if (!room.liveSettings || !room.liveSettings.meetingLink) {
-      setStatus({ state: 'unconfigured', message: 'The teacher has not configured the live class link yet.' });
-      return;
-    }
+        // Determine startTime and endTime (e.g. check for today's slot)
+        const todayDay = new Date().getDay();
+        const todaySlot = c.schedule?.find(slot => slot.day === todayDay);
+        if (todaySlot) {
+          mappedRoom.startTime = todaySlot.startTime;
+          mappedRoom.endTime = todaySlot.endTime;
+          if (todaySlot.gmeetLink) {
+            mappedRoom.liveSettings.meetingLink = todaySlot.gmeetLink;
+          }
+        } else if (c.schedule && c.schedule.length > 0) {
+          mappedRoom.startTime = c.schedule[0].startTime;
+          mappedRoom.endTime = c.schedule[0].endTime;
+        }
 
-    setJoinUrl(room.liveSettings.meetingLink);
+        setClassroom(mappedRoom);
+        setJoinUrl(mappedRoom.liveSettings.meetingLink);
 
-    const checkTime = () => {
-      const now = new Date();
-      
-      if (!room.startTime || !room.endTime) {
-        setStatus({ state: 'active', message: 'Session is Live' });
-        return;
-      }
+        const checkTime = () => {
+          const now = new Date();
+          
+          if (!mappedRoom.startTime || !mappedRoom.endTime) {
+            setStatus({ state: 'active', message: 'Session is Live' });
+            return;
+          }
 
-      const parseTimeToDate = (timeStr) => {
-        const d = new Date();
-        if (!timeStr || typeof timeStr !== 'string') return d;
-        const parts = timeStr.split(':');
-        if (parts.length < 2) return d;
-        const [h, m] = parts;
-        d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
-        return d;
-      };
+          const parseTimeToDate = (timeStr) => {
+            const d = new Date();
+            if (!timeStr || typeof timeStr !== 'string') return d;
+            const parts = timeStr.split(':');
+            if (parts.length < 2) return d;
+            const [h, m] = parts;
+            d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+            return d;
+          };
 
-      const startDate = parseTimeToDate(room.startTime);
-      const endDate = parseTimeToDate(room.endTime);
-      const accessMinutes = room.liveSettings.accessTimeMinutes || 15;
-      
-      const accessTime = new Date(startDate.getTime() - accessMinutes * 60000);
+          const startDate = parseTimeToDate(mappedRoom.startTime);
+          const endDate = parseTimeToDate(mappedRoom.endTime);
+          const accessMinutes = mappedRoom.liveSettings.accessTimeMinutes || 15;
+          
+          const accessTime = new Date(startDate.getTime() - accessMinutes * 60000);
 
-      if (now > endDate) {
-        setStatus({ state: 'ended', message: 'Session has ended for today.' });
-      } else if (now < accessTime) {
-        const diffMs = accessTime - now;
-        const diffMins = Math.ceil(diffMs / 60000);
-        setStatus({ state: 'waiting', message: `Join Available In ${diffMins} Minute${diffMins > 1 ? 's' : ''}` });
-      } else {
-        setStatus({ state: 'active', message: 'Session Starts In a few minutes / is live' });
+          if (now > endDate) {
+            setStatus({ state: 'ended', message: 'Session has ended for today.' });
+          } else if (now < accessTime) {
+            const diffMs = accessTime - now;
+            const diffMins = Math.ceil(diffMs / 60000);
+            setStatus({ state: 'waiting', message: `Join Available In ${diffMins} Minute${diffMins > 1 ? 's' : ''}` });
+          } else {
+            setStatus({ state: 'active', message: 'Session Starts In a few minutes / is live' });
+          }
+        };
+
+        checkTime();
+        const interval = setInterval(checkTime, 60000);
+        return interval;
+      } catch (err) {
+        console.error("Failed to load classroom details from API", err);
+        return loadFromLocalStorage();
       }
     };
 
-    checkTime();
-    const interval = setInterval(checkTime, 60000); // Check every minute
-    return () => clearInterval(interval);
+    let intervalId;
+
+    const loadFromLocalStorage = () => {
+      const saved = localStorage.getItem('trueed_teacher_classrooms');
+      if (!saved) {
+        setError("Classroom not found.");
+        setStatus({ state: 'unauthorized', message: 'Classroom not found.' });
+        return;
+      }
+
+      let allClassrooms = [];
+      try {
+        allClassrooms = JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse classrooms in lobby", e);
+      }
+      const room = allClassrooms.find(c => c?.id?.toString() === id?.toString());
+
+      if (!room) {
+        setError("Classroom not found.");
+        setStatus({ state: 'unauthorized', message: 'Classroom not found.' });
+        return;
+      }
+
+      // Security Check: Enrolled
+      const studentProfileStr = localStorage.getItem('trueed_student_profile');
+      const joinedRoomsStr = localStorage.getItem('trueed_student_joined_rooms');
+      
+      let isEnrolled = false;
+      
+      if (studentProfileStr) {
+        try {
+          const profile = JSON.parse(studentProfileStr);
+          const enrolled = profile.enrolledClassrooms || [];
+          if (enrolled.some(c => c?.id?.toString() === id?.toString())) {
+            isEnrolled = true;
+          }
+        } catch (e) {
+          console.error("Failed to parse student profile in lobby", e);
+        }
+      }
+      
+      if (joinedRoomsStr) {
+        try {
+          const joinedRooms = JSON.parse(joinedRoomsStr);
+          if (joinedRooms.some(c => c?.id?.toString() === id?.toString())) {
+            isEnrolled = true;
+          }
+        } catch (e) {
+          console.error("Failed to parse joined rooms in lobby", e);
+        }
+      }
+      
+      if (user.role === 'teacher') {
+        isEnrolled = true;
+      }
+
+      if (!isEnrolled) {
+        setError("You are not authorized to join this classroom. Please enroll first.");
+        setStatus({ state: 'unauthorized', message: 'You are not enrolled in this classroom.' });
+        return;
+      }
+
+      setClassroom(room);
+      if (room.liveSettings && room.liveSettings.meetingLink) {
+        setJoinUrl(room.liveSettings.meetingLink);
+      }
+
+      const checkTime = () => {
+        const now = new Date();
+        
+        if (!room.startTime || !room.endTime) {
+          setStatus({ state: 'active', message: 'Session is Live' });
+          return;
+        }
+
+        const parseTimeToDate = (timeStr) => {
+          const d = new Date();
+          if (!timeStr || typeof timeStr !== 'string') return d;
+          const parts = timeStr.split(':');
+          if (parts.length < 2) return d;
+          const [h, m] = parts;
+          d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+          return d;
+        };
+
+        const startDate = parseTimeToDate(room.startTime);
+        const endDate = parseTimeToDate(room.endTime);
+        const accessMinutes = room.liveSettings.accessTimeMinutes || 15;
+        
+        const accessTime = new Date(startDate.getTime() - accessMinutes * 60000);
+
+        if (now > endDate) {
+          setStatus({ state: 'ended', message: 'Session has ended for today.' });
+        } else if (now < accessTime) {
+          const diffMs = accessTime - now;
+          const diffMins = Math.ceil(diffMs / 60000);
+          setStatus({ state: 'waiting', message: `Join Available In ${diffMins} Minute${diffMins > 1 ? 's' : ''}` });
+        } else {
+          setStatus({ state: 'active', message: 'Session Starts In a few minutes / is live' });
+        }
+      };
+
+      checkTime();
+      const interval = setInterval(checkTime, 60000);
+      return interval;
+    };
+
+    fetchClassroom().then(id => {
+      if (id) intervalId = id;
+    });
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
 
   }, [id, user]);
 

@@ -4,7 +4,10 @@ import { Classroom, User } from './models/index.js';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Alex:TrueEd-CTO-McDominey@app.chrwoqk.mongodb.net/app';
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  throw new Error("MONGODB_URI environment variable is required");
+}
 
 async function check() {
   await mongoose.connect(MONGODB_URI, { dbName: 'app' });

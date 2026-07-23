@@ -6,6 +6,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { tutors } from '../data/tutors';
 import ReviewModal from '../components/shared/ReviewModal';
 import TeacherAvatar from '../components/shared/TeacherAvatar';
+import api from '../services/api';
 
 const StudentClassroomDetails = () => {
   const { classroomId } = useParams();
@@ -34,35 +35,53 @@ const StudentClassroomDetails = () => {
     const loadClassroom = async () => {
       setIsLoading(true);
       let found = null;
-      const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
-      if (classroomsRaw) {
-        try {
-          const classrooms = JSON.parse(classroomsRaw);
-          found = classrooms.find(c => (c?._id || c?.id)?.toString() === classroomId?.toString());
-        } catch (err) {
-          console.error("Error parsing classrooms:", err);
+      
+      // Try backend first
+      try {
+        const res = await api.classroom.getDetail(classroomId);
+        if (res) {
+          const c = res.classroom || res;
+          found = {
+            id: c._id || c.id,
+            name: c.title || c.name || 'Classroom Details',
+            teacher: c.teacherId?.name || c.teacherName || 'Tutor',
+            subject: c.subject || 'General Education',
+            price: (c.feesPaise || 150000) / 100,
+            description: c.description || '',
+            schedule: c.schedule || [],
+            mode: c.mode || 'online',
+            scheduleDays: c.schedule ? c.schedule.map(s => {
+              const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+              return days[s.day];
+            }).filter(Boolean) : [],
+            startTime: c.schedule?.[0]?.startTime || '',
+            endTime: c.schedule?.[0]?.endTime || '',
+            startDate: c.startDate,
+            endDate: c.endDate,
+            students: c.stats?.enrolledStudents || 0,
+            maxStudents: c.maxStudents,
+            unlimitedStudents: false
+          };
+          if (c.teacherId) setTeacher(c.teacherId);
+          
+          if (res.enrollmentStatus === 'enrolled' || res.enrollmentStatus === 'teacher_owner') {
+            setIsEnrolled(true);
+          }
         }
+      } catch (err) {
+        console.warn("API classroom fetch error:", err);
       }
 
+      // Fallback to local storage if not found on backend
       if (!found) {
-        try {
-          const res = await api.classroom.getDetail(classroomId).catch(() => null);
-          if (res) {
-            const c = res.classroom || res;
-            found = {
-              id: c._id || c.id,
-              name: c.title || c.name || 'Classroom Details',
-              teacher: c.teacherId?.name || c.teacherName || 'Tutor',
-              subject: c.subject || 'General Education',
-              price: (c.feesPaise || 150000) / 100,
-              description: c.description || '',
-              schedule: c.schedule || [],
-              mode: c.mode || 'online',
-            };
-            if (c.teacherId) setTeacher(c.teacherId);
+        const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
+        if (classroomsRaw) {
+          try {
+            const classrooms = JSON.parse(classroomsRaw);
+            found = classrooms.find(c => (c?._id || c?.id)?.toString() === classroomId?.toString());
+          } catch (err) {
+            console.error("Error parsing classrooms:", err);
           }
-        } catch (err) {
-          console.warn("API classroom fetch error:", err);
         }
       }
 
@@ -75,9 +94,10 @@ const StudentClassroomDetails = () => {
         }
       }
     };
+
     loadClassroom();
 
-    // Check enrollment status
+    // Check enrollment status local storage fallback
     const studentProfileStr = localStorage.getItem('trueed_student_profile');
     if (studentProfileStr) {
       try {

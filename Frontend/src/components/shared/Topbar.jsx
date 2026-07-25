@@ -1,23 +1,31 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import api from '../../services/api';
 import { useOverlay, useOverlayRefs } from '../../contexts/OverlayContext';
-import { Search, Bell, X, Menu, CheckCircle, Calendar, CreditCard, MessageSquare, Check, CheckCheck } from 'lucide-react';
+import { Search, Bell, X, Menu, CheckCircle, Calendar, CreditCard, MessageSquare, Check, CheckCheck, BookOpen } from 'lucide-react';
 import TeacherAvatar from './TeacherAvatar';
 
-const dummyTeachers = [
-  { id: 1, name: 'Kavita Verma', subject: 'Mathematics', city: 'Bangalore' },
-  { id: 2, name: 'Arun Singh', subject: 'Physics', city: 'Delhi' },
-  { id: 3, name: 'Sneha R', subject: 'English', city: 'Mumbai' },
-  { id: 4, name: 'Rahul Sharma', subject: 'Chemistry', city: 'Pune' },
-  { id: 5, name: 'Priya Patel', subject: 'Biology', city: 'Ahmedabad' },
-  { id: 6, name: 'Amit Kumar', subject: 'Computer Science', city: 'Hyderabad' },
-  { id: 7, name: 'Neha Gupta', subject: 'Hindi', city: 'Lucknow' },
-  { id: 8, name: 'Vikram Joshi', subject: 'Mathematics', city: 'Jaipur' },
-  { id: 9, name: 'Anjali Desai', subject: 'Physics', city: 'Surat' },
-  { id: 10, name: 'Sanjay Reddy', subject: 'English', city: 'Chennai' }
-];
+// ── Bug Fix: getNotificationIcon was used but never defined — caused ErrorBoundary crash ──
+const getNotificationIcon = (type) => {
+  switch (type) {
+    case 'query_enrolled':
+    case 'accepted':
+      return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+    case 'payment':
+    case 'payout':
+      return <CreditCard className="w-4 h-4 text-sky-500" />;
+    case 'reminder':
+    case 'class_starting':
+      return <Calendar className="w-4 h-4 text-amber-500" />;
+    case 'reply':
+    case 'doubt_answered':
+      return <MessageSquare className="w-4 h-4 text-purple-500" />;
+    case 'announcement':
+    default:
+      return <Bell className="w-4 h-4 text-indigo-500" />;
+  }
+};
 
 const Topbar = ({ onMenuClick }) => {
   const { user } = useAuth();
@@ -27,6 +35,9 @@ const Topbar = ({ onMenuClick }) => {
   const sanitize = (str) => str.replace(/<[^>]*>/g, '');
 
   const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchDebounceRef = useRef(null);
   
   const { activeOverlayId, toggleOverlay, closeOverlay } = useOverlay();
   const notifRefs = useOverlayRefs('topbar-notif');
@@ -38,16 +49,22 @@ const Topbar = ({ onMenuClick }) => {
   useEffect(() => {
     const fetchNotifs = async () => {
       try {
-        const res = await api.notification.getAll().catch(() => []);
-        const list = Array.isArray(res) ? res : (res?.docs || res?.notifications || []);
+        const res = await api.notification.getAll().catch(() => null);
+        if (!res) return;
+        // Bug Fix: also check res?.results (paginated key from backend)
+        const list = Array.isArray(res)
+          ? res
+          : (res?.docs || res?.results || res?.notifications || []);
         if (list.length > 0) {
           const mapped = list.map(n => ({
             id: n._id || n.id,
             type: n.type || 'announcement',
             text: n.message || n.title || n.text || 'New notification',
-            time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+            time: n.createdAt
+              ? new Date(n.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+              : 'Recently',
             isRead: !!n.isRead,
-            link: n.link || (user?.role === 'teacher' ? '/teacher/queries' : '/student/my-queries'),
+            link: n.data?.url || (user?.role === 'teacher' ? '/teacher/queries' : '/student/my-queries'),
           }));
           setNotifications(mapped);
         } else {
@@ -76,48 +93,126 @@ const Topbar = ({ onMenuClick }) => {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const filtered = query.trim() === '' ? [] : dummyTeachers.filter(t => 
-    t.name.toLowerCase().includes(query.toLowerCase()) || 
-    t.subject.toLowerCase().includes(query.toLowerCase())
-  );
+  // ── Bug Fix: Real API search with debounce (was using static dummyTeachers array) ──
+  const doSearch = useCallback(async (q) => {
+    if (!q || q.trim().length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const res = await api.classroom.search(q.trim());
+      const docs = Array.isArray(res)
+        ? res
+        : (res?.results || res?.docs || res?.classrooms || []);
+      setSearchResults(docs.slice(0, 8));
+    } catch (err) {
+      console.warn('Search failed:', err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (query.trim() !== '') {
-      if (activeOverlayId !== 'topbar-search' && activeOverlayId !== 'topbar-mobile-search') {
-         // Optionally auto open search dropdown if they type, but toggleOverlay handles this if they focus
-      }
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
     }
-  }, [query]);
+    setSearchLoading(true);
+    searchDebounceRef.current = setTimeout(() => doSearch(query), 400);
+    return () => clearTimeout(searchDebounceRef.current);
+  }, [query, doSearch]);
 
-  const handleResultClick = (subject) => {
+  const handleResultClick = (classroom) => {
     setQuery('');
+    setSearchResults([]);
     closeOverlay();
-    navigate(`/student/discover?subject=${encodeURIComponent(subject)}`);
+    // Navigate to the actual classroom detail or discover filtered by subject
+    if (classroom?._id) {
+      navigate(`/classroom/${classroom._id}`);
+    } else if (classroom?.subject) {
+      navigate(`/student/discover?subject=${encodeURIComponent(classroom.subject)}`);
+    }
+  };
+
+  const handleSearchSubmit = (e) => {
+    if (e.key === 'Enter' && query.trim()) {
+      setQuery('');
+      setSearchResults([]);
+      closeOverlay();
+      navigate(`/student/discover?q=${encodeURIComponent(query.trim())}`);
+    }
+  };
+
+  const formatFee = (paise) => {
+    if (!paise) return '';
+    return `₹${Math.round(paise / 100).toLocaleString('en-IN')}/mo`;
   };
 
   const SearchDropdown = ({ isMobile }) => {
-    if (!query || (isMobile ? activeOverlayId !== 'topbar-mobile-search' : activeOverlayId !== 'topbar-search')) return null;
+    const isActive = isMobile
+      ? activeOverlayId === 'topbar-mobile-search'
+      : activeOverlayId === 'topbar-search';
+    if (!query || !isActive) return null;
     return (
-      <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden py-2 z-50 animate-slide-up-sm">
-        <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Results</p>
-        {filtered.length > 0 ? (
-          filtered.map(t => (
+      <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden py-2 z-50 animate-slide-up-sm max-h-96 overflow-y-auto">
+        <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          {searchLoading ? 'Searching...' : searchResults.length > 0 ? `${searchResults.length} result${searchResults.length > 1 ? 's' : ''}` : 'No results'}
+        </p>
+        {searchLoading ? (
+          <div className="px-4 py-4 flex items-center justify-center gap-2 text-slate-400">
+            <span className="w-4 h-4 border-2 border-slate-300 border-t-navy rounded-full animate-spin" />
+            <span className="text-sm font-medium">Searching...</span>
+          </div>
+        ) : searchResults.length > 0 ? (
+          searchResults.map(c => (
             <button
-              key={t.id}
-              onClick={() => handleResultClick(t.subject)}
-              className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition flex flex-col group"
+              key={c._id || c.id}
+              onClick={() => handleResultClick(c)}
+              className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition flex items-start gap-3 group"
             >
-              <span className="font-semibold text-sm text-navy group-hover:text-sky transition-colors">{t.name}</span>
-              <span className="text-xs text-muted font-medium flex items-center gap-1.5 mt-0.5">
-                <span className="bg-sky/10 text-sky px-1.5 py-0.5 rounded text-[10px]">{t.subject}</span>
-                <span>·</span>
-                <i className="fa-solid fa-location-dot text-[10px]" /> {t.city}
-              </span>
+              <div className="w-8 h-8 rounded-lg bg-sky/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <BookOpen className="w-4 h-4 text-sky" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="font-semibold text-sm text-navy group-hover:text-sky transition-colors block truncate">
+                  {c.title}
+                </span>
+                <span className="text-xs text-muted font-medium flex items-center gap-1.5 mt-0.5">
+                  <span className="bg-sky/10 text-sky px-1.5 py-0.5 rounded text-[10px]">{c.subject}</span>
+                  {c.teacherId?.name && (
+                    <>
+                      <span>·</span>
+                      <span>{c.teacherId.name}</span>
+                    </>
+                  )}
+                  {c.feesPaise && (
+                    <>
+                      <span>·</span>
+                      <span className="text-emerald-600 font-bold">{formatFee(c.feesPaise)}</span>
+                    </>
+                  )}
+                </span>
+              </div>
             </button>
           ))
-        ) : (
+        ) : query.length >= 2 ? (
           <div className="px-4 py-4 text-center text-sm text-muted">
             No results found for "<span className="font-semibold text-navy">{query}</span>"
+            <button
+              onClick={() => { navigate(`/student/discover?q=${encodeURIComponent(query)}`); setQuery(''); closeOverlay(); }}
+              className="block mt-2 text-xs text-sky font-bold mx-auto hover:underline"
+            >
+              Browse all classrooms →
+            </button>
+          </div>
+        ) : (
+          <div className="px-4 py-3 text-center text-sm text-muted">
+            Type at least 2 characters to search
           </div>
         )}
       </div>
@@ -145,9 +240,9 @@ const Topbar = ({ onMenuClick }) => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 peer-focus:text-navy transition-colors pointer-events-none" />
           <input
             type="text"
-            placeholder="Search subjects, teachers..."
+            placeholder="Search subjects, classrooms..."
             value={query}
-            maxLength={50}
+            maxLength={80}
             onFocus={() => {
                if (activeOverlayId !== 'topbar-search') toggleOverlay('topbar-search');
             }}
@@ -155,10 +250,11 @@ const Topbar = ({ onMenuClick }) => {
                setQuery(sanitize(e.target.value));
                if (activeOverlayId !== 'topbar-search') toggleOverlay('topbar-search');
             }}
+            onKeyDown={handleSearchSubmit}
             className="peer w-full bg-slate-100 border-2 border-transparent focus:bg-white focus:border-navy rounded-full py-2 pl-9 pr-9 text-sm text-navy font-medium outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy p-1">
+            <button onClick={() => { setQuery(''); setSearchResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy p-1">
               <X className="w-4 h-4" />
             </button>
           )}
@@ -185,7 +281,7 @@ const Topbar = ({ onMenuClick }) => {
             onClick={() => toggleOverlay('topbar-notif')}
           >
             <Bell className="w-5 h-5 group-hover:animate-shake" />
-            {notifications.length > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border border-white" />
             )}
           </button>
@@ -202,7 +298,7 @@ const Topbar = ({ onMenuClick }) => {
                 {notifications.length > 0 ? (
                   notifications.map(n => (
                     <div key={n.id} className={`px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition flex gap-3 ${!n.isRead ? 'bg-sky-50/30' : ''}`}>
-                      <div className="mt-0.5 shrink-0">
+                      <div className="mt-0.5 shrink-0 w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
                         {getNotificationIcon(n.type)}
                       </div>
                       <div className="flex-1">
@@ -263,20 +359,21 @@ const Topbar = ({ onMenuClick }) => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search classrooms, subjects..."
               value={query}
-              maxLength={50}
+              maxLength={80}
               onChange={(e) => setQuery(sanitize(e.target.value))}
+              onKeyDown={handleSearchSubmit}
               className="w-full bg-slate-100 border-2 border-transparent focus:bg-white focus:border-navy rounded-full py-2 pl-9 pr-8 text-sm text-navy font-medium outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
             />
             {query && (
-              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy">
+              <button onClick={() => { setQuery(''); setSearchResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy">
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
           <button 
-            onClick={() => { closeOverlay(); setQuery(''); }}
+            onClick={() => { closeOverlay(); setQuery(''); setSearchResults([]); }}
             className="px-3 text-sm font-semibold text-slate-500 hover:text-navy"
           >
             Cancel

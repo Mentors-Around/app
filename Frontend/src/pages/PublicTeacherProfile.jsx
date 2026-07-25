@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Share2, Heart, CheckCircle2, MapPin, Star, Calendar, Monitor, Award, BookOpen, Clock, AlertCircle } from 'lucide-react';
+import { Share2, Heart, CheckCircle2, MapPin, Star, Calendar, Monitor, Award, BookOpen, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { tutors } from '../data/tutors';
 import TutorCard from '../components/shared/TutorCard';
 import TeacherAvatar from '../components/shared/TeacherAvatar';
 import useAuth from '../hooks/useAuth';
 import { useWallet } from '../contexts/WalletContext';
+import api from '../services/api';
 
 const getSubjectColor = (subject) => {
   const s = subject.toLowerCase();
@@ -42,16 +43,60 @@ const PublicTeacherProfile = () => {
   const [querySuccessToast, setQuerySuccessToast] = useState(false);
   const { tokens, requireTokens } = useWallet();
 
+  // ── API-first profile loading ───────────────────────────────────────────────
+  // Security: backend already strips phone, email, bankAccount, aadhaarNumber,
+  // kycDocumentIds from the public profile response.
+  const [apiProfile, setApiProfile] = useState(null);
+  const [apiClassrooms, setApiClassrooms] = useState([]);
+  const [apiLoading, setApiLoading] = useState(true);
+
+  // Try loading from real backend first; fall back to static tutors data for demos
   const tutorData = tutors.find(t => t.id.toString() === profileId);
 
-  // Scroll to top on mount and update title
   useEffect(() => {
     window.scrollTo(0, 0);
-    const rawName = tutorData ? tutorData.name : (teacherId ? teacherId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Teacher Name');
-    document.title = rawName + ' — TrueEd';
-  }, [profileId, tutorData, teacherId]);
+    const fetchApiProfile = async () => {
+      setApiLoading(true);
+      try {
+        // Only attempt API fetch if profileId looks like a MongoDB ObjectId
+        if (profileId && /^[a-f0-9]{24}$/i.test(profileId)) {
+          const res = await api.teacher.getPublicProfile(profileId);
+          if (res && res.user) {
+            setApiProfile(res);
+            setApiClassrooms(res.classrooms || []);
+            document.title = (res.user?.name || 'Teacher') + ' — TrueEd';
+          }
+        } else {
+          // Static demo tutor — use tutorData
+          const rawName = tutorData ? tutorData.name : 'Teacher';
+          document.title = rawName + ' — TrueEd';
+        }
+      } catch (err) {
+        console.warn('Could not load teacher API profile:', err.message);
+        // Fall through to static data
+        const rawName = tutorData ? tutorData.name : 'Teacher';
+        document.title = rawName + ' — TrueEd';
+      } finally {
+        setApiLoading(false);
+      }
+    };
+    fetchApiProfile();
+  }, [profileId]);
 
-  if (!tutorData) {
+  // Show loading state while fetching from API
+  if (apiLoading && /^[a-f0-9]{24}$/i.test(profileId)) {
+    return (
+      <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-sky" />
+          <p className="font-bold text-sm">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If it's a MongoDB ID but no profile was found, and no static tutorData either
+  if (!apiProfile && !tutorData) {
     return (
       <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
         <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200 text-center max-w-md w-full">
@@ -68,21 +113,34 @@ const PublicTeacherProfile = () => {
     );
   }
 
+  // ── Merge API data with static fallback (API takes priority) ──────────────
+  // IMPORTANT: We NEVER display phone, email, bank account, or KYC details.
+  // The backend already strips them server-side — this is a defence-in-depth check.
+  const apiUser = apiProfile?.user || {};
+  const apiProf = apiProfile?.profile || {};
+  const apiStats = apiProfile?.stats || {};
+
   const teacher = {
-    name: tutorData.name || 'Unknown Teacher',
-    initials: tutorData.initials || '?',
-    subject: tutorData.subject || 'Not specified',
-    location: tutorData.location || 'Not specified',
-    rating: tutorData.rating || 0, // Fallback if no reviews
-    reviews: tutorData.reviews || 0,
-    rate: tutorData.price || 0,
-    experience: tutorData.experience || 'Not specified',
-    mode: tutorData.mode || 'Not specified',
-    verified: tutorData.verified || false,
-    bio: tutorData.bio || "No description provided.",
-    boards: tutorData.tags || [],
-    languages: tutorData.languages || [],
-    achievements: tutorData.achievements || [],
+    name: apiUser.name || tutorData?.name || 'Unknown Teacher',
+    initials: (() => {
+      const n = apiUser.name || tutorData?.name || '';
+      const parts = n.trim().split(/\s+/);
+      return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (parts[0]?.[0] || '?').toUpperCase();
+    })(),
+    subject: (apiProf.subjects?.[0]) || tutorData?.subject || 'Not specified',
+    subjects: apiProf.subjects || (tutorData?.subject ? [tutorData.subject] : []),
+    location: [apiUser.city, apiUser.state].filter(Boolean).join(', ') || tutorData?.location || 'Not specified',
+    rating: apiStats.avgRating || tutorData?.rating || 0,
+    reviews: apiStats.totalReviews || tutorData?.reviews || 0,
+    experience: apiProf.experienceYears ? `${apiProf.experienceYears} years` : (tutorData?.experience || 'Not specified'),
+    mode: tutorData?.mode || 'Online',
+    verified: apiProf.verificationStatus === 'approved' || tutorData?.verified || false,
+    bio: apiProf.bio || tutorData?.bio || 'No bio available.',
+    headline: apiProf.headline || tutorData?.headline || '',
+    boards: apiProf.subjects || tutorData?.tags || [],
+    languages: apiProf.languages || tutorData?.languages || [],
+    achievements: tutorData?.achievements || [],
+    // NOTE: phone, email, bankAccount, aadhaarNumber are intentionally excluded
   };
 
   const [actualReviews, setActualReviews] = useState([]);

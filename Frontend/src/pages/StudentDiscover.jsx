@@ -236,12 +236,16 @@ const StudentDiscover = () => {
 
   useEffect(() => {
     const sub = searchParams.get('subject');
+    const q = searchParams.get('q');
     if (sub) {
       setFilters(prev => ({ 
         ...prev, 
         subjects: [sub]
       }));
       setSearchQuery(sub);
+    } else if (q) {
+      // Handle full-text search redirects from Topbar
+      setSearchQuery(q);
     }
   }, [searchParams]);
 

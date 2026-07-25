@@ -22,18 +22,34 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  const getGroupLabel = (dateStr) => {
+    if (!dateStr) return 'Earlier';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    return 'Earlier';
+  };
+
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res = await api.notification.getAll().catch(() => []);
-      const list = Array.isArray(res) ? res : (res?.docs || res?.notifications || []);
+      const res = await api.notification.getAll().catch(() => null);
+      if (!res) { setNotifications([]); return; }
+      // Fix: backend paginates under 'results' key, also check 'docs' as fallback
+      const list = Array.isArray(res)
+        ? res
+        : (res?.results || res?.docs || res?.notifications || []);
       const mapped = list.map(n => ({
         id: n._id || n.id,
         type: n.type || 'announcement',
         title: n.title || 'Notification',
         text: n.message || n.text || '',
-        time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : 'Recently',
-        group: 'Today',
+        time: n.createdAt
+          ? new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+          : 'Recently',
+        group: getGroupLabel(n.createdAt),
         isRead: !!n.isRead,
       }));
       setNotifications(mapped);

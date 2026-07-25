@@ -1,8 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
-import { ArrowLeft, Video, Clock, ShieldCheck, AlertCircle, FileText, Megaphone, Calendar, Monitor, Users, CheckCircle, ListChecks, PlayCircle, BookOpen } from 'lucide-react';
+import {
+  ArrowLeft, Video, Clock, ShieldCheck, AlertCircle, FileText,
+  Megaphone, Calendar, Monitor, Users, CheckCircle, ListChecks,
+  BookOpen, MapPin, Loader2, Pin, ChevronRight,
+} from 'lucide-react';
+
+// ── Day number → name (JS getDay: 0=Sun, 1=Mon ... 6=Sat) ─────────────────────
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Compute the next N upcoming sessions from a schedule array
+const getUpcomingSessions = (schedule, n = 3) => {
+  if (!schedule || schedule.length === 0) return [];
+  const today = new Date();
+  const todayDay = today.getDay(); // 0-6
+  const sessions = [];
+  for (let offset = 0; offset < 14; offset++) {
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + offset);
+    const targetDay = targetDate.getDay();
+    const slot = schedule.find(s => Number(s.day) === targetDay);
+    if (slot) {
+      sessions.push({
+        date: targetDate,
+        day: offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : DAY_NAMES[targetDay],
+        dateLabel: targetDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        isToday: offset === 0,
+      });
+      if (sessions.length >= n) break;
+    }
+  }
+  return sessions;
+};
+
+// ── Material type → display config ─────────────────────────────────────────────
+const MATERIAL_CONFIG = {
+  pdf:          { label: 'PDF Notes',           icon: <FileText className="w-5 h-5" />,  color: 'bg-red-50 text-red-600 border-red-100' },
+  presentation: { label: 'Presentation Slides', icon: <Monitor className="w-5 h-5" />,   color: 'bg-amber-50 text-amber-600 border-amber-100' },
+  assignment:   { label: 'Assignments',          icon: <ListChecks className="w-5 h-5" />, color: 'bg-purple-50 text-purple-600 border-purple-100' },
+  reference:    { label: 'Reference Material',   icon: <BookOpen className="w-5 h-5" />,  color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+  other:        { label: 'Other Files',          icon: <FileText className="w-5 h-5" />,  color: 'bg-slate-50 text-slate-600 border-slate-200' },
+};
 
 const ClassroomLobby = () => {
   const { id } = useParams();
@@ -11,13 +54,18 @@ const ClassroomLobby = () => {
   
   const [classroom, setClassroom] = useState(null);
   const [error, setError] = useState('');
-  const [status, setStatus] = useState({ state: 'loading', message: '' }); // states: loading, waiting, active, ended, unauthorized, unconfigured
+  const [status, setStatus] = useState({ state: 'loading', message: '' });
   const [joinUrl, setJoinUrl] = useState('');
+
+  // Resource sections from API
+  const [materials, setMaterials] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [studentProgress, setStudentProgress] = useState(null);
+  const [loadingResources, setLoadingResources] = useState(true);
 
   useEffect(() => {
     document.title = "Classroom Lobby — TrueEd";
 
-    // Security Check: User is logged in
     if (!user) {
       setError("You must be logged in to join this classroom.");
       setStatus({ state: 'unauthorized', message: 'Please log in to continue.' });
@@ -41,21 +89,25 @@ const ClassroomLobby = () => {
           return;
         }
 
-        // Map backend classroom object to frontend structure expected by Lobby
+        // Save student progress from enrollment data
+        if (res.studentProgress) {
+          setStudentProgress(res.studentProgress);
+        }
+
         const mappedRoom = {
           ...c,
           id: c._id || c.id,
           name: c.title || c.name,
           teacher: c.teacherId?.name || c.teacher || 'Teacher',
           liveSettings: {
-            meetingLink: c.gmeetLink || (c.schedule && c.schedule[0]?.gmeetLink) || '',
-            accessTimeMinutes: 15
-          }
+            meetingLink: c.gmeetLink || '',
+            accessTimeMinutes: c.accessTimeMinutes || 15,
+          },
         };
 
-        // Determine startTime and endTime (e.g. check for today's slot)
+        // Find today's schedule slot
         const todayDay = new Date().getDay();
-        const todaySlot = c.schedule?.find(slot => slot.day === todayDay);
+        const todaySlot = c.schedule?.find(slot => Number(slot.day) === todayDay);
         if (todaySlot) {
           mappedRoom.startTime = todaySlot.startTime;
           mappedRoom.endTime = todaySlot.endTime;
@@ -63,18 +115,30 @@ const ClassroomLobby = () => {
             mappedRoom.liveSettings.meetingLink = todaySlot.gmeetLink;
           }
         } else if (c.schedule && c.schedule.length > 0) {
-          mappedRoom.startTime = c.schedule[0].startTime;
-          mappedRoom.endTime = c.schedule[0].endTime;
+          // Show next scheduled slot's time
+          const upcoming = getUpcomingSessions(c.schedule, 1);
+          if (upcoming.length > 0) {
+            mappedRoom.startTime = upcoming[0].startTime;
+            mappedRoom.endTime = upcoming[0].endTime;
+          }
         }
 
         setClassroom(mappedRoom);
         setJoinUrl(mappedRoom.liveSettings.meetingLink);
 
+        // Time check logic
         const checkTime = () => {
           const now = new Date();
+          const isOffline = c.mode === 'offline';
+
+          if (isOffline) {
+            setStatus({ state: 'offline', message: 'Offline Classroom' });
+            return;
+          }
           
-          if (!mappedRoom.startTime || !mappedRoom.endTime) {
-            setStatus({ state: 'active', message: 'Session is Live' });
+          if (!mappedRoom.startTime || !mappedRoom.endTime || !todaySlot) {
+            // No class today
+            setStatus({ state: 'no_class_today', message: 'No class scheduled today.' });
             return;
           }
 
@@ -91,40 +155,75 @@ const ClassroomLobby = () => {
           const startDate = parseTimeToDate(mappedRoom.startTime);
           const endDate = parseTimeToDate(mappedRoom.endTime);
           const accessMinutes = mappedRoom.liveSettings.accessTimeMinutes || 15;
-          
           const accessTime = new Date(startDate.getTime() - accessMinutes * 60000);
 
           if (now > endDate) {
-            setStatus({ state: 'ended', message: 'Session has ended for today.' });
+            setStatus({ state: 'ended', message: 'Session completed for today.' });
           } else if (now < accessTime) {
             const diffMs = accessTime - now;
             const diffMins = Math.ceil(diffMs / 60000);
-            setStatus({ state: 'waiting', message: `Join Available In ${diffMins} Minute${diffMins > 1 ? 's' : ''}` });
+            const hrs = Math.floor(diffMins / 60);
+            const mins = diffMins % 60;
+            const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min${mins > 1 ? 's' : ''}`;
+            setStatus({ state: 'waiting', message: `Join opens in ${timeStr}` });
           } else {
-            setStatus({ state: 'active', message: 'Session Starts In a few minutes / is live' });
+            setStatus({ state: 'active', message: 'Session is Live' });
           }
         };
 
         checkTime();
-        const interval = setInterval(checkTime, 60000);
+        const interval = setInterval(checkTime, 30000);
         return interval;
       } catch (err) {
         console.error('Failed to load classroom details from API:', err);
-        // If API fails, show a proper error state (don't fall back to localStorage for security)
         setError('Could not load classroom details. Please check your connection and try again.');
         setStatus({ state: 'unauthorized', message: 'Failed to load classroom.' });
       }
     };
 
     let intervalId;
-
-    fetchClassroom().then(intervalId_ => {
-      if (intervalId_) intervalId = intervalId_;
+    fetchClassroom().then(id_ => {
+      if (id_) intervalId = id_;
     });
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
+  }, [id, user]);
+
+  // Fetch materials & announcements once classroom is loaded
+  useEffect(() => {
+    if (!id || !user) return;
+    const fetchResources = async () => {
+      setLoadingResources(true);
+      try {
+        const [mRes, aRes] = await Promise.allSettled([
+          api.classroom.getMaterials(id),
+          api.classroom.getAnnouncements(id),
+        ]);
+
+        if (mRes.status === 'fulfilled' && mRes.value) {
+          const mData = mRes.value;
+          const mList = Array.isArray(mData)
+            ? mData
+            : (mData?.docs || mData?.results || mData?.materials || []);
+          setMaterials(mList);
+        }
+
+        if (aRes.status === 'fulfilled' && aRes.value) {
+          const aData = aRes.value;
+          const aList = Array.isArray(aData)
+            ? aData
+            : (aData?.docs || aData?.results || aData?.announcements || []);
+          setAnnouncements(aList);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch resources:', err);
+      } finally {
+        setLoadingResources(false);
+      }
+    };
+    fetchResources();
   }, [id, user]);
 
   const [isJoining, setIsJoining] = useState(false);
@@ -133,21 +232,18 @@ const ClassroomLobby = () => {
     if (status.state !== 'active') return;
     setIsJoining(true);
     try {
-      // POST to backend: marks attendance + returns meeting link
       const joinRes = await api.classroom.joinClass(id);
       const link = joinRes?.meetingLink || joinUrl;
       if (link) {
         window.open(link, '_blank', 'noopener,noreferrer');
       } else {
-        setError('No meeting link configured. Please ask your teacher to add one in Live Settings.');
+        setError('No meeting link configured. Please ask your teacher to add one in classroom settings.');
       }
     } catch (err) {
-      // If it's a 400 (not enrolled), show error; otherwise still allow join with cached URL
       if (err.status === 403 || err.status === 401) {
         setError('You are not authorized to join this class.');
         setStatus({ state: 'unauthorized', message: 'Not enrolled.' });
       } else if (joinUrl) {
-        // Attendance marking failed but we have a URL — allow join
         window.open(joinUrl, '_blank', 'noopener,noreferrer');
       } else {
         setError(`Failed to join: ${err.message || 'Please try again.'}`);
@@ -166,6 +262,24 @@ const ClassroomLobby = () => {
     return `${hours}:${m} ${ampm}`;
   };
 
+  // Compute upcoming sessions from schedule
+  const upcomingSessions = useMemo(
+    () => (classroom?.schedule ? getUpcomingSessions(classroom.schedule, 4) : []),
+    [classroom]
+  );
+
+  // Group materials by type
+  const materialsByType = useMemo(() => {
+    const groups = {};
+    materials.forEach(m => {
+      const type = m.type || 'other';
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(m);
+    });
+    return groups;
+  }, [materials]);
+
+  // ── Error / unauthorized state ─────────────────────────────────────────────
   if (error || status.state === 'unauthorized') {
     return (
       <div className="min-h-[70vh] flex items-center justify-center bg-[#FAFBFC] p-6">
@@ -183,7 +297,19 @@ const ClassroomLobby = () => {
     );
   }
 
-  if (!classroom) return <div className="p-8 text-center text-slate-500 font-bold">Loading Lobby...</div>;
+  if (!classroom) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-sky" />
+          <p className="font-bold text-sm">Loading Classroom...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isOffline = classroom.mode === 'offline';
+  const todayHasClass = upcomingSessions.length > 0 && upcomingSessions[0].isToday;
 
   return (
     <div className="min-h-screen bg-[#FAFBFC] pb-24 font-inter">
@@ -194,10 +320,16 @@ const ClassroomLobby = () => {
             <ArrowLeft className="w-4 h-4" /> Back to Classrooms
           </Link>
           <div className="flex items-center gap-3 mb-4">
-            <span className="px-3 py-1 bg-red-500/20 text-red-100 rounded-lg text-xs font-bold uppercase tracking-widest border border-red-500/20 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse"></span>
-              Live Classroom
-            </span>
+            {isOffline ? (
+              <span className="px-3 py-1 bg-amber-500/20 text-amber-100 rounded-lg text-xs font-bold uppercase tracking-widest border border-amber-500/20 flex items-center gap-1.5">
+                <MapPin className="w-3 h-3" /> Offline Classroom
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-red-500/20 text-red-100 rounded-lg text-xs font-bold uppercase tracking-widest border border-red-500/20 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse"></span>
+                Live Classroom
+              </span>
+            )}
             <span className="px-3 py-1 bg-white/10 text-white rounded-lg text-xs font-bold uppercase tracking-widest border border-white/10">
               {classroom.subject}
             </span>
@@ -223,18 +355,45 @@ const ClassroomLobby = () => {
               <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Today's Session</p>
               <div className="flex items-center gap-3 text-3xl font-sora font-extrabold text-navy">
                 <Clock className="w-7 h-7 text-sky" />
-                {classroom.startTime ? `${formatTime12hr(classroom.startTime)} – ${formatTime12hr(classroom.endTime)}` : 'Schedule TBD'}
+                {todayHasClass
+                  ? `${formatTime12hr(upcomingSessions[0].startTime)} – ${formatTime12hr(upcomingSessions[0].endTime)}`
+                  : classroom.startTime
+                    ? `${formatTime12hr(classroom.startTime)} – ${formatTime12hr(classroom.endTime)}`
+                    : 'No class today'}
               </div>
             </div>
             
             <div className="flex flex-col gap-3 min-w-[300px]">
-              {status.state === 'waiting' && (
+              {/* ── Offline class ── */}
+              {isOffline && (
+                <div className="w-full p-4 bg-amber-50 border border-amber-100 rounded-2xl text-center">
+                  <div className="flex items-center justify-center gap-2 text-amber-700 font-bold text-sm mb-2">
+                    <MapPin className="w-5 h-5" /> Offline Class
+                  </div>
+                  <p className="text-xs text-amber-600 font-medium">
+                    {classroom.offlineFacility?.address || 'Check with your teacher for the venue address.'}
+                  </p>
+                </div>
+              )}
+
+              {/* ── No class today ── */}
+              {!isOffline && status.state === 'no_class_today' && (
+                <div className="w-full py-4 bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-2xl flex items-center justify-center gap-2">
+                  <Calendar className="w-5 h-5 text-slate-400" />
+                  No class scheduled today
+                </div>
+              )}
+
+              {/* ── Waiting for access time ── */}
+              {!isOffline && status.state === 'waiting' && (
                 <button disabled className="w-full py-4 bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed">
                   <Clock className="w-5 h-5 text-slate-400" />
                   {status.message}
                 </button>
               )}
-              {status.state === 'active' && (
+
+              {/* ── Active — can join ── */}
+              {!isOffline && status.state === 'active' && (
                 <>
                   <div className="flex items-center justify-center gap-2 text-sm font-bold text-success mb-1">
                     <span className="w-2 h-2 bg-success rounded-full animate-pulse"></span> Session Live Now
@@ -252,34 +411,33 @@ const ClassroomLobby = () => {
                   </button>
                 </>
               )}
-              {status.state === 'ended' && (
-                <>
-                  <div className="text-center text-sm font-bold text-slate-500 mb-1">Session Completed</div>
-                  <button className="w-full py-4 bg-sky/10 text-sky-700 hover:bg-sky/20 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all">
-                    <PlayCircle className="w-5 h-5" />
-                    View Recording
-                  </button>
-                </>
-              )}
-              {status.state === 'unconfigured' && (
-                <button disabled className="w-full py-4 bg-red-50 text-red-500 font-bold rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed border border-red-100">
-                  Link Not Configured
-                </button>
+
+              {/* ── Session ended for today — NO recording button ── */}
+              {!isOffline && status.state === 'ended' && (
+                <div className="w-full py-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
+                    <CheckCircle className="w-5 h-5" /> Session Completed
+                  </div>
+                  <p className="text-xs text-emerald-600 font-medium">Today's class has ended. See you at the next session!</p>
+                </div>
               )}
             </div>
           </div>
           
-          <div className="flex items-center gap-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-            <div className="w-10 h-10 rounded-full bg-sky/10 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-5 h-5 text-sky" />
+          {/* Secure Join info — only show for online classes */}
+          {!isOffline && (
+            <div className="flex items-center gap-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+              <div className="w-10 h-10 rounded-full bg-sky/10 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-5 h-5 text-sky" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-navy">Secure Join</p>
+                <p className="text-xs font-medium text-slate-500 leading-relaxed mt-0.5">
+                  Meeting links are protected by TrueEd and never exposed publicly. Access is strictly authorized.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-navy">Secure Join</p>
-              <p className="text-xs font-medium text-slate-500 leading-relaxed mt-0.5">
-                Meeting links are protected by TrueEd and never exposed publicly. Access is strictly authorized.
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Dashboard Layout */}
@@ -287,52 +445,112 @@ const ClassroomLobby = () => {
           
           {/* Left Column: Resources */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 h-full">
-              <div className="flex justify-between items-center mb-8">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
+              <div className="flex justify-between items-center mb-6">
                 <h3 className="font-sora font-extrabold text-navy text-xl flex items-center gap-3">
                   <BookOpen className="w-6 h-6 text-sky" /> Today's Resources
                 </h3>
-                <button className="text-sm font-bold text-sky hover:text-sky-700 transition">View All</button>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { title: 'PDF Notes', icon: <FileText className="w-5 h-5" />, color: 'bg-red-50 text-red-600 border-red-100' },
-                  { title: 'Presentation Slides', icon: <Monitor className="w-5 h-5" />, color: 'bg-amber-50 text-amber-600 border-amber-100' },
-                  { title: 'Assignments', icon: <ListChecks className="w-5 h-5" />, color: 'bg-purple-50 text-purple-600 border-purple-100' },
-                  { title: 'Reference Material', icon: <BookOpen className="w-5 h-5" />, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }
-                ].map((res, i) => (
-                  <div key={i} className={`p-4 rounded-2xl border ${res.color} flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all`}>
-                    <div className="bg-white p-2.5 rounded-xl shadow-sm">
-                      {res.icon}
-                    </div>
-                    <span className="font-bold text-sm">{res.title}</span>
+              {loadingResources ? (
+                <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm font-medium">Loading resources...</span>
+                </div>
+              ) : materials.length === 0 ? (
+                /* Empty state: teacher hasn't uploaded anything yet */
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
+                    <BookOpen className="w-8 h-8 text-slate-300" />
                   </div>
-                ))}
-              </div>
+                  <h4 className="font-bold text-slate-700 mb-1">No resources uploaded yet</h4>
+                  <p className="text-sm text-slate-400 font-medium max-w-xs">
+                    Your tutor hasn't posted any PDF notes, presentation slides, assignments, or reference materials yet. Check back after class!
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {Object.entries(MATERIAL_CONFIG).map(([type, cfg]) => {
+                    const items = materialsByType[type] || [];
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={type}>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{cfg.label} ({items.length})</p>
+                        <div className="space-y-2">
+                          {items.map((m) => (
+                            <a
+                              key={m._id || m.id}
+                              href={m.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`p-4 rounded-2xl border ${cfg.color} flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all`}
+                            >
+                              <div className="bg-white p-2.5 rounded-xl shadow-sm flex-shrink-0">
+                                {cfg.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-bold text-sm block truncate">{m.title || m.name || 'Untitled'}</span>
+                                {m.description && (
+                                  <span className="text-xs opacity-70 block truncate">{m.description}</span>
+                                )}
+                              </div>
+                              <ChevronRight className="w-4 h-4 opacity-50 flex-shrink-0" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Announcements */}
           <div className="space-y-6">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 h-full">
-              <h3 className="font-sora font-extrabold text-navy text-xl flex items-center gap-3 mb-8">
+              <h3 className="font-sora font-extrabold text-navy text-xl flex items-center gap-3 mb-6">
                 <Megaphone className="w-6 h-6 text-amber-500" /> Announcements
               </h3>
               
-              <div className="space-y-4">
-                <div className="bg-amber-50/60 p-5 rounded-2xl border border-amber-100/60 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-amber-400"></div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase rounded tracking-widest">Pinned</span>
-                  </div>
-                  <p className="text-sm font-bold text-slate-800 mb-2">Welcome to the class.</p>
-                  <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                    Please join 5 minutes early. Bring your notebook and calculator for today's numericals.
-                  </p>
-                  <p className="text-xs text-slate-400 font-semibold mt-3">2 hours ago</p>
+              {loadingResources ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm font-medium">Loading...</span>
                 </div>
-              </div>
+              ) : announcements.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mb-4 border border-amber-100">
+                    <Megaphone className="w-7 h-7 text-amber-300" />
+                  </div>
+                  <h4 className="font-bold text-slate-700 mb-1 text-sm">No announcements yet</h4>
+                  <p className="text-xs text-slate-400 font-medium">
+                    Your tutor hasn't posted any announcements for this class yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {announcements.slice(0, 5).map((a, i) => (
+                    <div key={a._id || i} className="bg-amber-50/60 p-5 rounded-2xl border border-amber-100/60 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-amber-400"></div>
+                      {a.isPinned && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase rounded tracking-widest flex items-center gap-1">
+                            <Pin className="w-2.5 h-2.5" /> Pinned
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-sm font-bold text-slate-800 mb-1">{a.title || 'Announcement'}</p>
+                      <p className="text-sm text-slate-600 font-medium leading-relaxed">{a.message || a.content || ''}</p>
+                      <p className="text-xs text-slate-400 font-semibold mt-3">
+                        {a.createdAt
+                          ? new Date(a.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           
@@ -341,65 +559,89 @@ const ClassroomLobby = () => {
         {/* Additional Sections Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
-          {/* Upcoming Sessions */}
+          {/* Upcoming Sessions — computed from real schedule */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
             <h3 className="font-sora font-extrabold text-navy text-xl flex items-center gap-3 mb-8">
               <Calendar className="w-6 h-6 text-indigo-500" /> Upcoming Sessions
             </h3>
             
-            <div className="relative border-l-2 border-slate-100 ml-4 space-y-8 pb-4">
-              {[
-                { day: 'Today', topic: `${classroom.subject} Basics`, time: formatTime12hr(classroom.startTime) || '1 PM', active: true },
-                { day: 'Tomorrow', topic: 'Advanced Theory', time: formatTime12hr(classroom.startTime) || '1 PM', active: false },
-                { day: 'Friday', topic: 'Numericals Practice', time: formatTime12hr(classroom.startTime) || '1 PM', active: false },
-              ].map((s, i) => (
-                <div key={i} className="relative pl-6">
-                  <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white ${s.active ? 'bg-sky shadow-[0_0_0_3px_rgba(14,165,233,0.2)]' : 'bg-slate-300'}`}></div>
-                  <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${s.active ? 'text-sky' : 'text-slate-400'}`}>{s.day}</p>
-                  <p className="text-base font-bold text-navy mb-1">{s.topic}</p>
-                  <p className="text-sm font-semibold text-slate-500 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {s.time}</p>
-                </div>
-              ))}
-            </div>
+            {upcomingSessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Calendar className="w-10 h-10 text-slate-200 mb-3" />
+                <p className="text-sm font-bold text-slate-500">No upcoming sessions</p>
+                <p className="text-xs text-slate-400 mt-1">No schedule configured for this classroom.</p>
+              </div>
+            ) : (
+              <div className="relative border-l-2 border-slate-100 ml-4 space-y-8 pb-4">
+                {upcomingSessions.map((s, i) => (
+                  <div key={i} className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white ${s.isToday ? 'bg-sky shadow-[0_0_0_3px_rgba(14,165,233,0.2)]' : 'bg-slate-300'}`}></div>
+                    <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${s.isToday ? 'text-sky' : 'text-slate-400'}`}>
+                      {s.day} · {s.dateLabel}
+                    </p>
+                    <p className="text-base font-bold text-navy mb-1">{classroom.subject}</p>
+                    <p className="text-sm font-semibold text-slate-500 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      {formatTime12hr(s.startTime)} – {formatTime12hr(s.endTime)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Student Progress */}
+          {/* Student Progress — from real API data */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
             <h3 className="font-sora font-extrabold text-navy text-xl flex items-center gap-3 mb-8">
               <CheckCircle className="w-6 h-6 text-emerald-500" /> My Progress
             </h3>
             
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between text-sm font-bold mb-2">
-                  <span className="text-slate-600">Attendance</span>
-                  <span className="text-navy">95%</span>
+            {studentProgress ? (
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between text-sm font-bold mb-2">
+                    <span className="text-slate-600">Classes Attended</span>
+                    <span className="text-navy">
+                      {studentProgress.classesAttended ?? 0}
+                      {classroom.totalHoursPlanned ? ` / ~${classroom.totalHoursPlanned} hrs` : ''}
+                    </span>
+                  </div>
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-sky rounded-full transition-all duration-500"
+                      style={{
+                        width: classroom.totalHoursPlanned
+                          ? `${Math.min(100, ((studentProgress.classesAttended || 0) / classroom.totalHoursPlanned) * 100).toFixed(0)}%`
+                          : '0%',
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="w-[95%] h-full bg-emerald-500 rounded-full"></div>
+                
+                <div>
+                  <div className="flex justify-between text-sm font-bold mb-2">
+                    <span className="text-slate-600">Assignments Submitted</span>
+                    <span className="text-navy">{studentProgress.assignmentsCompleted ?? 0}</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: '100%', opacity: studentProgress.assignmentsCompleted > 0 ? 1 : 0.2 }} />
+                  </div>
                 </div>
+
+                {/* Last attended */}
+                {studentProgress.lastAttendedAt && (
+                  <p className="text-xs text-slate-400 font-semibold">
+                    Last attended: {new Date(studentProgress.lastAttendedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                )}
               </div>
-              
-              <div>
-                <div className="flex justify-between text-sm font-bold mb-2">
-                  <span className="text-slate-600">Completed Sessions</span>
-                  <span className="text-navy">8 / 10</span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="w-[80%] h-full bg-sky rounded-full"></div>
-                </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CheckCircle className="w-10 h-10 text-slate-200 mb-3" />
+                <p className="text-sm font-bold text-slate-500">No progress data yet</p>
+                <p className="text-xs text-slate-400 mt-1">Join your first class to start tracking progress.</p>
               </div>
-              
-              <div>
-                <div className="flex justify-between text-sm font-bold mb-2">
-                  <span className="text-slate-600">Assignments Submitted</span>
-                  <span className="text-navy">6 / 8</span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="w-[75%] h-full bg-indigo-500 rounded-full"></div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
           
         </div>
@@ -408,11 +650,11 @@ const ClassroomLobby = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {[
             { label: 'Subject', value: classroom.subject },
-            { label: 'Level', value: classroom.classLevel || 'General' },
-            { label: 'Mode', value: classroom.mode || 'Online' },
-            { label: 'Start Date', value: classroom.startDate || 'TBD' },
-            { label: 'End Date', value: classroom.endDate || 'TBD' },
-            { label: 'Enrolled', value: `${classroom.students || 0} / ${classroom.maxStudents || '∞'}` }
+            { label: 'Level', value: classroom.academicLevel || classroom.classLevel || 'General' },
+            { label: 'Mode', value: isOffline ? 'Offline' : 'Online' },
+            { label: 'Start Date', value: classroom.startDate ? new Date(classroom.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'TBD' },
+            { label: 'End Date', value: classroom.endDate ? new Date(classroom.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'TBD' },
+            { label: 'Enrolled', value: `${classroom.stats?.enrolledCount || 0} / ${classroom.maxStudents || '∞'}` },
           ].map((info, i) => (
             <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{info.label}</p>

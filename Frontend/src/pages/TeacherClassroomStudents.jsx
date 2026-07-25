@@ -13,11 +13,13 @@ const StudentRow = ({ student, reportedStudentIds, setStudentToReport, setIsRepo
   return (
     <div className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-200 hover:shadow-sm transition">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-sky/10 flex items-center justify-center text-sky font-extrabold text-lg shrink-0 border border-sky/20">
+        <Link to={`/student/${student.id}`} className="w-12 h-12 rounded-full bg-sky/10 flex items-center justify-center text-sky font-extrabold text-lg shrink-0 border border-sky/20 hover:opacity-85 transition-opacity">
           {student.initials}
-        </div>
+        </Link>
         <div>
-          <p className="font-bold text-navy text-lg">{student.name}</p>
+          <p className="font-bold text-navy text-lg">
+            <Link to={`/student/${student.id}`} className="hover:underline">{student.name}</Link>
+          </p>
           <p className="text-sm text-slate-500 font-medium">Joined {student.joinedDate}</p>
         </div>
       </div>
@@ -36,9 +38,9 @@ const StudentRow = ({ student, reportedStudentIds, setStudentToReport, setIsRepo
           </button>
           {isOpen && (
             <div ref={overlayRef} className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1 overflow-hidden">
-              <button onClick={() => { handleComingSoon("Student Profile"); closeOverlay(); }} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-navy font-bold transition flex items-center gap-2">
+              <Link to={`/student/${student.id}`} onClick={() => closeOverlay()} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-navy font-bold transition flex items-center gap-2">
                 <i className="fa-regular fa-user"></i> View Profile
-              </button>
+              </Link>
               <button 
                 disabled={reportedStudentIds.includes(student.id)}
                 onClick={() => { setStudentToReport(student); setIsReportModalOpen(true); closeOverlay(); }} 

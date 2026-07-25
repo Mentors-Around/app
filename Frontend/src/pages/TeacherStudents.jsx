@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { MapPin, BookOpen, GraduationCap, Clock, Activity, FileText, X, CheckCircle } from 'lucide-react';
 import api from '../services/api.js';
 
@@ -47,6 +48,7 @@ export default function TeacherStudents() {
         
         const mapped = studentList.map((s, idx) => ({
           id: s.id || `s_${idx}`,
+          userId: s.id, // Store actual student user ID for profile navigation
           name: s.name || 'Student',
           initials: (s.name || 'Student').split(' ').map(n => n[0]).join('').toUpperCase(),
           grade: s.grade || s.subject || 'Enrolled Student',
@@ -168,15 +170,19 @@ export default function TeacherStudents() {
               
               {/* Header */}
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky/20 to-sky/5 flex items-center justify-center text-sky font-extrabold text-lg border border-sky/10 shrink-0">
+                <Link to={`/student/${student.userId}`} className="w-12 h-12 rounded-full bg-gradient-to-br from-sky/20 to-sky/5 flex items-center justify-center text-sky font-extrabold text-lg border border-sky/10 shrink-0 hover:opacity-85 transition-opacity">
                   {student.initials}
-                </div>
+                </Link>
                 <span className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-md tracking-wider shrink-0 ${student.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                   {student.status}
                 </span>
               </div>
               
-              <h3 className="font-sora font-bold text-navy text-lg mb-1 group-hover:text-sky transition-colors truncate">{student.name}</h3>
+              <h3 className="font-sora font-bold text-navy text-lg mb-1 group-hover:text-sky transition-colors truncate">
+                <Link to={`/student/${student.userId}`} className="hover:underline">
+                  {student.name}
+                </Link>
+              </h3>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-4 font-medium truncate">
                 {student.grade} <span className="mx-1">•</span> {student.city}
               </div>

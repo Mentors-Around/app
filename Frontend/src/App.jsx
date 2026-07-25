@@ -70,6 +70,7 @@ import TeacherQueriesPage from './pages/TeacherQueriesPage';
 import TeacherDoubtsPage from './pages/TeacherDoubtsPage';
 import TeacherReports from './pages/TeacherReports';
 import PublicTeacherProfile from './pages/PublicTeacherProfile';
+import PublicStudentProfile from './pages/PublicStudentProfile';
 import Notifications from './pages/Notifications';
 import StudentWallet from './pages/StudentWallet';
 import TeacherWallet from './pages/TeacherWallet';
@@ -163,6 +164,7 @@ const App = () => {
           <Route path="/teacher/become" element={<TeacherBecome />} />
           <Route path="/teacher/:teacherId" element={<PublicTeacherProfile />} />
           <Route path="/tutor/:id" element={<PublicTeacherProfile />} />
+          <Route path="/student/:studentId" element={<PublicStudentProfile />} />
           <Route path="/classroom/:classroomId" element={<StudentClassroomDetails />} />
           <Route path="/coaching-centers" element={<CoachingCenters />} />
           <Route path="/how-payments-work" element={<HowPaymentsWork />} />

@@ -30,6 +30,160 @@ export const getMe = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, { user, teacherProfile }, 'Profile fetched'));
 });
 
+// ── GET /:userId/profile — Custom profile retrieval with role-based restriction ──
+export const getUserProfile = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const requester = req.user; // Authenticated user via middleware
+
+  const targetUser = await User.findById(userId)
+    .select('-passwordHash -mfaSecret -fcmTokens -parentGuardian.consentTokenHash')
+    .lean({ virtuals: true });
+  
+  if (!targetUser) throw ApiError.notFound('User not found');
+
+  // Case 1: Admin seeing profile — full access, return everything possible
+  if (requester.role === 'admin') {
+    let details = { user: targetUser };
+    if (targetUser.role === 'teacher') {
+      const profile = await TeacherProfile.findOne({ userId: targetUser._id })
+        .select('+adminNotes')
+        .lean({ virtuals: true });
+      details.teacherProfile = profile;
+
+      // Add monthly earnings (sum of captured payments for their classrooms in the current month)
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const { Payment } = await import('../models/index.js');
+      const payments = await Payment.find({
+        payerId: { $ne: null },
+        status: 'captured',
+        createdAt: { $gte: startOfMonth }
+      }).lean();
+
+      // Filter classrooms belonging to this teacher
+      const { Classroom } = await import('../models/index.js');
+      const teacherClassrooms = await Classroom.find({ teacherId: targetUser._id }).select('_id').lean();
+      const classroomIds = teacherClassrooms.map(c => String(c._id));
+
+      // Calculate monthly earnings
+      const monthlyEarningPaise = payments
+        .filter(p => p.notes && classroomIds.includes(String(p.notes.classroomId)))
+        .reduce((sum, p) => sum + (p.totalAmountPaise || 0), 0);
+
+      details.monthlyEarningsRupees = monthlyEarningPaise / 100;
+      details.classroomsCreated = await Classroom.find({ teacherId: targetUser._id }).lean();
+    } else if (targetUser.role === 'student') {
+      const { StudentWallet, Enrollment } = await import('../models/index.js');
+      const wallet = await StudentWallet.findOne({ studentId: targetUser._id }).lean();
+      details.walletBalanceRupees = wallet ? (wallet.cashBalancePaise || 0) / 100 : 0;
+      details.queryTokens = wallet ? (wallet.tokenBalance || 0) : 0;
+
+      // Enrolled classrooms
+      details.classroomsEnrolled = await Enrollment.find({ studentId: targetUser._id })
+        .populate('classroomId')
+        .lean();
+    }
+    return res.status(200).json(new ApiResponse(200, details, 'Admin profile fetch successful'));
+  }
+
+  // Case 2: Teacher seeing student profile
+  if (requester.role === 'teacher' && targetUser.role === 'student') {
+    const { Enrollment } = await import('../models/index.js');
+
+    // Basic details: only name, avatarUrl, city, state. NO phone, NO email
+    const safeUser = {
+      _id: targetUser._id,
+      name: targetUser.name,
+      avatarUrl: targetUser.avatarUrl,
+      city: targetUser.city,
+      state: targetUser.state,
+      role: targetUser.role
+    };
+
+    // Calculate attendance percentage across all classes
+    const enrollments = await Enrollment.find({ studentId: targetUser._id }).populate('classroomId').lean();
+    
+    // Have they enrolled into any of this teacher's active/completed classroom(s)?
+    const myClassroomEnrollments = enrollments.filter(e => String(e.teacherId) === String(requester._id));
+    const isEnrolledInMyClasses = myClassroomEnrollments.length > 0;
+
+    let totalAttended = 0;
+    let totalPlanned = 0;
+    enrollments.forEach(e => {
+      totalAttended += e.classesAttended || 0;
+      if (e.classroomId && e.classroomId.totalHoursPlanned) {
+        totalPlanned += e.classroomId.totalHoursPlanned;
+      }
+    });
+    const attendancePercentage = totalPlanned > 0 ? Math.round((totalAttended / totalPlanned) * 100) : 100;
+
+    return res.status(200).json(new ApiResponse(200, {
+      user: safeUser,
+      attendancePercentage,
+      isEnrolledInMyClasses,
+      myClassroomEnrollments
+    }, 'Teacher profile fetch successful'));
+  }
+
+  // Case 3: Student seeing teacher profile
+  if (requester.role === 'student' && targetUser.role === 'teacher') {
+    const profile = await TeacherProfile.findOne({ userId: targetUser._id })
+      .select('-adminNotes -searchKeywords -bankAccount -aadhaarNumber -kycDocumentIds -razorpayContactId -razorpayFundId')
+      .lean({ virtuals: true });
+
+    if (!profile) throw ApiError.notFound('Teacher profile not found');
+
+    // Safe details (no email, phone, account details)
+    const safeUser = {
+      _id: targetUser._id,
+      name: targetUser.name,
+      avatarUrl: targetUser.avatarUrl,
+      city: targetUser.city,
+      state: targetUser.state,
+      role: targetUser.role
+    };
+
+    // basic details like % of class conducted upon class scheduled (including all classrooms)
+    const { Classroom } = await import('../models/index.js');
+    const teacherClassrooms = await Classroom.find({ teacherId: targetUser._id }).lean();
+    
+    let totalHoursCompleted = 0;
+    let totalHoursPlanned = 0;
+    teacherClassrooms.forEach(c => {
+      totalHoursCompleted += c.stats?.hoursCompleted || 0;
+      totalHoursPlanned += c.totalHoursPlanned || 0;
+    });
+
+    const completionRate = totalHoursPlanned > 0 ? Math.round((totalHoursCompleted / totalHoursPlanned) * 100) : 100;
+
+    // active and completed classrooms
+    const activeClassrooms = teacherClassrooms.filter(c => c.status === 'active');
+    const completedClassrooms = teacherClassrooms.filter(c => c.status === 'completed');
+
+    return res.status(200).json(new ApiResponse(200, {
+      user: safeUser,
+      profile: {
+        bio: profile.bio,
+        headline: profile.headline,
+        experienceYears: profile.experienceYears,
+        education: profile.education,
+        subjects: profile.subjects,
+        languages: profile.languages,
+        introVideoUrl: profile.introVideoUrl, // Youtube teaching style link
+      },
+      completionRate,
+      activeClassrooms,
+      completedClassrooms
+    }, 'Student profile fetch successful'));
+  }
+
+  // Fallback / self view
+  if (String(requester._id) === String(targetUser._id)) {
+    return res.status(200).json(new ApiResponse(200, { user: targetUser }, 'Self profile fetch successful'));
+  }
+
+  throw ApiError.forbidden('Access denied to this profile');
+});
+
 // ── PATCH /me — Update basic profile fields ────────────────────────────────────
 export const updateMe = asyncHandler(async (req, res) => {
   // Phone and email are NOT in allowed — they must go through OTP verification flows

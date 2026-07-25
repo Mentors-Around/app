@@ -35,7 +35,7 @@ const Topbar = ({ onMenuClick }) => {
   const sanitize = (str) => str.replace(/<[^>]*>/g, '');
 
   const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState({ classrooms: [], teachers: [] });
   const [searchLoading, setSearchLoading] = useState(false);
   const searchDebounceRef = useRef(null);
   
@@ -96,20 +96,21 @@ const Topbar = ({ onMenuClick }) => {
   // ── Bug Fix: Real API search with debounce (was using static dummyTeachers array) ──
   const doSearch = useCallback(async (q) => {
     if (!q || q.trim().length < 2) {
-      setSearchResults([]);
+      setSearchResults({ classrooms: [], teachers: [] });
       setSearchLoading(false);
       return;
     }
     setSearchLoading(true);
     try {
       const res = await api.classroom.search(q.trim());
-      const docs = Array.isArray(res)
+      const classrooms = Array.isArray(res)
         ? res
         : (res?.results || res?.docs || res?.classrooms || []);
-      setSearchResults(docs.slice(0, 8));
+      const teachers = res?.teachers || [];
+      setSearchResults({ classrooms: classrooms.slice(0, 5), teachers: teachers.slice(0, 5) });
     } catch (err) {
       console.warn('Search failed:', err);
-      setSearchResults([]);
+      setSearchResults({ classrooms: [], teachers: [] });
     } finally {
       setSearchLoading(false);
     }
@@ -118,7 +119,7 @@ const Topbar = ({ onMenuClick }) => {
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     if (!query.trim()) {
-      setSearchResults([]);
+      setSearchResults({ classrooms: [], teachers: [] });
       setSearchLoading(false);
       return;
     }
@@ -127,22 +128,25 @@ const Topbar = ({ onMenuClick }) => {
     return () => clearTimeout(searchDebounceRef.current);
   }, [query, doSearch]);
 
-  const handleResultClick = (classroom) => {
+  const handleResultClick = (item, type = 'classroom') => {
     setQuery('');
-    setSearchResults([]);
+    setSearchResults({ classrooms: [], teachers: [] });
     closeOverlay();
-    // Navigate to the actual classroom detail or discover filtered by subject
-    if (classroom?._id) {
-      navigate(`/classroom/${classroom._id}`);
-    } else if (classroom?.subject) {
-      navigate(`/student/discover?subject=${encodeURIComponent(classroom.subject)}`);
+    if (type === 'teacher') {
+      navigate(`/teacher/${item._id || item.id}`);
+    } else {
+      if (item?._id) {
+        navigate(`/classroom/${item._id}`);
+      } else if (item?.subject) {
+        navigate(`/student/discover?subject=${encodeURIComponent(item.subject)}`);
+      }
     }
   };
 
   const handleSearchSubmit = (e) => {
     if (e.key === 'Enter' && query.trim()) {
       setQuery('');
-      setSearchResults([]);
+      setSearchResults({ classrooms: [], teachers: [] });
       closeOverlay();
       navigate(`/student/discover?q=${encodeURIComponent(query.trim())}`);
     }
@@ -158,48 +162,97 @@ const Topbar = ({ onMenuClick }) => {
       ? activeOverlayId === 'topbar-mobile-search'
       : activeOverlayId === 'topbar-search';
     if (!query || !isActive) return null;
+
+    const totalResults = (searchResults.classrooms?.length || 0) + (searchResults.teachers?.length || 0);
+
     return (
       <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden py-2 z-50 animate-slide-up-sm max-h-96 overflow-y-auto">
         <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-          {searchLoading ? 'Searching...' : searchResults.length > 0 ? `${searchResults.length} result${searchResults.length > 1 ? 's' : ''}` : 'No results'}
+          {searchLoading ? 'Searching...' : totalResults > 0 ? `${totalResults} result${totalResults > 1 ? 's' : ''}` : 'No results'}
         </p>
         {searchLoading ? (
           <div className="px-4 py-4 flex items-center justify-center gap-2 text-slate-400">
             <span className="w-4 h-4 border-2 border-slate-300 border-t-navy rounded-full animate-spin" />
             <span className="text-sm font-medium">Searching...</span>
           </div>
-        ) : searchResults.length > 0 ? (
-          searchResults.map(c => (
-            <button
-              key={c._id || c.id}
-              onClick={() => handleResultClick(c)}
-              className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition flex items-start gap-3 group"
-            >
-              <div className="w-8 h-8 rounded-lg bg-sky/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <BookOpen className="w-4 h-4 text-sky" />
+        ) : totalResults > 0 ? (
+          <>
+            {/* Classrooms Section */}
+            {searchResults.classrooms?.length > 0 && (
+              <div className="mb-2">
+                <p className="px-4 py-1 text-[10px] font-bold text-sky uppercase tracking-wider bg-slate-50/50">Classrooms</p>
+                {searchResults.classrooms.map(c => (
+                  <button
+                    key={c._id || c.id}
+                    onClick={() => handleResultClick(c, 'classroom')}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 transition flex items-start gap-3 group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-sky/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <BookOpen className="w-4 h-4 text-sky" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm text-navy group-hover:text-sky transition-colors block truncate">
+                        {c.title}
+                      </span>
+                      <span className="text-xs text-muted font-medium flex items-center gap-1.5 mt-0.5">
+                        <span className="bg-sky/10 text-sky px-1.5 py-0.5 rounded text-[10px]">{c.subject}</span>
+                        {c.teacherId?.name && (
+                          <>
+                            <span>·</span>
+                            <span>{c.teacherId.name}</span>
+                          </>
+                        )}
+                        {c.feesPaise && (
+                          <>
+                            <span>·</span>
+                            <span className="text-emerald-600 font-bold">{formatFee(c.feesPaise)}</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <div className="flex-1 min-w-0">
-                <span className="font-semibold text-sm text-navy group-hover:text-sky transition-colors block truncate">
-                  {c.title}
-                </span>
-                <span className="text-xs text-muted font-medium flex items-center gap-1.5 mt-0.5">
-                  <span className="bg-sky/10 text-sky px-1.5 py-0.5 rounded text-[10px]">{c.subject}</span>
-                  {c.teacherId?.name && (
-                    <>
-                      <span>·</span>
-                      <span>{c.teacherId.name}</span>
-                    </>
-                  )}
-                  {c.feesPaise && (
-                    <>
-                      <span>·</span>
-                      <span className="text-emerald-600 font-bold">{formatFee(c.feesPaise)}</span>
-                    </>
-                  )}
-                </span>
+            )}
+
+            {/* Teachers/Tutors Section */}
+            {searchResults.teachers?.length > 0 && (
+              <div>
+                <p className="px-4 py-1 text-[10px] font-bold text-amber uppercase tracking-wider bg-slate-50/50">Tutors</p>
+                {searchResults.teachers.map(t => (
+                  <button
+                    key={t._id || t.id}
+                    onClick={() => handleResultClick(t, 'teacher')}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 transition flex items-start gap-3 group"
+                  >
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mt-0.5">
+                      {t.avatarUrl ? (
+                        <img src={t.avatarUrl} alt={t.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-amber/10 flex items-center justify-center text-xs font-bold text-amber">
+                          {t.name[0]}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm text-navy group-hover:text-amber-hover transition-colors block truncate">
+                        {t.name}
+                      </span>
+                      <span className="text-xs text-muted font-medium flex items-center gap-1.5 mt-0.5">
+                        <span className="bg-amber/10 text-amber-hover px-1.5 py-0.5 rounded text-[10px]">{t.profile?.subjects?.join(', ') || 'Tutor'}</span>
+                        {t.city && (
+                          <>
+                            <span>·</span>
+                            <span>{t.city}</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
-          ))
+            )}
+          </>
         ) : query.length >= 2 ? (
           <div className="px-4 py-4 text-center text-sm text-muted">
             No results found for "<span className="font-semibold text-navy">{query}</span>"

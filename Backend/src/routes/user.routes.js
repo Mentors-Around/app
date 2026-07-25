@@ -13,6 +13,7 @@ import {
   updateParentPhone, getSupport,
   saveTeacher, unsaveTeacher, getSavedTeachers,
   updateUsername, getDashboardStats, getSessions,
+  getUserProfile
 } from '../controllers/user.controller.js';
 
 const router = Router();
@@ -62,5 +63,8 @@ router.delete('/me/saved-teachers/:teacherId', unsaveTeacher);
 
 // ── Payment history ───────────────────────────────────────────────────────────
 router.get('/me/payments', getPaymentHistory);
+
+// ── Custom Profile Retrieval (Role-restricted) ─────────────────────────────────
+router.get('/:userId/profile', getUserProfile);
 
 export default router;

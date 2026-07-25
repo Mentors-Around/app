@@ -35,7 +35,7 @@ const TutorCard = ({ tutor }) => {
         if (isClassroom) {
           navigate(`/classroom/${tutor.classroomId}`);
         } else {
-          navigate(`/tutor/${tutor.id}`);
+          navigate(`/teacher/${tutor.id}`);
         }
       }}
       className={`bg-white rounded-brand border border-gray-200 overflow-hidden hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col h-full group relative cursor-pointer ${tutor.badge === 'Expert' ? 'border-t-4 border-t-amber-400' : ''}`}
@@ -140,7 +140,7 @@ const TutorCard = ({ tutor }) => {
         
         <div className="flex flex-col gap-2">
           <Link
-            to={isClassroom ? `/classroom/${tutor.classroomId}` : `/tutor/${tutor.id}`}
+            to={isClassroom ? `/classroom/${tutor.classroomId}` : `/teacher/${tutor.id}`}
             onClick={(e) => e.stopPropagation()}
             className="w-full py-3 bg-gradient-to-r from-navy to-blue-600 text-white rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
           >

@@ -13,6 +13,7 @@ const navConfig = {
       items: [
         { label: 'Dashboard', icon: 'fa-solid fa-gauge-high', to: '/student/dashboard' },
         { label: 'Discover Classrooms', icon: 'fa-solid fa-compass', to: '/student/discover' },
+        { label: 'View Tutors', icon: 'fa-solid fa-graduation-cap', to: '/student/discover' }, // Tutors browse page
         { label: 'My Queries', icon: MessagesSquare, to: '/student/my-queries', isLucide: true },
         { label: 'Learning', icon: 'fa-solid fa-users-rectangle', to: '/student/rooms' },
         { label: 'Wallet & Payments', icon: 'fa-solid fa-wallet', to: '/student/wallet' },

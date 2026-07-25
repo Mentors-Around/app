@@ -60,10 +60,10 @@ const PublicTeacherProfile = () => {
       try {
         // Only attempt API fetch if profileId looks like a MongoDB ObjectId
         if (profileId && /^[a-f0-9]{24}$/i.test(profileId)) {
-          const res = await api.teacher.getPublicProfile(profileId);
+          const res = await api.user.getProfile(profileId);
           if (res && res.user) {
             setApiProfile(res);
-            setApiClassrooms(res.classrooms || []);
+            setApiClassrooms(res.activeClassrooms || res.classrooms || []);
             document.title = (res.user?.name || 'Teacher') + ' — TrueEd';
           }
         } else {
@@ -134,12 +134,16 @@ const PublicTeacherProfile = () => {
     reviews: apiStats.totalReviews || tutorData?.reviews || 0,
     experience: apiProf.experienceYears ? `${apiProf.experienceYears} years` : (tutorData?.experience || 'Not specified'),
     mode: tutorData?.mode || 'Online',
-    verified: apiProf.verificationStatus === 'approved' || tutorData?.verified || false,
+    verified: apiProf.verificationStatus === 'approved' || tutorData?.verified || apiProfile?.profile ? true : false,
     bio: apiProf.bio || tutorData?.bio || 'No bio available.',
     headline: apiProf.headline || tutorData?.headline || '',
     boards: apiProf.subjects || tutorData?.tags || [],
     languages: apiProf.languages || tutorData?.languages || [],
     achievements: tutorData?.achievements || [],
+    introVideoUrl: apiProf.introVideoUrl || null,
+    completionRate: apiProfile?.completionRate !== undefined ? apiProfile.completionRate : 100,
+    activeClassrooms: apiProfile?.activeClassrooms || [],
+    completedClassrooms: apiProfile?.completedClassrooms || [],
     // NOTE: phone, email, bankAccount, aadhaarNumber are intentionally excluded
   };
 
@@ -215,18 +219,40 @@ const PublicTeacherProfile = () => {
   let dynamicSubjects = [];
   let dynamicLevels = [];
   let teacherClassrooms = [];
-  const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
-  if (classroomsRaw) {
-    try {
-      const classrooms = JSON.parse(classroomsRaw);
-      teacherClassrooms = classrooms.filter(c => c.teacherId === profileId || c.teacher === teacher.name);
-      // Only show active classrooms
-      teacherClassrooms = teacherClassrooms.filter(c => c.status === 'active');
-      if (teacherClassrooms.length > 0) {
-        dynamicSubjects = [...new Set(teacherClassrooms.map(c => c.subject).filter(Boolean))];
-        dynamicLevels = [...new Set(teacherClassrooms.map(c => c.classLevel).filter(Boolean))];
-      }
-    } catch (e) {}
+  if (apiClassrooms && apiClassrooms.length > 0) {
+    teacherClassrooms = apiClassrooms.map(c => ({
+      id: c._id || c.id,
+      name: c.title,
+      subject: c.subject,
+      classLevel: c.skillLevel,
+      price: c.feesRupees || (c.feesPaise / 100) || 0,
+      mode: c.mode === 'online' ? 'Online' : (c.mode === 'offline' ? 'Offline' : 'Both'),
+      status: c.status || 'active',
+      scheduleDays: c.schedule?.map(s => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        return days[s.day];
+      }) || [],
+      startTime: c.schedule?.[0]?.startTime || '--',
+      endTime: c.schedule?.[0]?.endTime || '--',
+      maxStudents: c.maxStudents || 20,
+      students: c.stats?.enrolledStudents || 0
+    }));
+    dynamicSubjects = [...new Set(teacherClassrooms.map(c => c.subject).filter(Boolean))];
+    dynamicLevels = [...new Set(teacherClassrooms.map(c => c.classLevel).filter(Boolean))];
+  } else {
+    const classroomsRaw = localStorage.getItem('trueed_teacher_classrooms');
+    if (classroomsRaw) {
+      try {
+        const classrooms = JSON.parse(classroomsRaw);
+        teacherClassrooms = classrooms.filter(c => c.teacherId === profileId || c.teacher === teacher.name);
+        // Only show active classrooms
+        teacherClassrooms = teacherClassrooms.filter(c => c.status === 'active');
+        if (teacherClassrooms.length > 0) {
+          dynamicSubjects = [...new Set(teacherClassrooms.map(c => c.subject).filter(Boolean))];
+          dynamicLevels = [...new Set(teacherClassrooms.map(c => c.classLevel).filter(Boolean))];
+        }
+      } catch (e) {}
+    }
   }
 
   const displaySubjects = dynamicSubjects.length > 0 ? dynamicSubjects : [teacher.subject];
@@ -309,6 +335,12 @@ const PublicTeacherProfile = () => {
                   <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Experience</p>
                   <p className="font-semibold text-sm text-navy flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {teacher.experience}</p>
                 </div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Completion Rate</p>
+                  <p className="font-semibold text-sm text-emerald-600 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> {teacher.completionRate}%
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -343,79 +375,141 @@ const PublicTeacherProfile = () => {
 
               {/* CLASSROOMS TAB */}
               {activeTab === 'Classrooms' && (
-                <div className="animate-fade-in">
-                  <h3 className="font-sora font-bold text-navy text-lg mb-6">Available Classrooms</h3>
-                  {teacherClassrooms.length === 0 ? (
-                    <div className="text-center py-10 bg-slate-50 rounded-xl border border-slate-100">
-                      <p className="text-slate-500 font-medium">This teacher hasn't created any classrooms yet.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {teacherClassrooms.map((room) => (
-                        <div key={room.id} className="bg-white border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition-all shadow-sm group">
-                          <div className="flex justify-between items-start mb-3">
-                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-md uppercase tracking-wider">
-                              {room.subject} • {room.classLevel || 'General'}
-                            </span>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${
-                               room.unlimitedStudents ? 'bg-green-50 text-success' : 
-                               ((room.students || room.enrolled || 0) >= (room.capacity || room.maxStudents || 0) ? 'bg-red-50 text-error' : 'bg-green-50 text-success')
-                             }`}>
-                              {room.unlimitedStudents ? 'Active' : ((room.students || room.enrolled || 0) >= (room.capacity || room.maxStudents || 0) ? 'Full' : 'Active')}
-                            </span>
-                          </div>
-                          
-                          <h4 className="font-bold text-navy text-base mb-2 line-clamp-2">{room.name}</h4>
-                          
-                          <div className="space-y-2 mb-4">
-                            <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" /> {room.scheduleDays?.length ? room.scheduleDays.join(', ') : 'TBD'} • {room.startTime || '--'} to {room.endTime || '--'}
-                            </p>
-                            <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
-                              <Monitor className="w-3.5 h-3.5 text-slate-400" /> {room.mode || 'Online'}
-                            </p>
-                            {!room.unlimitedStudents ? (
-                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
-                                <i className="fa-solid fa-users text-slate-400 w-3.5" /> 
-                                {(room.capacity || room.maxStudents || 0) - (room.students || room.enrolled || 0)} Seats Available (Max: {room.capacity || room.maxStudents || 0})
-                              </p>
-                            ) : (
-                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
-                                <i className="fa-solid fa-users text-slate-400 w-3.5" /> 
-                                Unlimited Seats
-                              </p>
-                            )}
-                          </div>
-                          
-                          <div className="flex justify-between items-center pt-4 border-t border-slate-100 gap-2">
-                            <div>
-                              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Price per Student</p>
-                              <p className="font-sora font-extrabold text-navy">₹{room.price}</p>
+                <div className="animate-fade-in space-y-8">
+                  {/* Active Classrooms */}
+                  <div>
+                    <h3 className="font-sora font-bold text-navy text-lg mb-4">Active Classrooms</h3>
+                    {teacherClassrooms.filter(r => r.status === 'active').length === 0 ? (
+                      <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-slate-500 text-sm font-medium">No active classrooms available.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {teacherClassrooms.filter(r => r.status === 'active').map((room) => (
+                          <div key={room.id} className="bg-white border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition-all shadow-sm group">
+                            <div className="flex justify-between items-start mb-3">
+                              <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-md uppercase tracking-wider">
+                                {room.subject} • {room.classLevel || 'General'}
+                              </span>
+                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${
+                                 ((room.students || 0) >= (room.maxStudents || 20) ? 'bg-red-50 text-error' : 'bg-green-50 text-success')
+                               }`}>
+                                {((room.students || 0) >= (room.maxStudents || 20) ? 'Full' : 'Active')}
+                              </span>
                             </div>
-                            <div className="flex gap-2">
-                              <Link to={`/classroom/${room.id}`} className="px-4 py-2 bg-slate-100 text-navy text-xs font-bold rounded-lg shadow-sm hover:bg-slate-200 transition">
+                            
+                            <h4 className="font-bold text-navy text-base mb-2 line-clamp-2">{room.name}</h4>
+                            
+                            <div className="space-y-2 mb-4">
+                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" /> {room.scheduleDays?.length ? room.scheduleDays.join(', ') : 'TBD'} • {room.startTime || '--'} to {room.endTime || '--'}
+                              </p>
+                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                                <Monitor className="w-3.5 h-3.5 text-slate-400" /> {room.mode || 'Online'}
+                              </p>
+                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                                <i className="fa-solid fa-users text-slate-400 w-3.5" /> 
+                                {Math.max(0, (room.maxStudents || 20) - (room.students || 0))} Seats Available (Max: {room.maxStudents || 20})
+                              </p>
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-4 border-t border-slate-100 gap-2">
+                              <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Price per Student</p>
+                                <p className="font-sora font-extrabold text-navy">₹{room.price}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Link to={`/classroom/${room.id}`} className="px-4 py-2 bg-slate-100 text-navy text-xs font-bold rounded-lg shadow-sm hover:bg-slate-200 transition">
+                                  View Details
+                                </Link>
+                                <Link to={`/classroom/${room.id}?query=true`} className="px-4 py-2 bg-navy text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition">
+                                  Send Query
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Completed Classrooms */}
+                  <div>
+                    <h3 className="font-sora font-bold text-navy text-lg mb-4">Completed Classrooms</h3>
+                    {teacherClassrooms.filter(r => r.status === 'completed').length === 0 ? (
+                      <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-slate-500 text-sm font-medium">No completed classrooms.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {teacherClassrooms.filter(r => r.status === 'completed').map((room) => (
+                          <div key={room.id} className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm opacity-80">
+                            <div className="flex justify-between items-start mb-3">
+                              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-md uppercase tracking-wider">
+                                {room.subject} • {room.classLevel || 'General'}
+                              </span>
+                              <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-1 rounded-md uppercase tracking-wider">
+                                Completed
+                              </span>
+                            </div>
+                            
+                            <h4 className="font-bold text-slate-700 text-base mb-2 line-clamp-2">{room.name}</h4>
+                            
+                            <div className="space-y-2 mb-4">
+                              <p className="text-xs font-semibold text-slate-500 flex items-center gap-2">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" /> Completed on TrueEd
+                              </p>
+                              <p className="text-xs font-semibold text-slate-500 flex items-center gap-2">
+                                <Monitor className="w-3.5 h-3.5 text-slate-400" /> {room.mode || 'Online'}
+                              </p>
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-4 border-t border-slate-200 gap-2">
+                              <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Enrolled</p>
+                                <p className="font-sora font-extrabold text-slate-700">{room.students} Students</p>
+                              </div>
+                              <Link to={`/classroom/${room.id}`} className="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 transition">
                                 View Details
                               </Link>
-                              <Link to={`/classroom/${room.id}?query=true`} className="px-4 py-2 bg-navy text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition">
-                                Send Query
-                              </Link>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               
               {/* ABOUT TAB */}
               {activeTab === 'About' && (
                 <div className="animate-fade-in">
-
                   <h3 className="font-sora font-bold text-navy text-lg mb-3">About Me</h3>
                   <p className="text-sm text-slate-600 leading-relaxed mb-8 font-medium">
                     {teacher.bio}
                   </p>
+
+                  {teacher.introVideoUrl && (
+                    <div className="mb-8">
+                      <h4 className="font-bold text-navy text-sm mb-3">Teaching Style Video</h4>
+                      <div className="aspect-video w-full rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-slate-100">
+                        {teacher.introVideoUrl.includes('youtube.com') || teacher.introVideoUrl.includes('youtu.be') ? (
+                          <iframe
+                            className="w-full h-full"
+                            src={`https://www.youtube.com/embed/${
+                              teacher.introVideoUrl.includes('watch?v=') 
+                                ? teacher.introVideoUrl.split('watch?v=')[1]?.split('&')[0] 
+                                : teacher.introVideoUrl.split('/').pop()
+                            }`}
+                            title="Intro Video"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <video src={teacher.introVideoUrl} controls className="w-full h-full" />
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div>

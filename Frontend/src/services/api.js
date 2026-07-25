@@ -147,6 +147,8 @@ export const api = {
     getPayments: () => request('/users/me/payments'),
     
     deleteMe: () => request('/users/me', { method: 'DELETE' }),
+
+    getProfile: (id) => request(`/users/${id}/profile`),
   },
 
   // ── CLASSROOM ──────────────────────────────────────────────────────────────

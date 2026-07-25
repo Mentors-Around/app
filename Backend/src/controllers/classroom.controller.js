@@ -183,7 +183,57 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
     limit:     20,
   });
 
-  res.status(200).json(new ApiResponse(200, result, 'Search results'));
+  // If there's a text search query, also search for matching teachers/tutors
+  let matchedTeachers = [];
+  if (query) {
+    const { User, TeacherProfile } = await import('../models/index.js');
+    const matchedUsers = await User.find({
+      role: 'teacher',
+      isActive: true,
+      deletedAt: null,
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+        { city: { $regex: query, $options: 'i' } }
+      ]
+    }).select('_id name avatarUrl city state').limit(5).lean();
+
+    const teacherUserIds = matchedUsers.map(u => u._id);
+    const profiles = await TeacherProfile.find({
+      userId: { $in: teacherUserIds },
+      verificationStatus: 'approved'
+    }).select('userId subjects stats bio experienceYears headline').lean();
+
+    const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
+    matchedTeachers = matchedUsers
+      .map(u => {
+        const p = profileMap.get(String(u._id));
+        if (!p) return null;
+        return {
+          _id: u._id,
+          name: u.name,
+          avatarUrl: u.avatarUrl,
+          city: u.city,
+          state: u.state,
+          profile: {
+            bio: p.bio,
+            experienceYears: p.experienceYears,
+            headline: p.headline,
+            subjects: p.subjects,
+            stats: p.stats
+          }
+        };
+      })
+      .filter(Boolean);
+  }
+
+  // Add teachers to the API response
+  const responseData = {
+    ...result,
+    teachers: matchedTeachers
+  };
+
+  res.status(200).json(new ApiResponse(200, responseData, 'Search results'));
 });
 
 // ── GET /discover — Personalised feed for logged-in students ──────────────────

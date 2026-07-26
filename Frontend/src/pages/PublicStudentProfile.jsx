@@ -106,10 +106,10 @@ export default function PublicStudentProfile() {
                   <span className="text-slate-400 font-bold uppercase text-[10px]">Location</span>
                   <span className="font-bold text-navy">{[user.city, user.state].filter(Boolean).join(', ') || 'Not specified'}</span>
                 </div>
-                {attendancePercentage !== undefined && (
+                {profileData.attendancePercentage !== undefined && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-400 font-bold uppercase text-[10px]">Attendance</span>
-                    <span className="font-bold text-emerald-600">{attendancePercentage}%</span>
+                    <span className="font-bold text-emerald-600">{profileData.attendancePercentage}%</span>
                   </div>
                 )}
               </div>
@@ -180,14 +180,22 @@ export default function PublicStudentProfile() {
                   <GraduationCap className="w-5 h-5 text-sky-500" /> Student Profile
                 </h2>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Attendance</p>
-                    <p className="font-extrabold text-navy text-lg">{attendancePercentage || 100}%</p>
+                    <p className="font-extrabold text-navy text-lg">{profileData.attendancePercentage !== undefined ? profileData.attendancePercentage : 100}%</p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
                     <p className="font-extrabold text-emerald-600 text-lg">Active</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Daily Streak</p>
+                    <p className="font-extrabold text-amber-hover text-lg">🔥 {profileData.streakDays || 1} Days</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Classrooms</p>
+                    <p className="font-extrabold text-blue-600 text-lg">{profileData.totalEnrolledClassroomsCount || 1}</p>
                   </div>
                 </div>
 

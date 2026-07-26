@@ -58,23 +58,61 @@ const StudentRow = ({ student, reportedStudentIds, setStudentToReport, setIsRepo
 
 export default function TeacherClassroomStudents() {
   const { id } = useParams();
-  
+  const [classroom, setClassroom] = useState({ name: 'Classroom' });
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     document.title = `Classroom Students — TrueEd`;
-  }, []);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [clsRes, studRes] = await Promise.all([
+          api.classroom.getDetail(id).catch(() => null),
+          api.classroom.getEnrolledStudents(id).catch(() => null)
+        ]);
 
-  const [classrooms] = useState(() => {
-    const saved = localStorage.getItem('trueed_teacher_classrooms');
-    return saved ? JSON.parse(saved) : [];
-  });
+        if (clsRes) {
+          const c = clsRes.classroom || clsRes;
+          setClassroom({ name: c.title || c.name || 'Classroom' });
+        }
 
-  const classroom = classrooms.find(c => c.id.toString() === id) || { name: 'Classroom' };
+        // Process student list
+        const rawStudents = Array.isArray(studRes) ? studRes : (studRes?.results || studRes?.docs || studRes?.students || studRes?.data || []);
+        const mapped = rawStudents.map((s, idx) => {
+          const u = s.studentId || s.user || s;
+          const name = u.name || 'Student';
+          const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+          const joinedDate = s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently';
+          
+          // Calculate attendance rate per enrollment
+          let attendance = '100%';
+          if (s.classesAttended !== undefined && clsRes?.classroom?.totalHoursPlanned) {
+            const planned = clsRes.classroom.totalHoursPlanned || 20;
+            const attended = s.classesAttended || 0;
+            attendance = `${Math.round((attended / planned) * 100)}%`;
+          } else if (s.attendancePercentage !== undefined) {
+            attendance = `${s.attendancePercentage}%`;
+          }
 
-  const [students, setStudents] = useState([
-    { id: 1, name: 'Aarav Sharma', initials: 'AS', joinedDate: 'Oct 10, 2026', attendance: '95%' },
-    { id: 2, name: 'Priya Patel', initials: 'PP', joinedDate: 'Oct 12, 2026', attendance: '88%' },
-    { id: 3, name: 'Rohan Gupta', initials: 'RG', joinedDate: 'Oct 15, 2026', attendance: '100%' },
-  ]);
+          return {
+            id: u._id || u.id || `s_${idx}`,
+            name,
+            initials,
+            joinedDate,
+            attendance,
+            status: s.status || 'active'
+          };
+        });
+        setStudents(mapped);
+      } catch (err) {
+        console.warn('Failed to load classroom students details:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
 
   const [search, setSearch] = useState('');
   
@@ -98,6 +136,17 @@ export default function TeacherClassroomStudents() {
   };
 
   const filteredStudents = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+
+  if (loading) {
+    return (
+      <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <span className="w-8 h-8 border-4 border-slate-300 border-t-navy rounded-full animate-spin" />
+          <p className="font-bold text-sm">Loading students list...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto pb-12 space-y-8 relative">

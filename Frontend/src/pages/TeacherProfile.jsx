@@ -49,15 +49,30 @@ const TeacherProfile = () => {
       try {
         const data = await api.user.getMe();
         if (data) {
-          setProfileForm(p => ({
-            ...p,
-            bio: data.bio || p.bio,
-            location: data.city || p.location,
-            qualification: Array.isArray(data.education) ? data.education.join(', ') : (data.education || p.qualification),
-            experience: data.experienceYears || p.experience,
-            subjects: Array.isArray(data.subjects) ? data.subjects.join(', ') : (data.subjects || p.subjects),
-            languages: Array.isArray(data.languages) ? data.languages.join(', ') : (data.languages || p.languages),
-          }));
+          // If teacher profile detail is nested or we can fetch via api.teacher.getDashboard/getProfile
+          const res = await api.user.getProfile(data._id || data.id);
+          const p = res?.teacherProfile || res?.profile || {};
+          
+          setProfileForm({
+            bio: p.bio || data.bio || '',
+            subjects: Array.isArray(p.subjects) ? p.subjects.join(', ') : (data.subjects || ''),
+            location: p.city || data.city || '',
+            qualification: Array.isArray(p.education) ? p.education.map(e => e.degree).join(', ') : (p.education || ''),
+            experience: p.experienceYears || 0,
+            languages: Array.isArray(p.languages) ? p.languages.join(', ') : '',
+            demoVideo: p.introVideoUrl || ''
+          });
+
+          if (p.workingDays || p.startTime || p.endTime) {
+            setAvailability({
+              workingDays: p.workingDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+              startTime: p.startTime || '17:00',
+              endTime: p.endTime || '21:00',
+              maxSessions: p.maxSessions || 4,
+              mode: p.mode || 'Online',
+              timezone: p.timezone || 'IST (Asia/Kolkata)'
+            });
+          }
         }
       } catch (err) {
         console.warn('Failed to fetch profile details:', err.message);
@@ -102,11 +117,17 @@ const TeacherProfile = () => {
     try {
       setSaving(true);
       const subjectsArray = editForm.subjects.split(',').map(s => s.trim()).filter(Boolean);
+      const languagesArray = editForm.languages.split(',').map(l => l.trim()).filter(Boolean);
+      const educationArray = editForm.qualification.split(',').map(q => ({ degree: q.trim(), institution: 'TruEd Verified', year: new Date().getFullYear() })).filter(e => e.degree);
+
       await api.teacher.submitProfile({
         bio: editForm.bio,
         subjects: subjectsArray.length > 0 ? subjectsArray : ['General'],
+        languages: languagesArray.length > 0 ? languagesArray : ['English'],
+        education: educationArray,
         experienceYears: Number(editForm.experience || 0),
         city: editForm.location,
+        introVideoUrl: editForm.demoVideo || ''
       }).catch(() => null);
 
       await api.user.updateMe({

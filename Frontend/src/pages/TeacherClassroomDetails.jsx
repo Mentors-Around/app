@@ -61,6 +61,7 @@ export default function TeacherClassroomDetails() {
             endDate:     c.endDate   ? c.endDate.split('T')[0]   : '',
             status:      c.status || 'active',
             classLevel:  c.academicLevel || '',
+            stats:       c.stats || {},
             liveSettings: {
               meetingPlatform:    c.meetingPlatform || 'Google Meet',
               meetingLink:        c.gmeetLink || '',
@@ -426,7 +427,9 @@ export default function TeacherClassroomDetails() {
           </div>
           <div>
             <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Attendance Rate</p>
-            <p className="font-sora font-extrabold text-2xl text-navy">94%</p>
+            <p className="font-sora font-extrabold text-2xl text-navy">
+              {classroom.stats?.attendanceRate !== undefined ? `${classroom.stats.attendanceRate}%` : '100%'}
+            </p>
           </div>
         </div>
       </div>

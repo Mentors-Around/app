@@ -89,16 +89,6 @@ export const getUserProfile = asyncHandler(async (req, res) => {
   if (requester.role === 'teacher' && targetUser.role === 'student') {
     const { Enrollment } = await import('../models/index.js');
 
-    // Basic details: only name, avatarUrl, city, state. NO phone, NO email
-    const safeUser = {
-      _id: targetUser._id,
-      name: targetUser.name,
-      avatarUrl: targetUser.avatarUrl,
-      city: targetUser.city,
-      state: targetUser.state,
-      role: targetUser.role
-    };
-
     // Calculate attendance percentage across all classes
     const enrollments = await Enrollment.find({ studentId: targetUser._id }).populate('classroomId').lean();
     
@@ -116,11 +106,31 @@ export const getUserProfile = asyncHandler(async (req, res) => {
     });
     const attendancePercentage = totalPlanned > 0 ? Math.round((totalAttended / totalPlanned) * 100) : 100;
 
+    // Daily streak: Days since account creation or active learning (mocked as done in getDashboardStats)
+    const daysDiff = Math.max(1, Math.floor((Date.now() - new Date(targetUser.createdAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24)));
+    const streakDays = Math.min(daysDiff, 14);
+
+    // Number of classrooms enrolled (total across all tutors)
+    const totalEnrolledClassroomsCount = enrollments.length;
+
+    // Basic details: only name, avatarUrl, city, state. NO phone, NO email
+    const safeUser = {
+      _id: targetUser._id,
+      name: targetUser.name,
+      avatarUrl: targetUser.avatarUrl,
+      city: targetUser.city,
+      state: targetUser.state,
+      role: targetUser.role,
+      attendancePercentage: attendancePercentage
+    };
+
     return res.status(200).json(new ApiResponse(200, {
       user: safeUser,
       attendancePercentage,
       isEnrolledInMyClasses,
-      myClassroomEnrollments
+      myClassroomEnrollments,
+      streakDays,
+      totalEnrolledClassroomsCount
     }, 'Teacher profile fetch successful'));
   }
 

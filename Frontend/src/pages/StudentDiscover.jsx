@@ -312,10 +312,10 @@ const StudentDiscover = () => {
       list = list.filter((t) => 
         t.name.toLowerCase().includes(q) || 
         t.subject.toLowerCase().includes(q) || 
+        (t.title && t.title.toLowerCase().includes(q)) ||
         (t.dynamicSubjects && t.dynamicSubjects.some(s => s.toLowerCase().includes(q))) ||
         (t.dynamicLevels && t.dynamicLevels.some(l => l.toLowerCase().includes(q))) ||
-        (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q))) ||
-        (t.bio && t.bio.toLowerCase().includes(q))
+        (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q)))
       );
     }
     if (filters.minRating) {
@@ -367,7 +367,12 @@ const StudentDiscover = () => {
     }
     
     if (locationQuery) {
-      list = list.filter((t) => t.location && t.location.toLowerCase().includes(locationQuery.toLowerCase()));
+      const loc = locationQuery.toLowerCase();
+      list = list.filter((t) => 
+        t.mode === 'Online' || 
+        t.mode === 'Both' || 
+        (t.location && t.location.toLowerCase().includes(loc))
+      );
     }
 
     switch (sortBy) {

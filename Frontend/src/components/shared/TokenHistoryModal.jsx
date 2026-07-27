@@ -12,15 +12,14 @@ const TokenHistoryModal = ({ isOpen, onClose, currentTokens }) => {
       const fetchHistory = async () => {
         try {
           setLoading(true);
-          const res = await api.user.getPayments().catch(() => []);
-          const list = Array.isArray(res) ? res : (res?.docs || res?.payments || []);
-          const tokenTxns = list.filter(p => p.type === 'token_purchase' || p.purpose === 'tokens' || p.description?.toLowerCase().includes('token'));
-          const mapped = tokenTxns.map((p, idx) => ({
-            id: p._id || idx,
-            type: p.amountPaise > 0 ? 'purchase' : 'refund',
-            reason: p.description || p.notes?.purpose || 'Token Purchase',
-            amount: `+${p.tokensCount || Math.round((p.amountPaise || 1000) / 100)}`,
-            timestamp: p.createdAt || new Date().toISOString(),
+          const res = await api.wallet.getTokenTransactions().catch(() => []);
+          const list = Array.isArray(res) ? res : (res?.docs || res?.results || res?.transactions || []);
+          const mapped = list.map((tx, idx) => ({
+            id: tx._id || idx,
+            type: tx.type === 'refunded' ? 'refund' : (tx.amount > 0 ? 'purchase' : 'used'),
+            reason: tx.note || 'Token transaction',
+            amount: tx.amount > 0 ? `+${tx.amount}` : `${tx.amount}`,
+            timestamp: tx.createdAt || new Date().toISOString(),
           }));
           setHistory(mapped);
         } catch (err) {

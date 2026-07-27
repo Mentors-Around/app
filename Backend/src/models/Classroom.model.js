@@ -203,6 +203,16 @@ const classroomSchema = new Schema(
       min:     0,
       max:     120,
     },
+    meetingId: {
+      type:    String,
+      trim:    true,
+      default: null,
+    },
+    meetingPassword: {
+      type:    String,
+      trim:    true,
+      default: null,
+    },
 
     // ── Mode ──────────────────────────────────────────────────────────────────
     mode:            enumField(CLASSROOM_MODE, CLASSROOM_MODE.ONLINE),

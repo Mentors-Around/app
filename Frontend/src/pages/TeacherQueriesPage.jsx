@@ -450,10 +450,7 @@ const TeacherQueriesPage = () => {
                       {/* Display Timeline of Events */}
                       <div className="mb-4">
                         <QueryTimeline 
-                          events={[
-                            query?.message ? { id: 's1', type: 'submitted', timestamp: query?.createdAt, content: query.message } : null,
-                            ...(query?.events || (query?.reply ? [{ id: 's2', type: 'teacher_reply', timestamp: query?.replyDate || query?.createdAt, content: query.reply }] : []))
-                          ].filter(Boolean)} 
+                          events={query?.events || []} 
                           userType="teacher" 
                         />
                       </div>

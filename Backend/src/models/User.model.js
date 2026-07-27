@@ -170,6 +170,8 @@ const userSchema = new Schema(
     banReason: { type: String,  trim: true,     default: null },
     // ── Engagement ────────────────────────────────────────────────────────────
     lastActiveAt: { type: Date, default: null, index: true },
+    streakDays: { type: Number, default: 1 },
+    lastActiveDate: { type: String, default: null },
     fcmTokens: {
       type:    [String],
       default: [],
@@ -262,8 +264,30 @@ userSchema.methods.ban = async function (reason) {
   return this.save();
 };
 
-userSchema.methods.touchActivity = function () {
-  return this.constructor.updateOne({ _id: this._id }, { lastActiveAt: new Date() });
+userSchema.methods.touchActivity = async function () {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const lastDate = this.lastActiveDate;
+
+  let updateFields = { lastActiveAt: new Date() };
+
+  if (!lastDate) {
+    updateFields.lastActiveDate = todayStr;
+    updateFields.streakDays = 1;
+  } else if (lastDate !== todayStr) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    if (lastDate === yesterdayStr) {
+      updateFields.streakDays = (this.streakDays || 0) + 1;
+    } else {
+      updateFields.streakDays = 1;
+    }
+    updateFields.lastActiveDate = todayStr;
+  }
+
+  await this.constructor.updateOne({ _id: this._id }, { $set: updateFields });
+  Object.assign(this, updateFields);
 };
 
 // ── Static methods ─────────────────────────────────────────────────────────────

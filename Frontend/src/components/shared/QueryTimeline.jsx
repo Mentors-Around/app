@@ -16,6 +16,7 @@ const QueryTimeline = ({ events, userType }) => {
       {events.map((event, index) => {
         const isStudent = event.type === 'submitted' || event.type === 'student_reply';
         const isSystem = event.type === 'system_action' || event.type === 'private_classroom' || event.type === 'payment_completed';
+        const isCurrentUser = !isSystem && ((userType === 'student' && isStudent) || (userType === 'teacher' && !isStudent));
         
         let Icon = MessageCircle;
         let iconBg = 'bg-slate-100 text-slate-500';
@@ -29,9 +30,9 @@ const QueryTimeline = ({ events, userType }) => {
         }
 
         return (
-          <div key={event.id || index} className={`relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active`}>
+          <div key={event.id || index} className={`relative flex items-center justify-between md:justify-normal ${isCurrentUser ? '' : 'md:flex-row-reverse'} group is-active`}>
             {/* Icon */}
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white ${iconBg} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2`}>
+            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white ${iconBg} shadow shrink-0 md:order-1 ${isCurrentUser ? 'md:translate-x-1/2' : 'md:-translate-x-1/2'}`}>
               <Icon className="w-4 h-4" />
             </div>
             

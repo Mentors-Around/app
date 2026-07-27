@@ -56,6 +56,7 @@ const ClassroomLobby = () => {
   const [error, setError] = useState('');
   const [status, setStatus] = useState({ state: 'loading', message: '' });
   const [joinUrl, setJoinUrl] = useState('');
+  const [meetingInstructions, setMeetingInstructions] = useState(null);
 
   // Resource sections from API
   const [materials, setMaterials] = useState([]);
@@ -233,17 +234,29 @@ const ClassroomLobby = () => {
     setIsJoining(true);
     try {
       const joinRes = await api.classroom.joinClass(id);
-      const link = joinRes?.meetingLink || joinUrl;
-      if (link) {
+      const link = joinRes?.meetingLink;
+      const platform = joinRes?.meetingPlatform || 'Google Meet';
+      const meetingId = joinRes?.meetingId;
+      const meetingPassword = joinRes?.meetingPassword;
+
+      if (link && link.startsWith('http')) {
         window.open(link, '_blank', 'noopener,noreferrer');
+      } else if (meetingId) {
+        setMeetingInstructions({
+          platform,
+          meetingId,
+          meetingPassword
+        });
+      } else if (joinUrl && joinUrl.startsWith('http')) {
+        window.open(joinUrl, '_blank', 'noopener,noreferrer');
       } else {
-        setError('No meeting link configured. Please ask your teacher to add one in classroom settings.');
+        setError('No meeting link or credentials configured. Please ask your teacher to add one in classroom settings.');
       }
     } catch (err) {
       if (err.status === 403 || err.status === 401) {
         setError('You are not authorized to join this class.');
         setStatus({ state: 'unauthorized', message: 'Not enrolled.' });
-      } else if (joinUrl) {
+      } else if (joinUrl && joinUrl.startsWith('http')) {
         window.open(joinUrl, '_blank', 'noopener,noreferrer');
       } else {
         setError(`Failed to join: ${err.message || 'Please try again.'}`);
@@ -662,8 +675,72 @@ const ClassroomLobby = () => {
             </div>
           ))}
         </div>
-
       </div>
+
+      {meetingInstructions && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setMeetingInstructions(null)} 
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1 rounded-full bg-slate-50 hover:bg-slate-100 transition"
+            >
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto bg-sky/10 text-sky rounded-full flex items-center justify-center text-3xl">
+                <i className={`fa-solid ${meetingInstructions.platform.toLowerCase().includes('zoom') ? 'fa-video' : 'fa-users'}`} />
+              </div>
+              <div>
+                <h3 className="font-sora font-extrabold text-navy text-xl">Join Live Class</h3>
+                <p className="text-sm font-semibold text-slate-500 mt-1">Please use the credentials below on {meetingInstructions.platform}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Meeting ID</span>
+                  <div className="flex justify-between items-center bg-white border border-slate-100 rounded-lg px-3 py-2 mt-1">
+                    <span className="font-mono font-bold text-navy select-all">{meetingInstructions.meetingId}</span>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(meetingInstructions.meetingId);
+                        alert('Meeting ID copied!');
+                      }}
+                      className="text-xs text-sky font-bold hover:underline"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                {meetingInstructions.meetingPassword && (
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password / Passcode</span>
+                    <div className="flex justify-between items-center bg-white border border-slate-100 rounded-lg px-3 py-2 mt-1">
+                      <span className="font-mono font-bold text-navy select-all">{meetingInstructions.meetingPassword}</span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(meetingInstructions.meetingPassword);
+                          alert('Password copied!');
+                        }}
+                        className="text-xs text-sky font-bold hover:underline"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="bg-amber/10 border border-amber/20 rounded-xl p-3 text-xs text-amber-hover font-semibold text-left">
+                ⚠️ IMPORTANT: Make sure to join {meetingInstructions.platform} with your actual name as your attendance has been marked as present.
+              </div>
+              <button 
+                onClick={() => setMeetingInstructions(null)}
+                className="w-full py-3 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-sm"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

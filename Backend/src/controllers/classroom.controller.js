@@ -26,6 +26,8 @@ export const createClassroom = asyncHandler(async (req, res) => {
     academicLevel, minimumQualification, prerequisites = [],
     // Hobby-specific
     minimumAge,
+    // Live Class
+    meetingPlatform, meetingId, meetingPassword,
   } = req.body;
 
   if (!title || !subject || !feesPaise || !totalHoursPlanned || !startDate || !endDate || !schedule || !maxStudents) {
@@ -92,6 +94,9 @@ export const createClassroom = asyncHandler(async (req, res) => {
     mode:                 mode || CLASSROOM_MODE.ONLINE,
     offlineFacility:      mode === CLASSROOM_MODE.OFFLINE ? offlineFacility : null,
     gmeetLink,
+    meetingPlatform:      meetingPlatform || 'Google Meet',
+    meetingId:            meetingId || null,
+    meetingPassword:      meetingPassword || null,
     status:               CLASSROOM_STATUS.ACTIVE,
     // New fields
     classroomType,
@@ -121,7 +126,7 @@ export const updateClassroom = asyncHandler(async (req, res) => {
     skillLevel, minimumQualification, prerequisites, minimumAge,
     academicLevel,
     // ── Live class settings ───────────────────────────────────────────────────
-    gmeetLink, meetingPlatform, accessTimeMinutes,
+    gmeetLink, meetingPlatform, accessTimeMinutes, meetingId, meetingPassword,
   } = req.body;
 
   ClassroomService.validateScheduleUpdate(classroom, { totalPlannedHours: totalHoursPlanned, endDate });
@@ -152,6 +157,8 @@ export const updateClassroom = asyncHandler(async (req, res) => {
   if (gmeetLink !== undefined)            updates.gmeetLink            = gmeetLink?.trim() || null;
   if (meetingPlatform !== undefined)      updates.meetingPlatform      = meetingPlatform?.trim() || null;
   if (accessTimeMinutes !== undefined)    updates.accessTimeMinutes    = Number(accessTimeMinutes) || 15;
+  if (meetingId !== undefined)            updates.meetingId            = meetingId?.trim() || null;
+  if (meetingPassword !== undefined)      updates.meetingPassword      = meetingPassword?.trim() || null;
 
   const updated = await Classroom.findByIdAndUpdate(
     classroom._id,
@@ -503,7 +510,7 @@ export const joinClass = asyncHandler(async (req, res) => {
   const { classroomId } = req.params;
 
   const classroom = await Classroom.findById(classroomId)
-    .select('gmeetLink offlineFacility mode status teacherId title schedule')
+    .select('gmeetLink meetingPlatform meetingId meetingPassword offlineFacility mode status teacherId title schedule')
     .lean();
   if (!classroom) throw ApiError.notFound('Classroom');
 
@@ -544,6 +551,9 @@ export const joinClass = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, {
     meetingLink,
+    meetingPlatform: classroom.meetingPlatform || 'Google Meet',
+    meetingId:       classroom.meetingId || null,
+    meetingPassword: classroom.meetingPassword || null,
     mode:            classroom.mode,
     offlineAddress:  classroom.offlineFacility?.address || null,
     classroomTitle:  classroom.title,

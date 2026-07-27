@@ -568,9 +568,9 @@ export const getMyQueries = asyncHandler(async (req, res) => {
     }
   } else {
     if (isTeacher) {
-      filter.isArchivedByTeacher = false;
+      filter.isArchivedByTeacher = { $ne: true };
     } else {
-      filter.isArchivedByStudent = false;
+      filter.isArchivedByStudent = { $ne: true };
     }
 
     if (tab && tabMap[tab]) {

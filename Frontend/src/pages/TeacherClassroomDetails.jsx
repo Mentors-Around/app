@@ -66,6 +66,8 @@ export default function TeacherClassroomDetails() {
               meetingPlatform:    c.meetingPlatform || 'Google Meet',
               meetingLink:        c.gmeetLink || '',
               accessTimeMinutes:  c.accessTimeMinutes || 15,
+              meetingId:          c.meetingId || '',
+              meetingPassword:    c.meetingPassword || '',
             },
             sessions: prev.sessions || [],
           }));
@@ -73,6 +75,8 @@ export default function TeacherClassroomDetails() {
             meetingPlatform:   c.meetingPlatform || 'Google Meet',
             meetingLink:       c.gmeetLink || '',
             accessTimeMinutes: c.accessTimeMinutes || 15,
+            meetingId:          c.meetingId || '',
+            meetingPassword:    c.meetingPassword || '',
           });
         }
       } catch (err) {
@@ -122,7 +126,9 @@ export default function TeacherClassroomDetails() {
   const [liveSettingsForm, setLiveSettingsForm] = useState({
     meetingPlatform: classroom.liveSettings?.meetingPlatform || 'Google Meet',
     meetingLink: classroom.liveSettings?.meetingLink || '',
-    accessTimeMinutes: classroom.liveSettings?.accessTimeMinutes || 15
+    accessTimeMinutes: classroom.liveSettings?.accessTimeMinutes || 15,
+    meetingId: classroom.liveSettings?.meetingId || '',
+    meetingPassword: classroom.liveSettings?.meetingPassword || ''
   });
   
   // Price Edit State
@@ -215,6 +221,8 @@ export default function TeacherClassroomDetails() {
         gmeetLink:         liveSettingsForm.meetingLink,
         meetingPlatform:   liveSettingsForm.meetingPlatform,
         accessTimeMinutes: liveSettingsForm.accessTimeMinutes,
+        meetingId:         liveSettingsForm.meetingId,
+        meetingPassword:   liveSettingsForm.meetingPassword,
       });
       setClassroom(p => ({ ...p, liveSettings: updatedLiveSettings }));
       setIsLiveSettingsModalOpen(false);
@@ -753,14 +761,39 @@ export default function TeacherClassroomDetails() {
               <div>
                 <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Meeting Link</label>
                 <input 
-                  required
+                  required={liveSettingsForm.meetingPlatform === 'Google Meet'}
                   type="url"
-                  placeholder="https://meet.google.com/..."
+                  placeholder={liveSettingsForm.meetingPlatform === 'Google Meet' ? "https://meet.google.com/..." : "https://..."}
                   value={liveSettingsForm.meetingLink}
                   onChange={e => setLiveSettingsForm({...liveSettingsForm, meetingLink: e.target.value})}
                   className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:border-navy outline-none"
                 />
               </div>
+              {(liveSettingsForm.meetingPlatform === 'Zoom' || liveSettingsForm.meetingPlatform === 'Microsoft Teams') && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Meeting ID</label>
+                    <input 
+                      required={!liveSettingsForm.meetingLink}
+                      type="text"
+                      placeholder="Enter meeting ID"
+                      value={liveSettingsForm.meetingId}
+                      onChange={e => setLiveSettingsForm({...liveSettingsForm, meetingId: e.target.value})}
+                      className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:border-navy outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Meeting Password / Passcode</label>
+                    <input 
+                      type="text"
+                      placeholder="Enter meeting password (optional)"
+                      value={liveSettingsForm.meetingPassword}
+                      onChange={e => setLiveSettingsForm({...liveSettingsForm, meetingPassword: e.target.value})}
+                      className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:border-navy outline-none"
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Session Access Time</label>
                 <select 

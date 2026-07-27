@@ -38,6 +38,7 @@ const PublicTeacherProfile = () => {
   const profileId = id || teacherId;
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('Classrooms');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'completed'
   const [saved, setSaved] = useState(false);
   const [queryError, setQueryError] = useState(null);
   const [querySuccessToast, setQuerySuccessToast] = useState(false);
@@ -144,6 +145,7 @@ const PublicTeacherProfile = () => {
     completionRate: apiProfile?.completionRate !== undefined ? apiProfile.completionRate : 100,
     activeClassrooms: apiProfile?.activeClassrooms || [],
     completedClassrooms: apiProfile?.completedClassrooms || [],
+    education: apiProf.education || tutorData?.education || [],
     // NOTE: phone, email, bankAccount, aadhaarNumber are intentionally excluded
   };
 
@@ -376,9 +378,28 @@ const PublicTeacherProfile = () => {
               {/* CLASSROOMS TAB */}
               {activeTab === 'Classrooms' && (
                 <div className="animate-fade-in space-y-8">
+                  {/* Top Toggle Bar */}
+                  <div className="flex gap-2 p-1 bg-slate-100 rounded-xl max-w-md">
+                    {['all', 'active', 'completed'].map((tab) => (
+                      <button
+                        type="button"
+                        key={tab}
+                        onClick={() => setStatusFilter(tab)}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all capitalize ${
+                          statusFilter === tab 
+                            ? 'bg-navy text-white shadow-sm' 
+                            : 'text-slate-500 hover:text-navy hover:bg-white/50'
+                        }`}
+                      >
+                        {tab} Classrooms
+                      </button>
+                    ))}
+                  </div>
+
                   {/* Active Classrooms */}
-                  <div>
-                    <h3 className="font-sora font-bold text-navy text-lg mb-4">Active Classrooms</h3>
+                  {(statusFilter === 'all' || statusFilter === 'active') && (
+                    <div>
+                      <h3 className="font-sora font-bold text-navy text-lg mb-4">Active Classrooms</h3>
                     {teacherClassrooms.filter(r => r.status === 'active').length === 0 ? (
                       <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-100">
                         <p className="text-slate-500 text-sm font-medium">No active classrooms available.</p>
@@ -432,10 +453,12 @@ const PublicTeacherProfile = () => {
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Completed Classrooms */}
-                  <div>
-                    <h3 className="font-sora font-bold text-navy text-lg mb-4">Completed Classrooms</h3>
+                  {(statusFilter === 'all' || statusFilter === 'completed') && (
+                    <div>
+                      <h3 className="font-sora font-bold text-navy text-lg mb-4">Completed Classrooms</h3>
                     {teacherClassrooms.filter(r => r.status === 'completed').length === 0 ? (
                       <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-100">
                         <p className="text-slate-500 text-sm font-medium">No completed classrooms.</p>
@@ -478,6 +501,7 @@ const PublicTeacherProfile = () => {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               )}
               
@@ -564,6 +588,28 @@ const PublicTeacherProfile = () => {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Education / Qualifications */}
+                  <div className="mt-8 border-t border-slate-100 pt-6">
+                    <h4 className="font-bold text-navy text-sm mb-4 flex items-center gap-2">
+                      <Award className="w-4 h-4 text-slate-400" /> Education & Qualifications
+                    </h4>
+                    {teacher.education && teacher.education.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {teacher.education.map((edu, idx) => (
+                          <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p className="text-sm font-bold text-navy">{edu.degree || edu.qualification || edu.title}</p>
+                            <p className="text-xs text-slate-500 font-semibold">{edu.institution || edu.school || edu.university}</p>
+                            {(edu.year || edu.passingYear || edu.endYear) && (
+                              <p className="text-[10px] text-slate-400 font-bold mt-1">Class of {edu.year || edu.passingYear || edu.endYear}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic">No qualifications listed.</p>
+                    )}
                   </div>
 
                 </div>

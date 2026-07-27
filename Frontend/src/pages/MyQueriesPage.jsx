@@ -380,27 +380,24 @@ const MyQueriesPage = () => {
 
                 <div className="flex-1 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                   <QueryTimeline 
-                    events={[
-                      query?.message ? { id: 's1', type: 'submitted', timestamp: query?.createdAt, content: query.message } : null,
-                      ...(query?.events || (query?.reply ? [{ id: 's2', type: 'teacher_reply', timestamp: query?.replyDate || query?.createdAt, content: query.reply }] : [])).map(e => {
-                        // Inject classroom preview card if it's a private classroom event
-                        if (e?.type === 'private_classroom') {
-                          return {
-                            ...e,
-                            children: (
-                              <ClassroomPreviewCard 
-                                classroomId={query.customClassroomId || 1}
-                                name={'Classroom'}
-                                subject={query.subject}
-                                teacherName={query.teacherName || query.teacher}
-                                onEnroll={null}
-                              />
-                            )
-                          };
-                        }
-                        return e;
-                      })
-                    ].filter(Boolean)} 
+                    events={(query?.events || []).map(e => {
+                      // Inject classroom preview card if it's a private classroom event
+                      if (e?.type === 'private_classroom') {
+                        return {
+                          ...e,
+                          children: (
+                            <ClassroomPreviewCard 
+                              classroomId={query.customClassroomId || 1}
+                              name={'Classroom'}
+                              subject={query.subject}
+                              teacherName={query.teacherName || query.teacher}
+                              onEnroll={null}
+                            />
+                          )
+                        };
+                      }
+                      return e;
+                    })} 
                     userType="student" 
                   />
                 </div>

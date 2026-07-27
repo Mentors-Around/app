@@ -99,18 +99,18 @@ const TutorCard = ({ tutor }) => {
         {/* Rating Row */}
         <div className="flex items-center gap-1 text-amber mb-4 flex-wrap hover:opacity-80 transition-opacity cursor-pointer">
           <span className="text-[15px] pb-0.5">★</span>
-          <span className="text-sm font-bold text-navy ml-0.5">{tutor.rating}</span>
+          <span className="text-sm font-bold text-navy ml-0.5">{tutor.rating && tutor.rating > 0 ? tutor.rating : '-'}</span>
           <span className="text-slate-300 mx-1.5">•</span>
-          <span className="text-sm text-slate-500 font-medium">{tutor.reviews} Reviews</span>
+          <span className="text-sm text-slate-500 font-medium">{tutor.reviews || 0} Reviews</span>
         </div>
 
         {/* Detail pills */}
         <div className="flex items-center gap-2 flex-wrap mb-4">
           <span className="inline-flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full">
-            <i className="fa-regular fa-calendar text-slate-400" /> {tutor.experience}
+            <i className="fa-regular fa-calendar text-slate-400" /> {tutor.experience || 'Not specified'}
           </span>
           <span className="inline-flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full">
-            <i className={`fa-solid ${tutor.mode.includes('Online') ? 'fa-laptop' : 'fa-house'} text-slate-400`} /> {tutor.mode}
+            <i className={`fa-solid ${tutor.mode && tutor.mode.includes('Online') ? 'fa-laptop' : 'fa-house'} text-slate-400`} /> {tutor.mode || 'Online'}
           </span>
           {tutor.promo && !tutor.promo.toLowerCase().includes('free trial') && !tutor.promo.toLowerCase().includes('first class') && (
             <span className="inline-flex items-center gap-1.5 text-xs bg-amber/10 border border-amber/20 text-amber-hover font-bold px-2.5 py-1 rounded-full">
@@ -121,7 +121,7 @@ const TutorCard = ({ tutor }) => {
 
         {/* Tags */}
         <div className="flex flex-wrap gap-1.5 mt-auto">
-          {tutor.tags.slice(0, 4).map((tag) => (
+          {tutor.tags && tutor.tags.slice(0, 4).map((tag) => (
             <span key={tag} className="text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-md">
               {tag}
             </span>
@@ -133,7 +133,7 @@ const TutorCard = ({ tutor }) => {
       <div className="p-5 pt-4 bg-slate-50/50 border-t border-slate-100 mt-auto">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <span className="font-sora font-extrabold text-navy text-2xl tracking-tight">₹{tutor.price}</span>
+            <span className="font-sora font-extrabold text-navy text-2xl tracking-tight">{tutor.price ? `₹${tutor.price}` : '-'}</span>
             <span className="text-xs font-semibold text-muted ml-1">/ hr</span>
           </div>
         </div>

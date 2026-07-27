@@ -136,16 +136,22 @@ export const getUserProfile = asyncHandler(async (req, res) => {
 
   // Case 3: Student seeing teacher profile
   if (requester.role === 'student' && targetUser.role === 'teacher') {
-    const profile = (await TeacherProfile.findOne({ userId: targetUser._id })
-      .select('-adminNotes -searchKeywords -bankAccount -aadhaarNumber -kycDocumentIds -razorpayContactId -razorpayFundId')
-      .lean({ virtuals: true })) || {
-        bio: 'Experienced educator committed to student success.',
-        headline: 'Verified Educator',
-        experienceYears: 5,
-        education: [],
-        subjects: ['General Education'],
-        languages: ['English']
-      };
+    const profileObj = await TeacherProfile.findOne({ userId: targetUser._id })
+      .select('-adminNotes -searchKeywords -aadhaarNumber -kycDocumentIds')
+      .lean({ virtuals: true });
+
+    if (profileObj) {
+      delete profileObj.bankAccount;
+    }
+
+    const profile = profileObj || {
+      bio: 'Experienced educator committed to student success.',
+      headline: 'Verified Educator',
+      experienceYears: 5,
+      education: [],
+      subjects: ['General Education'],
+      languages: ['English']
+    };
 
     // Safe details (no email, phone, account details)
     const safeUser = {

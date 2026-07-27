@@ -27,6 +27,26 @@ const scheduleSlotSchema = new Schema(
   { _id: true },
 );
 
+const sessionDetailSchema = new Schema(
+  {
+    id:          { type: Number },
+    topic:       { type: String, required: true },
+    date:        { type: String, required: true }, // e.g. YYYY-MM-DD
+    startTime:   { type: String, required: true }, // e.g. HH:MM
+    endTime:     { type: String, required: true },
+    notes:       { type: String, default: '' },
+    sessionType: { type: String, enum: ['online', 'offline'], default: 'online' },
+    attendance:  [
+      {
+        studentId: { type: Schema.Types.ObjectId, ref: 'User' },
+        present:   { type: Boolean, default: false },
+        markedAt:  { type: Date, default: Date.now }
+      }
+    ]
+  },
+  { _id: true }
+);
+
 // ── Offline facility ──────────────────────────────────────────────────────────
 const offlineFacilitySchema = new Schema(
   {
@@ -217,6 +237,7 @@ const classroomSchema = new Schema(
     // ── Mode ──────────────────────────────────────────────────────────────────
     mode:            enumField(CLASSROOM_MODE, CLASSROOM_MODE.ONLINE),
     offlineFacility: { type: offlineFacilitySchema, default: null },
+    sessions:        { type: [sessionDetailSchema], default: [] },
 
     // ── Pricing ───────────────────────────────────────────────────────────────
     feesPaise: {

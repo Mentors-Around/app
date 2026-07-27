@@ -69,7 +69,7 @@ export default function TeacherClassroomDetails() {
               meetingId:          c.meetingId || '',
               meetingPassword:    c.meetingPassword || '',
             },
-            sessions: prev.sessions || [],
+            sessions: c.sessions || prev.sessions || [],
           }));
           setLiveSettingsForm({
             meetingPlatform:   c.meetingPlatform || 'Google Meet',
@@ -144,7 +144,7 @@ export default function TeacherClassroomDetails() {
   // Session Edit State
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [sessionForm, setSessionForm] = useState({
-    topic: '', date: '', startTime: '', endTime: '', notes: ''
+    topic: '', date: '', startTime: '', endTime: '', notes: '', sessionType: 'online'
   });
 
   const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -174,42 +174,65 @@ export default function TeacherClassroomDetails() {
       schedule: `${daysStr} ${timeStr}`.trim()
     }));
     setIsScheduleModalOpen(false);
-    showToast('Schedule updated successfully');
+    showToast('Classroom schedule updated successfully');
   };
 
   const handleSaveSession = (e) => {
     e.preventDefault();
+    let updatedSessions = [];
     if (editingSessionId) {
+      updatedSessions = classroom.sessions.map(s => s.id === editingSessionId ? {
+        ...s,
+        topic: sessionForm.topic,
+        date: sessionForm.date,
+        time: `${formatTime12hr(sessionForm.startTime)} - ${formatTime12hr(sessionForm.endTime)}`,
+        startTime: sessionForm.startTime,
+        endTime: sessionForm.endTime,
+        notes: sessionForm.notes,
+        sessionType: sessionForm.sessionType || 'online'
+      } : s);
       setClassroom(p => ({
         ...p,
-        sessions: p.sessions.map(s => s.id === editingSessionId ? {
-          ...s,
-          topic: sessionForm.topic,
-          date: sessionForm.date,
-          time: `${formatTime12hr(sessionForm.startTime)} - ${formatTime12hr(sessionForm.endTime)}`,
-          startTime: sessionForm.startTime,
-          endTime: sessionForm.endTime,
-          notes: sessionForm.notes
-        } : s)
+        sessions: updatedSessions
       }));
       showToast('Session updated successfully');
     } else {
       const newId = classroom.sessions.length > 0 ? Math.max(...classroom.sessions.map(s => s.id)) + 1 : 1;
+      updatedSessions = [...classroom.sessions, {
+        id: newId,
+        topic: sessionForm.topic,
+        date: sessionForm.date,
+        time: `${formatTime12hr(sessionForm.startTime)} - ${formatTime12hr(sessionForm.endTime)}`,
+        startTime: sessionForm.startTime,
+        endTime: sessionForm.endTime,
+        notes: sessionForm.notes,
+        sessionType: sessionForm.sessionType || 'online'
+      }];
       setClassroom(p => ({
         ...p,
-        sessions: [...p.sessions, {
-          id: newId,
-          topic: sessionForm.topic,
-          date: sessionForm.date,
-          time: `${formatTime12hr(sessionForm.startTime)} - ${formatTime12hr(sessionForm.endTime)}`,
-          startTime: sessionForm.startTime,
-          endTime: sessionForm.endTime,
-          notes: sessionForm.notes
-        }]
+        sessions: updatedSessions
       }));
       showToast('Session added successfully');
     }
     setIsSessionModalOpen(false);
+
+    // Save to local storage for persistence
+    const saved = localStorage.getItem('trueed_teacher_classrooms');
+    if (saved) {
+      try {
+        const list = JSON.parse(saved);
+        const idx = list.findIndex(item => item.id?.toString() === classroom.id?.toString());
+        if (idx !== -1) {
+          list[idx].sessions = updatedSessions;
+          localStorage.setItem('trueed_teacher_classrooms', JSON.stringify(list));
+        }
+      } catch (err) {}
+    }
+
+    // Save to backend database via API
+    api.classroom.update(classroom.id || classroom._id, { sessions: updatedSessions })
+      .then(() => showToast('Sessions synced to server ✓'))
+      .catch(err => showToast(`Failed to sync to server: ${err.message}`));
   };
 
   const handleSaveLiveSettings = async (e) => {
@@ -241,7 +264,7 @@ export default function TeacherClassroomDetails() {
   };
 
   const openAddSessionModal = () => {
-    setSessionForm({ topic: '', date: '', startTime: '', endTime: '', notes: '' });
+    setSessionForm({ topic: '', date: '', startTime: '', endTime: '', notes: '', sessionType: classroom.mode?.toLowerCase() === 'offline' ? 'offline' : 'online' });
     setEditingSessionId(null);
     setIsSessionModalOpen(true);
   };
@@ -252,7 +275,8 @@ export default function TeacherClassroomDetails() {
       date: session.date,
       startTime: session.startTime || '',
       endTime: session.endTime || '',
-      notes: session.notes || ''
+      notes: session.notes || '',
+      sessionType: session.sessionType || (classroom.mode?.toLowerCase() === 'offline' ? 'offline' : 'online')
     });
     setEditingSessionId(session.id);
     setIsSessionModalOpen(true);
@@ -568,7 +592,16 @@ export default function TeacherClassroomDetails() {
                           <span className="text-lg font-extrabold leading-none">{dateDisplay.day}</span>
                         </div>
                         <div>
-                          <p className="font-bold text-navy mb-0.5">{session.topic}</p>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="font-bold text-navy">{session.topic}</p>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                              (session.sessionType || (classroom.mode?.toLowerCase() === 'offline' ? 'offline' : 'online')) === 'online' 
+                                ? 'bg-sky-50 text-sky-700' 
+                                : 'bg-amber-50 text-amber-700'
+                            }`}>
+                              {session.sessionType || (classroom.mode?.toLowerCase() === 'offline' ? 'offline' : 'online')}
+                            </span>
+                          </div>
                           <p className="text-sm text-slate-500 flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> {session.time}</p>
                         </div>
                       </div>
@@ -706,6 +739,20 @@ export default function TeacherClassroomDetails() {
                   <label className="block text-sm font-bold text-slate-700 mb-2">Topic Name</label>
                   <input required type="text" value={sessionForm.topic} onChange={e => setSessionForm({...sessionForm, topic: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none" placeholder="e.g. Introduction & Basics, Algebra Part 1, or Chapter 1" />
                 </div>
+                
+                {classroom.mode === 'Hybrid' && (
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Session Mode</label>
+                    <select 
+                      value={sessionForm.sessionType} 
+                      onChange={e => setSessionForm({...sessionForm, sessionType: e.target.value})} 
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky/50 outline-none bg-white"
+                    >
+                      <option value="online">Online Session</option>
+                      <option value="offline">Offline Session</option>
+                    </select>
+                  </div>
+                )}
                 
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Session Date</label>

@@ -46,6 +46,7 @@ export const CLASSROOM_STATUS = Object.freeze({
 export const CLASSROOM_MODE = Object.freeze({
   ONLINE:  'online',
   OFFLINE: 'offline',
+  HYBRID:  'hybrid',
 });
 
 // NEW: academic = school/competitive/college subjects

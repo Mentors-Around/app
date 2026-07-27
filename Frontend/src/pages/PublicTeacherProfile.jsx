@@ -50,6 +50,23 @@ const PublicTeacherProfile = () => {
   const [apiProfile, setApiProfile] = useState(null);
   const [apiClassrooms, setApiClassrooms] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
+  const [dbTeachers, setDbTeachers] = useState([]);
+
+  useEffect(() => {
+    const fetchSimilar = async () => {
+      try {
+        const res = await api.teacher.search('');
+        if (res && res.teachers) {
+          setDbTeachers(res.teachers);
+        } else if (Array.isArray(res)) {
+          setDbTeachers(res);
+        }
+      } catch (err) {
+        console.warn('Failed to load similar teachers:', err);
+      }
+    };
+    fetchSimilar();
+  }, []);
 
   // Try loading from real backend first; fall back to static tutors data for demos
   const tutorData = tutors.find(t => t.id.toString() === profileId);
@@ -64,7 +81,11 @@ const PublicTeacherProfile = () => {
           const res = await api.user.getProfile(profileId);
           if (res && res.user) {
             setApiProfile(res);
-            setApiClassrooms(res.activeClassrooms || res.classrooms || []);
+            const combined = [
+              ...(res.activeClassrooms || []),
+              ...(res.completedClassrooms || [])
+            ];
+            setApiClassrooms(combined);
             document.title = (res.user?.name || 'Teacher') + ' — TrueEd';
           }
         } else {
@@ -83,36 +104,6 @@ const PublicTeacherProfile = () => {
     };
     fetchApiProfile();
   }, [profileId]);
-
-  // Show loading state while fetching from API
-  if (apiLoading && /^[a-f0-9]{24}$/i.test(profileId)) {
-    return (
-      <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-3 text-slate-500">
-          <Loader2 className="w-8 h-8 animate-spin text-sky" />
-          <p className="font-bold text-sm">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If it's a MongoDB ID but no profile was found, and no static tutorData either
-  if (!apiProfile && !tutorData) {
-    return (
-      <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
-        <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200 text-center max-w-md w-full">
-          <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 text-3xl mx-auto mb-6">
-            <AlertCircle className="w-10 h-10" />
-          </div>
-          <h1 className="font-sora font-extrabold text-2xl text-navy mb-3">Tutor Not Found</h1>
-          <p className="text-slate-500 font-medium mb-8">We couldn't find the tutor profile you're looking for. It might have been removed or the link is incorrect.</p>
-          <Link to="/student/discover" className="inline-block px-8 py-3.5 bg-navy text-white font-bold rounded-xl shadow-sm hover:shadow-md transition">
-            Browse All Tutors
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   // ── Merge API data with static fallback (API takes priority) ──────────────
   // IMPORTANT: We NEVER display phone, email, bank account, or KYC details.
@@ -218,6 +209,36 @@ const PublicTeacherProfile = () => {
     }
   }, [profileId]);
 
+  // Show loading state while fetching from API
+  if (apiLoading && /^[a-f0-9]{24}$/i.test(profileId)) {
+    return (
+      <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-sky" />
+          <p className="font-bold text-sm">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If it's a MongoDB ID but no profile was found, and no static tutorData either
+  if (!apiProfile && !tutorData) {
+    return (
+      <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
+        <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200 text-center max-w-md w-full">
+          <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 text-3xl mx-auto mb-6">
+            <AlertCircle className="w-10 h-10" />
+          </div>
+          <h1 className="font-sora font-extrabold text-2xl text-navy mb-3">Tutor Not Found</h1>
+          <p className="text-slate-500 font-medium mb-8">We couldn't find the tutor profile you're looking for. It might have been removed or the link is incorrect.</p>
+          <Link to="/student/discover" className="inline-block px-8 py-3.5 bg-navy text-white font-bold rounded-xl shadow-sm hover:shadow-md transition">
+            Browse All Tutors
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   let dynamicSubjects = [];
   let dynamicLevels = [];
   let teacherClassrooms = [];
@@ -260,7 +281,9 @@ const PublicTeacherProfile = () => {
   const displaySubjects = dynamicSubjects.length > 0 ? dynamicSubjects : [teacher.subject];
   const displayLevels = dynamicLevels.length > 0 ? dynamicLevels : teacher.boards;
 
-  const similarTeachers = tutors.filter(t => t.subject === teacher.subject).slice(0, 3);
+  const matchedTeachers = dbTeachers.filter(t => (t._id || t.id)?.toString() !== profileId?.toString());
+  const similarTeachersFiltered = matchedTeachers.filter(t => t.subject === teacher.subject || t.subjects?.includes(teacher.subject));
+  const displaySimilar = similarTeachersFiltered.length > 0 ? similarTeachersFiltered.slice(0, 3) : matchedTeachers.slice(0, 3);
 
   const Tabs = ['Classrooms', 'About', 'Reviews', 'Availability', 'Achievements'];
 
@@ -325,8 +348,8 @@ const PublicTeacherProfile = () => {
                   <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Rating</p>
                   <div className="flex items-center gap-1.5 text-amber">
                     <Star className="w-4 h-4 fill-amber" />
-                    <span className="font-bold text-navy">{reviewStats.avgRating}</span>
-                    <span className="text-xs text-muted font-medium">({reviewStats.totalReviews})</span>
+                    <span className="font-bold text-navy">{reviewStats.avgRating && reviewStats.avgRating > 0 ? reviewStats.avgRating : '-'}</span>
+                    <span className="text-xs text-muted font-medium">({reviewStats.totalReviews || 0})</span>
                   </div>
                 </div>
                 <div>
@@ -621,11 +644,11 @@ const PublicTeacherProfile = () => {
                   {/* Summary */}
                   <div className="flex flex-col md:flex-row items-center gap-8 mb-10 bg-slate-50 p-6 rounded-xl border border-slate-100">
                     <div className="text-center md:text-left flex-shrink-0">
-                      <p className="font-sora font-extrabold text-5xl text-navy mb-2">{reviewStats.avgRating}</p>
+                      <p className="font-sora font-extrabold text-5xl text-navy mb-2">{reviewStats.avgRating && reviewStats.avgRating > 0 ? reviewStats.avgRating : '-'}</p>
                       <div className="flex gap-1 text-amber mb-1 justify-center md:justify-start">
-                        {[1,2,3,4,5].map(i => <Star key={i} className={`w-4 h-4 ${i <= Math.round(reviewStats.avgRating) ? 'fill-amber' : 'fill-slate-200 text-slate-200'}`} />)}
+                        {[1,2,3,4,5].map(i => <Star key={i} className={`w-4 h-4 ${reviewStats.avgRating && i <= Math.round(reviewStats.avgRating) ? 'fill-amber' : 'fill-slate-200 text-slate-200'}`} />)}
                       </div>
-                      <p className="text-xs font-bold text-slate-500">Based on {reviewStats.totalReviews} verified reviews</p>
+                      <p className="text-xs font-bold text-slate-500">Based on {reviewStats.totalReviews || 0} verified reviews</p>
                     </div>
                     
                     <div className="flex-1 w-full space-y-2 border-b md:border-b-0 md:border-r border-slate-200 pb-6 md:pb-0 pr-0 md:pr-8">
@@ -755,45 +778,35 @@ const PublicTeacherProfile = () => {
               {activeTab === 'Achievements' && (
                 <div className="animate-fade-in">
                   
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8 flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-amber-100">
-                      <Award className="w-6 h-6 text-amber" />
+                  {teacher.verified && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-8 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-emerald-100">
+                        <CheckCircle2 className="w-6 h-6 text-success" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-navy text-sm">Verified Educator</h4>
+                        <p className="text-xs font-medium text-slate-700 mt-1">This teacher has passed all background checks and academic credential verification by TrueEd.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-navy text-sm">Outstanding Results!</h4>
-                      <p className="text-xs font-medium text-slate-700 mt-1"><span className="font-bold text-amber-700">12 students</span> from this teacher successfully cracked JEE/NEET this year.</p>
-                    </div>
-                  </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div>
                       <h3 className="font-sora font-bold text-navy text-lg mb-4">Education</h3>
                       <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                        <div className="relative flex items-center gap-4 pl-8">
-                          <div className="absolute left-1.5 w-3 h-3 rounded-full bg-sky ring-4 ring-white" />
-                          <div>
-                            <h5 className="font-bold text-navy text-sm">M.Sc. in Mathematics</h5>
-                            <p className="text-xs font-medium text-slate-500">Delhi University • 2018</p>
-                          </div>
-                        </div>
-                        <div className="relative flex items-center gap-4 pl-8">
-                          <div className="absolute left-1.5 w-3 h-3 rounded-full bg-slate-300 ring-4 ring-white" />
-                          <div>
-                            <h5 className="font-bold text-navy text-sm">B.Sc. in Mathematics (Hons)</h5>
-                            <p className="text-xs font-medium text-slate-500">Delhi University • 2016</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <h3 className="font-sora font-bold text-navy text-lg mt-8 mb-4">Certifications</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <Award className="w-5 h-5 text-sky flex-shrink-0 mt-0.5" />
-                          <div>
-                            <h5 className="font-bold text-navy text-sm">Advanced Pedagogy Certificate</h5>
-                            <p className="text-xs font-medium text-slate-500">National Council of Education • 2020</p>
-                          </div>
-                        </div>
+                        {teacher.education && teacher.education.length > 0 ? (
+                          teacher.education.map((edu, idx) => (
+                            <div key={idx} className="relative flex items-center gap-4 pl-8">
+                              <div className={`absolute left-1.5 w-3 h-3 rounded-full ring-4 ring-white ${idx === 0 ? 'bg-sky' : 'bg-slate-300'}`} />
+                              <div>
+                                <h5 className="font-bold text-navy text-sm">{edu.degree}</h5>
+                                <p className="text-xs font-medium text-slate-500">{edu.institution} • {edu.year}</p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-500 italic">No education history specified by the teacher.</p>
+                        )}
                       </div>
                     </div>
 
@@ -801,21 +814,14 @@ const PublicTeacherProfile = () => {
                       <h3 className="font-sora font-bold text-navy text-lg mb-4">Impact</h3>
                       <div className="grid grid-cols-2 gap-3 mb-6">
                         <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 text-center">
-                          <p className="font-sora font-extrabold text-3xl text-sky mb-1">120+</p>
+                          <p className="font-sora font-extrabold text-3xl text-sky mb-1">
+                            {teacherClassrooms.reduce((acc, c) => acc + (c.students || 0), 0)}+
+                          </p>
                           <p className="text-xs font-bold text-slate-500 uppercase">Students Taught</p>
                         </div>
                         <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center">
-                          <p className="font-sora font-extrabold text-3xl text-purple-600 mb-1">5+</p>
-                          <p className="text-xs font-bold text-slate-500 uppercase">Years Experience</p>
-                        </div>
-                      </div>
-
-                      <h4 className="font-bold text-navy text-sm mb-3">Student Success Stories</h4>
-                      <div className="space-y-3">
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative">
-                          <i className="fa-solid fa-quote-left absolute top-3 left-3 text-slate-200 text-xl" />
-                          <p className="text-sm font-medium text-slate-600 relative z-10 pl-6 italic">"I went from failing math to scoring 92% in my 12th boards. Couldn't have done it without this guidance."</p>
-                          <p className="text-xs font-bold text-navy mt-2 pl-6">— Arjun K., IIT Delhi 2025</p>
+                          <p className="font-sora font-extrabold text-3xl text-purple-600 mb-1">{teacher.experience}</p>
+                          <p className="text-xs font-bold text-slate-500 uppercase">Experience</p>
                         </div>
                       </div>
                     </div>
@@ -831,7 +837,13 @@ const PublicTeacherProfile = () => {
         <div className="mt-16">
           <h2 className="font-sora font-bold text-2xl text-navy mb-8">Similar Teachers You Might Like</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {similarTeachers.map(t => <TutorCard key={t.id} tutor={t} />)}
+            {displaySimilar && displaySimilar.length > 0 ? (
+              displaySimilar.map(t => <TutorCard key={t._id || t.id} tutor={t} />)
+            ) : (
+              <div className="col-span-3 text-center py-8 bg-slate-50 border border-slate-200 rounded-2xl text-slate-400">
+                No similar teachers found.
+              </div>
+            )}
           </div>
         </div>
       </div>

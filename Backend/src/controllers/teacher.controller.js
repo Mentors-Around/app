@@ -392,12 +392,12 @@ export const getMyQueries = asyncHandler(async (req, res) => {
 export const getPublicProfile = asyncHandler(async (req, res) => {
   const { teacherId } = req.params;
 
-  const [user, profile, classrooms, ratingBreakdown] = await Promise.all([
+  const [user, profileRaw, classrooms, ratingBreakdown] = await Promise.all([
     User.findOne({ _id: teacherId, role: 'teacher', isActive: true })
       .select('name avatarUrl city state createdAt')
       .lean(),
     TeacherProfile.findOne({ userId: teacherId, verificationStatus: VERIFICATION_STATUS.APPROVED })
-      .select('-adminNotes -searchKeywords -bankAccount -aadhaarNumber -kycDocumentIds -razorpayContactId -razorpayFundId')
+      .select('-adminNotes -searchKeywords -aadhaarNumber -kycDocumentIds')
       .lean({ virtuals: true }),
     Classroom.find({ teacherId, status: 'active' })
       .select('title subject stream mode feesPaise maxStudents stats schedule startDate endDate classroomType skillLevel academicLevel')
@@ -405,7 +405,10 @@ export const getPublicProfile = asyncHandler(async (req, res) => {
     Review.ratingBreakdown(teacherId),
   ]);
 
-  if (!user || !profile) throw ApiError.notFound('Teacher');
+  if (!user || !profileRaw) throw ApiError.notFound('Teacher');
+
+  const profile = { ...profileRaw };
+  delete profile.bankAccount;
 
   // Surface comprehensive stats for public profile
   const stats = {
@@ -583,6 +586,18 @@ export const searchTeachersPublic = asyncHandler(async (req, res) => {
   const matchedUsers = await User.find(filter).select('_id name username avatarUrl city state').lean();
   const teacherUserIds = matchedUsers.map(u => u._id);
 
+  const { Classroom } = await import('../models/index.js');
+  const classrooms = await Classroom.find({ teacherId: { $in: teacherUserIds } }).lean();
+
+  const teacherClassroomsMap = new Map();
+  classrooms.forEach(c => {
+    const tId = String(c.teacherId);
+    if (!teacherClassroomsMap.has(tId)) {
+      teacherClassroomsMap.set(tId, []);
+    }
+    teacherClassroomsMap.get(tId).push(c);
+  });
+
   const profiles = await TeacherProfile.find({
     userId: { $in: teacherUserIds },
     verificationStatus: 'approved'
@@ -593,6 +608,17 @@ export const searchTeachersPublic = asyncHandler(async (req, res) => {
     .map(u => {
       const p = profileMap.get(String(u._id));
       if (!p) return null;
+
+      const teacherClassrooms = teacherClassroomsMap.get(String(u._id)) || [];
+      let price = 0;
+      if (teacherClassrooms.length > 0) {
+        const totalHourly = teacherClassrooms.reduce((sum, c) => {
+          const hourlyCost = (c.feesPaise / 100) / (c.totalHoursPlanned || 1);
+          return sum + hourlyCost;
+        }, 0);
+        price = Math.round(totalHourly / teacherClassrooms.length);
+      }
+
       return {
         _id: u._id,
         id: u._id,
@@ -602,14 +628,14 @@ export const searchTeachersPublic = asyncHandler(async (req, res) => {
         city: u.city,
         state: u.state,
         subject: p.subjects?.[0] || 'General',
-        experience: p.experienceYears ? `${p.experienceYears}+ years` : '5+ years',
+        experience: p.experienceYears ? `${p.experienceYears} years` : 'Not specified',
         bio: p.bio || p.headline || '',
         location: [u.city, u.state].filter(Boolean).join(', ') || 'Online',
         mode: 'Online', // Default
         tags: p.subjects || [],
-        rating: p.stats?.avgRating || 4.9,
-        reviews: p.stats?.totalReviews || 12,
-        price: 1500, // Default fee placeholder
+        rating: p.stats?.avgRating || null,
+        reviews: p.stats?.totalReviews || 0,
+        price: price || null,
         profile: {
           bio: p.bio,
           experienceYears: p.experienceYears,

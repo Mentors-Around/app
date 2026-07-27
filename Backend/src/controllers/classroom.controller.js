@@ -56,7 +56,7 @@ export const createClassroom = asyncHandler(async (req, res) => {
 
   ClassroomService.validateScheduleSlots(schedule);
 
-  if (mode === CLASSROOM_MODE.OFFLINE) {
+  if (mode === CLASSROOM_MODE.OFFLINE || mode === CLASSROOM_MODE.HYBRID) {
     ClassroomService.validateOfflineFields({ mode, offlineAddress: offlineFacility?.address });
   }
 
@@ -92,7 +92,7 @@ export const createClassroom = asyncHandler(async (req, res) => {
     schedule:             normalizedSchedule,
     maxStudents:          Number(maxStudents),
     mode:                 mode || CLASSROOM_MODE.ONLINE,
-    offlineFacility:      mode === CLASSROOM_MODE.OFFLINE ? offlineFacility : null,
+    offlineFacility:      (mode === CLASSROOM_MODE.OFFLINE || mode === CLASSROOM_MODE.HYBRID) ? offlineFacility : null,
     gmeetLink,
     meetingPlatform:      meetingPlatform || 'Google Meet',
     meetingId:            meetingId || null,
@@ -126,7 +126,7 @@ export const updateClassroom = asyncHandler(async (req, res) => {
     skillLevel, minimumQualification, prerequisites, minimumAge,
     academicLevel,
     // ── Live class settings ───────────────────────────────────────────────────
-    gmeetLink, meetingPlatform, accessTimeMinutes, meetingId, meetingPassword,
+    gmeetLink, meetingPlatform, accessTimeMinutes, meetingId, meetingPassword, sessions,
   } = req.body;
 
   ClassroomService.validateScheduleUpdate(classroom, { totalPlannedHours: totalHoursPlanned, endDate });
@@ -159,6 +159,7 @@ export const updateClassroom = asyncHandler(async (req, res) => {
   if (accessTimeMinutes !== undefined)    updates.accessTimeMinutes    = Number(accessTimeMinutes) || 15;
   if (meetingId !== undefined)            updates.meetingId            = meetingId?.trim() || null;
   if (meetingPassword !== undefined)      updates.meetingPassword      = meetingPassword?.trim() || null;
+  if (sessions !== undefined)             updates.sessions             = sessions;
 
   const updated = await Classroom.findByIdAndUpdate(
     classroom._id,

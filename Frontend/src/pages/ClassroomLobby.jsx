@@ -131,9 +131,52 @@ const ClassroomLobby = () => {
         const checkTime = () => {
           const now = new Date();
           const isOffline = c.mode === 'offline';
+          const isHybrid = c.mode === 'hybrid';
+
+          // Check if there is an explicit session today in the sessions database
+          const todayStr = now.toISOString().split('T')[0];
+          const todaySession = (c.sessions || []).find(s => s.date === todayStr);
+
+          if (todaySession) {
+            const parseTimeToDate = (timeStr) => {
+              const d = new Date();
+              const [h, m] = timeStr.split(':');
+              d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+              return d;
+            };
+
+            const startDate = parseTimeToDate(todaySession.startTime);
+            const endDate = parseTimeToDate(todaySession.endTime);
+            const accessMinutes = c.accessTimeMinutes || 15;
+            const accessTime = new Date(startDate.getTime() - accessMinutes * 60000);
+            const isOfflineSession = todaySession.sessionType === 'offline';
+
+            if (now > endDate) {
+              setStatus({ state: 'ended', message: 'Session completed for today.', currentSession: todaySession });
+            } else if (now < accessTime) {
+              const diffMs = accessTime - now;
+              const diffMins = Math.ceil(diffMs / 60000);
+              const hrs = Math.floor(diffMins / 60);
+              const mins = diffMins % 60;
+              const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+              setStatus({ state: 'waiting', message: `Opens in ${timeStr}`, currentSession: todaySession });
+            } else {
+              setStatus({
+                state: isOfflineSession ? 'offline_active' : 'active',
+                message: isOfflineSession ? 'Offline Session Ongoing' : 'Session is Live',
+                currentSession: todaySession
+              });
+            }
+            return;
+          }
 
           if (isOffline) {
             setStatus({ state: 'offline', message: 'Offline Classroom' });
+            return;
+          }
+
+          if (isHybrid) {
+            setStatus({ state: 'no_class_today', message: 'No session scheduled today.' });
             return;
           }
           
@@ -194,24 +237,21 @@ const ClassroomLobby = () => {
 
   // Fetch materials & announcements once classroom is loaded
   useEffect(() => {
-    if (!id || !user) return;
+    if (!classroom) return;
     const fetchResources = async () => {
-      setLoadingResources(true);
       try {
         const [mRes, aRes] = await Promise.allSettled([
           api.classroom.getMaterials(id),
           api.classroom.getAnnouncements(id),
         ]);
-
-        if (mRes.status === 'fulfilled' && mRes.value) {
+        if (mRes.status === 'fulfilled') {
           const mData = mRes.value;
           const mList = Array.isArray(mData)
             ? mData
             : (mData?.docs || mData?.results || mData?.materials || []);
           setMaterials(mList);
         }
-
-        if (aRes.status === 'fulfilled' && aRes.value) {
+        if (aRes.status === 'fulfilled') {
           const aData = aRes.value;
           const aList = Array.isArray(aData)
             ? aData
@@ -225,15 +265,42 @@ const ClassroomLobby = () => {
       }
     };
     fetchResources();
-  }, [id, user]);
+  }, [id, user, classroom]);
 
   const [isJoining, setIsJoining] = useState(false);
+  const [offlineModalOpen, setOfflineModalOpen] = useState(false);
+  const [attendanceMarked, setAttendanceMarked] = useState(false);
+  const [markingAttendance, setMarkingAttendance] = useState(false);
+
+  const currentSession = status.currentSession;
+  const isSessionOffline = classroom?.mode === 'offline' || (classroom?.mode === 'hybrid' && currentSession?.sessionType === 'offline');
+
+  const handleMarkAttendance = async () => {
+    setMarkingAttendance(true);
+    try {
+      await api.classroom.joinClass(id);
+      setAttendanceMarked(true);
+      alert(`Attendance recorded successfully ✓\nVenue: ${classroom.offlineFacility?.address || 'Classroom Facility'}`);
+    } catch (err) {
+      alert(`Failed to mark attendance: ${err.message}`);
+    } finally {
+      setMarkingAttendance(false);
+    }
+  };
 
   const handleSecureJoin = async () => {
-    if (status.state !== 'active') return;
+    if (status.state !== 'active' && status.state !== 'offline_active') return;
     setIsJoining(true);
     try {
       const joinRes = await api.classroom.joinClass(id);
+      setAttendanceMarked(true);
+
+      if (isSessionOffline) {
+        setOfflineModalOpen(true);
+        setIsJoining(false);
+        return;
+      }
+
       const link = joinRes?.meetingLink;
       const platform = joinRes?.meetingPlatform || 'Google Meet';
       const meetingId = joinRes?.meetingId;
@@ -256,7 +323,7 @@ const ClassroomLobby = () => {
       if (err.status === 403 || err.status === 401) {
         setError('You are not authorized to join this class.');
         setStatus({ state: 'unauthorized', message: 'Not enrolled.' });
-      } else if (joinUrl && joinUrl.startsWith('http')) {
+      } else if (!isSessionOffline && joinUrl && joinUrl.startsWith('http')) {
         window.open(joinUrl, '_blank', 'noopener,noreferrer');
       } else {
         setError(`Failed to join: ${err.message || 'Please try again.'}`);
@@ -377,20 +444,35 @@ const ClassroomLobby = () => {
             </div>
             
             <div className="flex flex-col gap-3 min-w-[300px]">
-              {/* ── Offline class ── */}
-              {isOffline && (
+              {/* ── Offline class OR Offline Session in Hybrid ── */}
+              {(isOffline || isSessionOffline) && (
                 <div className="w-full p-4 bg-amber-50 border border-amber-100 rounded-2xl text-center">
                   <div className="flex items-center justify-center gap-2 text-amber-700 font-bold text-sm mb-2">
                     <MapPin className="w-5 h-5" /> Offline Class
                   </div>
-                  <p className="text-xs text-amber-600 font-medium">
+                  <p className="text-sm text-amber-900 font-bold mb-1">Venue Address:</p>
+                  <p className="text-xs text-amber-600 font-medium mb-3">
                     {classroom.offlineFacility?.address || 'Check with your teacher for the venue address.'}
                   </p>
+                  {(status.state === 'offline_active' || status.state === 'active') && !attendanceMarked && (
+                    <button
+                      onClick={handleMarkAttendance}
+                      disabled={markingAttendance}
+                      className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition"
+                    >
+                      {markingAttendance ? 'Marking...' : "I'm Attending"}
+                    </button>
+                  )}
+                  {attendanceMarked && (
+                    <div className="text-xs text-emerald-600 font-bold flex items-center justify-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" /> Present / Attending recorded ✓
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* ── No class today ── */}
-              {!isOffline && status.state === 'no_class_today' && (
+              {!isOffline && !isSessionOffline && status.state === 'no_class_today' && (
                 <div className="w-full py-4 bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-2xl flex items-center justify-center gap-2">
                   <Calendar className="w-5 h-5 text-slate-400" />
                   No class scheduled today
@@ -398,15 +480,15 @@ const ClassroomLobby = () => {
               )}
 
               {/* ── Waiting for access time ── */}
-              {!isOffline && status.state === 'waiting' && (
+              {!isOffline && !isSessionOffline && status.state === 'waiting' && (
                 <button disabled className="w-full py-4 bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed">
                   <Clock className="w-5 h-5 text-slate-400" />
                   {status.message}
                 </button>
               )}
 
-              {/* ── Active — can join ── */}
-              {!isOffline && status.state === 'active' && (
+              {/* ── Active — can join online ── */}
+              {!isOffline && !isSessionOffline && status.state === 'active' && (
                 <>
                   <div className="flex items-center justify-center gap-2 text-sm font-bold text-success mb-1">
                     <span className="w-2 h-2 bg-success rounded-full animate-pulse"></span> Session Live Now
@@ -425,8 +507,23 @@ const ClassroomLobby = () => {
                 </>
               )}
 
-              {/* ── Session ended for today — NO recording button ── */}
-              {!isOffline && status.state === 'ended' && (
+              {/* ── Offline Active / Ongoing — Join button to view address ── */}
+              {isSessionOffline && (status.state === 'active' || status.state === 'offline_active') && (
+                <>
+                  <div className="flex items-center justify-center gap-2 text-sm font-bold text-amber-500 mb-1">
+                    <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span> Session Ongoing
+                  </div>
+                  <button
+                    onClick={handleSecureJoin}
+                    className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(245,158,11,0.15)] hover:-translate-y-0.5 transition-all duration-300"
+                  >
+                    <MapPin className="w-5 h-5" /> View Venue Address
+                  </button>
+                </>
+              )}
+
+              {/* ── Session ended for today ── */}
+              {!isOffline && !isSessionOffline && status.state === 'ended' && (
                 <div className="w-full py-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center gap-1">
                   <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
                     <CheckCircle className="w-5 h-5" /> Session Completed
@@ -438,7 +535,7 @@ const ClassroomLobby = () => {
           </div>
           
           {/* Secure Join info — only show for online classes */}
-          {!isOffline && (
+          {!isSessionOffline && (
             <div className="flex items-center gap-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
               <div className="w-10 h-10 rounded-full bg-sky/10 flex items-center justify-center flex-shrink-0">
                 <ShieldCheck className="w-5 h-5 text-sky" />
@@ -736,6 +833,42 @@ const ClassroomLobby = () => {
                 className="w-full py-3 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-sm"
               >
                 Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Offline Venue Modal */}
+      {offlineModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setOfflineModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full bg-slate-50 hover:bg-slate-100 transition"
+            >
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MapPin className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-sora font-extrabold text-navy mb-2">Offline Class Address</h3>
+              <p className="text-sm text-slate-500 mb-6 font-semibold">Here is the exact venue location for your class scheduled today:</p>
+              
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-left mb-6">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Classroom Location</p>
+                <p className="text-sm text-navy font-bold">{classroom.offlineFacility?.address || 'No address specified yet. Please contact teacher.'}</p>
+                {classroom.offlineFacility?.description && (
+                  <p className="text-xs text-slate-500 mt-2 font-medium italic">Landmark/Notes: {classroom.offlineFacility.description}</p>
+                )}
+              </div>
+
+              <button
+                onClick={() => setOfflineModalOpen(false)}
+                className="w-full py-3 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition"
+              >
+                Close Venue Details
               </button>
             </div>
           </div>

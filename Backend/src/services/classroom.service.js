@@ -106,10 +106,10 @@ export const ClassroomService = {
    * Validate offline classroom submission (must have photos/address).
    */
   validateOfflineFields(body) {
-    if (body.mode === CLASSROOM_MODE.OFFLINE) {
+    if (body.mode === CLASSROOM_MODE.OFFLINE || body.mode === CLASSROOM_MODE.HYBRID) {
       if (!body.offlineAddress?.trim()) {
         throw ApiError.badRequest(
-          "Offline classrooms must include an address.",
+          "Offline/Hybrid classrooms must include an address.",
           "OFFLINE_ADDRESS_REQUIRED"
         );
       }

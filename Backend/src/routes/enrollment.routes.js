@@ -10,7 +10,7 @@ import {
   sendQuery, acceptQuery, rejectQuery,
   enrollInClassroom, verifyEnrollmentPayment,
   getStudentEnrollments, getMyQueries, submitReview, getStudentDashboard,
-  withdrawQuery,
+  withdrawQuery, sendQueryMessage, archiveQuery,
 } from '../controllers/enrollment.controller.js';
 
 const router = Router();
@@ -26,6 +26,12 @@ router.post(
 // ── Teacher: accept / reject query (with optional teacherMessage) ─────────────
 router.patch('/queries/:queryId/accept', requireTeacher, acceptQuery);
 router.patch('/queries/:queryId/reject', requireTeacher, rejectQuery);
+
+// ── Messages/Chat under the query ──────────────────────────────────────────────
+router.post('/queries/:queryId/messages', sendQueryMessage);
+
+// ── Archiving (works for student or teacher) ───────────────────────────────────
+router.patch('/queries/:queryId/archive', archiveQuery);
 
 // ── Student: pay and enroll ───────────────────────────────────────────────────
 router.post(

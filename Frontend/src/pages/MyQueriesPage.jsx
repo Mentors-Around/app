@@ -28,6 +28,12 @@ const MyQueriesPage = () => {
   const [showEnrollPassword, setShowEnrollPassword] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
 
+  // Reply Modal & Archiving State
+  const [replyModalOpen, setReplyModalOpen] = useState(false);
+  const [activeQueryForReply, setActiveQueryForReply] = useState(null);
+  const [responseText, setResponseText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
   const fetchQueries = async () => {
     try {
       setLoading(true);
@@ -37,9 +43,10 @@ const MyQueriesPage = () => {
       const mapped = list.map(q => {
         const classroom = q.classroomId || {};
         const teacher = q.teacherId || classroom.teacherId || {};
+        const studentIdVal = q.studentId?._id || q.studentId || user?._id;
         return {
           id:              q._id || q.id,
-          studentId:       q.studentId?._id || q.studentId || user?._id,
+          studentId:       studentIdVal,
           teacherName:     teacher.name || q.teacherName || 'Teacher',
           classroomName:   classroom.title || q.classroomName || 'Classroom Query',
           classroomId:     classroom._id || q.classroomId,
@@ -47,27 +54,63 @@ const MyQueriesPage = () => {
           status:          q.status || 'pending',
           message:         q.message || '',
           createdAt:       q.createdAt,
+          archived:        q.isArchivedByStudent || false,
           paymentDeadline: q.studentEnrollDeadline || q.paymentDeadline || new Date(new Date(q.createdAt).getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          events:          q.events || [
+          events:          [
             {
-              id:        'e1',
-              type:      'system_action',
+              id:        'initial_query',
+              type:      'submitted',
               timestamp: q.createdAt,
-              content:   `Query submitted: "${q.message || ''}"`,
+              content:   q.message || 'Query submitted.',
             },
-            q.teacherMessage ? {
-              id:        'e2',
+            ...(q.messages || []).map((msg, index) => ({
+              id:        msg._id || `msg_${index}`,
+              type:      (msg.senderId?._id || msg.senderId) === studentIdVal ? 'submitted' : 'teacher_reply',
+              timestamp: msg.createdAt,
+              content:   msg.text,
+            })),
+            (q.teacherMessage && !(q.messages || []).some(m => m.text === q.teacherMessage)) ? {
+              id:        'teacher_decide_msg',
+              type:      'teacher_reply',
+              timestamp: q.respondedAt || q.updatedAt,
+              content:   q.teacherMessage,
+            } : null,
+            q.status === 'accepted' ? {
+              id:        'sys_accept',
               type:      'system_action',
+              actionType: 'teacher_approved',
+              timestamp: q.respondedAt || q.updatedAt,
+              content:   'Query approved by teacher. Waiting for enrollment payment.',
+            } : null,
+            q.status === 'rejected' ? {
+              id:        'sys_reject',
+              type:      'system_action',
+              actionType: 'teacher_rejected',
+              timestamp: q.respondedAt || q.updatedAt,
+              content:   `Query rejected by teacher. Reason: ${q.rejectionReason || 'None'}`,
+            } : null,
+            q.status === 'expired' ? {
+              id:        'sys_expire',
+              type:      'system_action',
+              actionType: 'teacher_rejected',
               timestamp: q.updatedAt,
-              content:   `Teacher response: "${q.teacherMessage}"`,
+              content:   'Query expired: teacher did not respond in 24 hours. 1 token refunded.',
+            } : null,
+            q.status === 'lapsed' ? {
+              id:        'sys_lapse',
+              type:      'system_action',
+              actionType: 'teacher_rejected',
+              timestamp: q.updatedAt,
+              content:   'Query lapsed: enrollment fee not paid within 24 hours.',
             } : null,
             q.status === 'enrolled' ? {
-              id:        'e3',
+              id:        'sys_enroll',
               type:      'system_action',
+              actionType: 'enrolled',
               timestamp: q.updatedAt,
               content:   'Payment successful. You are now enrolled.',
             } : null,
-          ].filter(Boolean),
+          ].filter(Boolean).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
         };
       });
 
@@ -141,6 +184,37 @@ const MyQueriesPage = () => {
     }
   };
 
+  const openReplyModal = (query) => {
+    setActiveQueryForReply(query);
+    setResponseText('');
+    setReplyModalOpen(true);
+  };
+
+  const handleSendReply = async () => {
+    if (!responseText.trim()) return;
+    setSendingReply(true);
+    try {
+      await api.enrollment.sendQueryMessage(activeQueryForReply.id, responseText);
+      showToast('Message Sent Successfully.');
+      setReplyModalOpen(false);
+      fetchQueries();
+    } catch (err) {
+      showToast(err.message || 'Failed to send message');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const handleToggleArchive = async (queryId, archiveStatus) => {
+    try {
+      await api.enrollment.archiveQuery(queryId, archiveStatus);
+      showToast(archiveStatus ? 'Query Archived' : 'Query Restored');
+      fetchQueries();
+    } catch (err) {
+      showToast(err.message || 'Failed to toggle archive status');
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto pb-10 space-y-6 relative">
       <h1 className="font-sora text-3xl font-bold text-navy">My Queries</h1>
@@ -191,9 +265,11 @@ const MyQueriesPage = () => {
         {[
           { id: 'All', label: 'All Queries' },
           { id: 'Active', label: 'Active / Pending' },
-          { id: 'Accepted', label: 'Accepted & Waiting Payment' },
+          { id: 'Accepted', label: 'Accepted & Waiting' },
+          { id: 'Enrolled', label: 'Enrolled' },
           { id: 'Rejected', label: 'Rejected' },
-          { id: 'Expired', label: 'Expired / Closed' },
+          { id: 'Expired', label: 'Expired (Unpaid)' },
+          { id: 'Archived', label: 'Archived' },
         ].map(tab => (
           <button 
             key={tab.id}
@@ -212,10 +288,14 @@ const MyQueriesPage = () => {
       {/* Query List */}
       <div className="space-y-6">
         {queries.filter(q => {
-          if (filter === 'Active') return q.status === 'open' || q.status === 'pending' || q.status === 'in_progress';
-          if (filter === 'Accepted') return q.status === 'accepted' || q.status === 'approved_waiting_payment';
-          if (filter === 'Rejected') return q.status === 'rejected' || q.status === 'auto_rejected';
-          if (filter === 'Expired') return q.status === 'approval_expired' || q.status === 'closed_inactive' || q.status === 'expired';
+          if (filter === 'Archived') return q.archived;
+          if (q.archived) return false;
+
+          if (filter === 'Active') return q.status === 'pending';
+          if (filter === 'Accepted') return q.status === 'accepted';
+          if (filter === 'Enrolled') return q.status === 'enrolled';
+          if (filter === 'Rejected') return q.status === 'rejected' || q.status === 'expired';
+          if (filter === 'Expired') return q.status === 'lapsed';
           return true;
         }).length === 0 ? (
           <div className="bg-white p-12 rounded-xl border border-slate-200 text-center shadow-sm">
@@ -328,8 +408,25 @@ const MyQueriesPage = () => {
                 {/* Additional Actions Based on Status */}
                 <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
                    {(query.status === 'pending' || query.status === 'pending_review') && (
-                     <button onClick={() => handleWithdraw(query.id)} className="w-full sm:w-auto px-4 py-2 bg-white border border-slate-200 text-error text-xs font-bold rounded-lg hover:bg-slate-50 transition">
-                       Withdraw Query
+                     <>
+                       <button onClick={() => handleWithdraw(query.id)} className="w-full sm:w-auto px-4 py-2 bg-white border border-slate-200 text-error text-xs font-bold rounded-lg hover:bg-slate-50 transition">
+                         Withdraw Query
+                       </button>
+                       <button 
+                         onClick={() => openReplyModal(query)}
+                         className="w-full sm:w-auto px-4 py-2 bg-navy text-white text-xs font-bold rounded-lg hover:bg-navy-light transition flex items-center justify-center gap-1"
+                       >
+                         <MessageSquare className="w-3.5 h-3.5" /> Send Message
+                       </button>
+                     </>
+                   )}
+
+                   {query.status !== 'pending' && (
+                     <button 
+                       onClick={() => handleToggleArchive(query.id, !query.archived)} 
+                       className="w-full sm:w-auto px-4 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-50 transition flex items-center justify-center gap-1"
+                     >
+                       <i className="fa-solid fa-box-archive" /> {query.archived ? 'Restore' : 'Archive'}
                      </button>
                    )}
                    
@@ -423,6 +520,51 @@ const MyQueriesPage = () => {
                   {isEnrolling ? (
                     <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing...</>
                   ) : <><CheckCircle className="w-4 h-4" />Confirm & Pay ₹{selectedQuery?.price?.toFixed(2)}</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Reply Modal */}
+      {replyModalOpen && (
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-fade-in" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <div>
+                <h2 className="font-sora font-bold text-xl text-navy">Send Message</h2>
+                <p className="text-xs font-semibold text-slate-500 mt-1">Communicate under this classroom query</p>
+              </div>
+              <button onClick={() => setReplyModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Message</label>
+                <textarea
+                  rows={4}
+                  placeholder="Type your message here..."
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-1 focus:ring-navy outline-none resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setReplyModalOpen(false)}
+                  className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendReply}
+                  disabled={sendingReply || !responseText.trim()}
+                  className="flex-[2] py-3.5 bg-navy text-white font-bold rounded-xl hover:bg-navy-light transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                >
+                  {sendingReply ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" />Sending...</>
+                  ) : <><MessageSquare className="w-4 h-4" />Send Message</>}
                 </button>
               </div>
             </div>

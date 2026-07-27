@@ -5,7 +5,7 @@ import env from "../config/env.config.js";
 
 const isProd = env.NODE_ENV === "production";
 
-export const setAuthCookies = (res, { accessToken, refreshToken }) => {
+export const setAuthCookies = (res, { accessToken, refreshToken }, rememberMe = false) => {
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure:   isProd,
@@ -18,7 +18,7 @@ export const setAuthCookies = (res, { accessToken, refreshToken }) => {
     httpOnly: true,
     secure:   isProd,
     sameSite: isProd ? "strict" : "lax",
-    maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge:   rememberMe ? 30 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 30 days vs 1 day
     domain:   env.REFRESH_TOKEN_COOKIE_DOMAIN && env.REFRESH_TOKEN_COOKIE_DOMAIN.trim() !== "" 
                 ? env.REFRESH_TOKEN_COOKIE_DOMAIN.trim() 
                 : (env.COOKIE_DOMAIN && env.COOKIE_DOMAIN.trim() !== "" ? env.COOKIE_DOMAIN.trim() : undefined),

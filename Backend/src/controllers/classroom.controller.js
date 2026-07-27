@@ -183,8 +183,9 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
     limit:     20,
   });
 
-  // If there's a text search query, also search for matching teachers/tutors
+  // If there's a text search query, also search for matching teachers/tutors and students
   let matchedTeachers = [];
+  let matchedStudents = [];
   if (query) {
     const { User, TeacherProfile } = await import('../models/index.js');
     const matchedUsers = await User.find({
@@ -193,10 +194,11 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
       deletedAt: null,
       $or: [
         { name: { $regex: query, $options: 'i' } },
+        { username: { $regex: query, $options: 'i' } },
         { email: { $regex: query, $options: 'i' } },
         { city: { $regex: query, $options: 'i' } }
       ]
-    }).select('_id name avatarUrl city state').limit(5).lean();
+    }).select('_id name username avatarUrl city state').limit(5).lean();
 
     const teacherUserIds = matchedUsers.map(u => u._id);
     const profiles = await TeacherProfile.find({
@@ -212,6 +214,7 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
         return {
           _id: u._id,
           name: u.name,
+          username: u.username,
           avatarUrl: u.avatarUrl,
           city: u.city,
           state: u.state,
@@ -225,12 +228,24 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
         };
       })
       .filter(Boolean);
+
+    matchedStudents = await User.find({
+      role: 'student',
+      isActive: true,
+      deletedAt: null,
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { username: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } }
+      ]
+    }).select('_id name username avatarUrl').limit(5).lean();
   }
 
-  // Add teachers to the API response
+  // Add teachers and students to the API response
   const responseData = {
     ...result,
-    teachers: matchedTeachers
+    teachers: matchedTeachers,
+    students: matchedStudents
   };
 
   res.status(200).json(new ApiResponse(200, responseData, 'Search results'));

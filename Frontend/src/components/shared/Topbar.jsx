@@ -35,7 +35,7 @@ const Topbar = ({ onMenuClick }) => {
   const sanitize = (str) => str.replace(/<[^>]*>/g, '');
 
   const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState({ classrooms: [], teachers: [] });
+  const [searchResults, setSearchResults] = useState({ classrooms: [], teachers: [], students: [] });
   const [searchLoading, setSearchLoading] = useState(false);
   const searchDebounceRef = useRef(null);
   
@@ -96,7 +96,7 @@ const Topbar = ({ onMenuClick }) => {
   // ── Bug Fix: Real API search with debounce (was using static dummyTeachers array) ──
   const doSearch = useCallback(async (q) => {
     if (!q || q.trim().length < 2) {
-      setSearchResults({ classrooms: [], teachers: [] });
+      setSearchResults({ classrooms: [], teachers: [], students: [] });
       setSearchLoading(false);
       return;
     }
@@ -107,10 +107,11 @@ const Topbar = ({ onMenuClick }) => {
         ? res
         : (res?.results || res?.docs || res?.classrooms || []);
       const teachers = res?.teachers || [];
-      setSearchResults({ classrooms: classrooms.slice(0, 5), teachers: teachers.slice(0, 5) });
+      const students = res?.students || [];
+      setSearchResults({ classrooms: classrooms.slice(0, 5), teachers: teachers.slice(0, 5), students: students.slice(0, 5) });
     } catch (err) {
       console.warn('Search failed:', err);
-      setSearchResults({ classrooms: [], teachers: [] });
+      setSearchResults({ classrooms: [], teachers: [], students: [] });
     } finally {
       setSearchLoading(false);
     }
@@ -119,7 +120,7 @@ const Topbar = ({ onMenuClick }) => {
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     if (!query.trim()) {
-      setSearchResults({ classrooms: [], teachers: [] });
+      setSearchResults({ classrooms: [], teachers: [], students: [] });
       setSearchLoading(false);
       return;
     }
@@ -130,10 +131,12 @@ const Topbar = ({ onMenuClick }) => {
 
   const handleResultClick = (item, type = 'classroom') => {
     setQuery('');
-    setSearchResults({ classrooms: [], teachers: [] });
+    setSearchResults({ classrooms: [], teachers: [], students: [] });
     closeOverlay();
     if (type === 'teacher') {
       navigate(`/teacher/${item._id || item.id}`);
+    } else if (type === 'student') {
+      navigate(`/student/${item._id || item.id}`);
     } else {
       if (item?._id) {
         navigate(`/classroom/${item._id}`);
@@ -163,7 +166,7 @@ const Topbar = ({ onMenuClick }) => {
       : activeOverlayId === 'topbar-search';
     if (!query || !isActive) return null;
 
-    const totalResults = (searchResults.classrooms?.length || 0) + (searchResults.teachers?.length || 0);
+    const totalResults = (searchResults.classrooms?.length || 0) + (searchResults.teachers?.length || 0) + (searchResults.students?.length || 0);
 
     return (
       <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden py-2 z-50 animate-slide-up-sm max-h-96 overflow-y-auto">
@@ -217,7 +220,7 @@ const Topbar = ({ onMenuClick }) => {
 
             {/* Teachers/Tutors Section */}
             {searchResults.teachers?.length > 0 && (
-              <div>
+              <div className="mb-2">
                 <p className="px-4 py-1 text-[10px] font-bold text-amber uppercase tracking-wider bg-slate-50/50">Tutors</p>
                 {searchResults.teachers.map(t => (
                   <button
@@ -230,7 +233,7 @@ const Topbar = ({ onMenuClick }) => {
                         <img src={t.avatarUrl} alt={t.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-amber/10 flex items-center justify-center text-xs font-bold text-amber">
-                          {t.name[0]}
+                          {t.name ? t.name[0] : 'T'}
                         </div>
                       )}
                     </div>
@@ -247,6 +250,38 @@ const Topbar = ({ onMenuClick }) => {
                           </>
                         )}
                       </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Students Section */}
+            {searchResults.students?.length > 0 && (
+              <div>
+                <p className="px-4 py-1 text-[10px] font-bold text-green-500 uppercase tracking-wider bg-slate-50/50">Students</p>
+                {searchResults.students.map(s => (
+                  <button
+                    key={s._id || s.id}
+                    onClick={() => handleResultClick(s, 'student')}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 transition flex items-start gap-3 group"
+                  >
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mt-0.5">
+                      {s.avatarUrl ? (
+                        <img src={s.avatarUrl} alt={s.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-green-50 text-green-600 flex items-center justify-center text-xs font-bold">
+                          {s.name ? s.name[0] : 'S'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm text-navy group-hover:text-green-600 transition-colors block truncate">
+                        {s.name}
+                      </span>
+                      {s.username && (
+                        <span className="text-xs text-muted font-medium block">@{s.username}</span>
+                      )}
                     </div>
                   </button>
                 ))}

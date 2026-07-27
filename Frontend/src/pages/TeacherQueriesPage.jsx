@@ -22,11 +22,12 @@ const TeacherQueriesPage = () => {
         const studentObj = typeof q.studentId === 'object' ? q.studentId : (typeof q.student === 'object' ? q.student : null);
         const classroomObj = typeof q.classroomId === 'object' ? q.classroomId : (typeof q.classroom === 'object' ? q.classroom : null);
         const studentName = studentObj?.name || 'Student';
+        const studentIdVal = studentObj?._id || q.studentId || q.student;
         return {
           id: q._id || q.id,
           student: studentName,
           studentName: studentName,
-          studentId: studentObj?._id || q.studentId || q.student,
+          studentId: studentIdVal,
           initials: studentName ? studentName.split(' ').map(n => n[0]).join('').toUpperCase() : 'S',
           subject: classroomObj?.subject || q.subject || 'General',
           classroomName: classroomObj?.title || q.classroomName || 'Classroom Query',
@@ -34,8 +35,63 @@ const TeacherQueriesPage = () => {
           status: q.status || 'pending',
           message: q.initialMessage || q.message || '',
           createdAt: q.createdAt,
-          paymentDeadline: q.paymentDeadline,
-          events: q.history || q.events || []
+          archived: q.isArchivedByTeacher || false,
+          paymentDeadline: q.studentEnrollDeadline || q.paymentDeadline,
+          events: [
+            {
+              id:        'initial_query',
+              type:      'submitted',
+              timestamp: q.createdAt,
+              content:   q.message || 'Query submitted.',
+            },
+            ...(q.messages || []).map((msg, index) => ({
+              id:        msg._id || `msg_${index}`,
+              type:      (msg.senderId?._id || msg.senderId) === studentIdVal ? 'submitted' : 'teacher_reply',
+              timestamp: msg.createdAt,
+              content:   msg.text,
+            })),
+            (q.teacherMessage && !(q.messages || []).some(m => m.text === q.teacherMessage)) ? {
+              id:        'teacher_decide_msg',
+              type:      'teacher_reply',
+              timestamp: q.respondedAt || q.updatedAt,
+              content:   q.teacherMessage,
+            } : null,
+            q.status === 'accepted' ? {
+              id:        'sys_accept',
+              type:      'system_action',
+              actionType: 'teacher_approved',
+              timestamp: q.respondedAt || q.updatedAt,
+              content:   'Query approved. Waiting for student payment.',
+            } : null,
+            q.status === 'rejected' ? {
+              id:        'sys_reject',
+              type:      'system_action',
+              actionType: 'teacher_rejected',
+              timestamp: q.respondedAt || q.updatedAt,
+              content:   `Query rejected. Reason: ${q.rejectionReason || 'None'}`,
+            } : null,
+            q.status === 'expired' ? {
+              id:        'sys_expire',
+              type:      'system_action',
+              actionType: 'teacher_rejected',
+              timestamp: q.updatedAt,
+              content:   'Query expired: you did not respond in 24 hours.',
+            } : null,
+            q.status === 'lapsed' ? {
+              id:        'sys_lapse',
+              type:      'system_action',
+              actionType: 'teacher_rejected',
+              timestamp: q.updatedAt,
+              content:   'Query lapsed: student did not pay within 24 hours.',
+            } : null,
+            q.status === 'enrolled' ? {
+              id:        'sys_enroll',
+              type:      'system_action',
+              actionType: 'enrolled',
+              timestamp: q.updatedAt,
+              content:   'Student payment successful. Enrolled.',
+            } : null,
+          ].filter(Boolean).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
         };
       });
       setQueries(mapped);
@@ -116,18 +172,16 @@ const TeacherQueriesPage = () => {
 
   const openReplyModal = (id) => { setActiveQueryId(id); setResponseText(''); setActionError(null); setReplyModalOpen(true); };
 
-  const handleReplyOnly = () => {
+  const handleReplyOnly = async () => {
     if (!responseText.trim()) return;
-
-    setQueries(queries.map(q => q.id === activeQueryId ? { 
-      ...q, 
-      status: 'waiting_for_student',
-      events: [...(q.events || []), {
-        id: `e_${Date.now()}`, type: 'teacher_reply', timestamp: new Date().toISOString(), content: responseText
-      }]
-    } : q));
-    setReplyModalOpen(false);
-    showToast('Reply Sent');
+    try {
+      await api.enrollment.sendQueryMessage(activeQueryId, responseText);
+      setReplyModalOpen(false);
+      showToast('Reply Sent');
+      fetchTeacherQueries();
+    } catch (err) {
+      setActionError(err.message || 'Failed to send message');
+    }
   };
 
   const handlePrivateClick = (id) => {
@@ -169,14 +223,24 @@ const TeacherQueriesPage = () => {
     showToast('Query Resolved');
   };
 
-  const handleArchive = (id) => {
-    setQueries(queries.map(q => q.id === id ? { ...q, archived: true } : q));
-    showToast('Query Archived');
+  const handleArchive = async (id) => {
+    try {
+      await api.enrollment.archiveQuery(id, true);
+      showToast('Query Archived');
+      fetchTeacherQueries();
+    } catch (err) {
+      showToast(err.message || 'Failed to archive query');
+    }
   };
 
-  const handleRestore = (id) => {
-    setQueries(queries.map(q => q.id === id ? { ...q, archived: false } : q));
-    showToast('Query Restored');
+  const handleRestore = async (id) => {
+    try {
+      await api.enrollment.archiveQuery(id, false);
+      showToast('Query Restored');
+      fetchTeacherQueries();
+    } catch (err) {
+      showToast(err.message || 'Failed to restore query');
+    }
   };
 
   const formatDate = (isoString) => {
@@ -193,15 +257,14 @@ const TeacherQueriesPage = () => {
     const matchesSearch = studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           subject.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Default filters out archived unless in Archived tab
     if (activeTab === 'Archived') return q.archived && matchesSearch;
     if (q.archived) return false;
 
-    if (activeTab === 'Pending') return (q.status === 'pending' || q.status === 'pending_review') && matchesSearch;
+    if (activeTab === 'Pending') return q.status === 'pending' && matchesSearch;
     if (activeTab === 'Accepted') return (q.status === 'accepted' || q.status === 'enrolled') && matchesSearch;
-    if (activeTab === 'Waiting for Payment') return q.status === 'approved_waiting_payment' && matchesSearch;
-    if (activeTab === 'Rejected') return (q.status === 'rejected' || q.status === 'auto_rejected' || q.status === 'approval_expired') && matchesSearch;
-    if (activeTab === 'Resolved') return q.status === 'resolved' && matchesSearch;
+    if (activeTab === 'Rejected') return q.status === 'rejected' && matchesSearch;
+    if (activeTab === 'Expired') return q.status === 'expired' && matchesSearch;
+    if (activeTab === 'Refunded') return q.status === 'lapsed' && matchesSearch;
     
     return matchesSearch;
   });
@@ -265,7 +328,7 @@ const TeacherQueriesPage = () => {
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200">
           <div className="flex gap-6 overflow-x-auto hide-scrollbar pb-2 md:pb-0">
-            {['All', 'Pending', 'Accepted', 'Waiting for Payment', 'Rejected', 'Resolved', 'Archived'].map(tab => (
+            {['All', 'Pending', 'Accepted', 'Rejected', 'Expired', 'Refunded', 'Archived'].map(tab => (
               <button 
                 key={tab} 
                 onClick={() => setActiveTab(tab)}

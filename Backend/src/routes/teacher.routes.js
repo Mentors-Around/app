@@ -9,12 +9,15 @@ import {
   getMyQueries, getPublicProfile, getMyClassrooms,
   getMyDoubts, updateAvailability,
   getTeacherWallet, initiateTeacherDeposit, verifyTeacherDeposit,
-  getMyReviews, replyToReview, getMyStudents,
+  getMyReviews, replyToReview, getMyStudents, searchTeachersPublic,
 } from '../controllers/teacher.controller.js';
 import { paymentLimiter }       from '../middlewares/rateLimit.middleware.js';
 import { requireIdempotencyKey } from '../middlewares/idempotency.middleware.js';
 
 const router = Router();
+
+// ── Public list/search teachers ───────────────────────────────────────────────
+router.get('/', optionalAuthenticate, searchTeachersPublic);
 
 // ── Onboarding (teacher account pending KYC) ──────────────────────────────────
 router.post('/onboarding/profile', authenticate, requireTeacherPending, submitProfile);

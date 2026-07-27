@@ -28,9 +28,9 @@ const calcAge = (dob) =>
 
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-const issueTokens = (res, user) => {
-  const tokens = TokenService.generateTokenPair(user);
-  setAuthCookies(res, tokens);
+const issueTokens = (res, user, rememberMe = false) => {
+  const tokens = TokenService.generateTokenPair(user, rememberMe);
+  setAuthCookies(res, tokens, rememberMe);
   return tokens;
 };
 
@@ -215,7 +215,7 @@ export const signupComplete = asyncHandler(async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export const loginWithPassword = asyncHandler(async (req, res) => {
-  const { email, username, identifier, password } = req.body;
+  const { email, username, identifier, password, rememberMe = false } = req.body;
   const loginId = (identifier || email || username || '').trim().toLowerCase();
   if (!loginId || !password) throw ApiError.badRequest('Identifier and password are required');
 
@@ -239,7 +239,7 @@ export const loginWithPassword = asyncHandler(async (req, res) => {
   const valid = await user.comparePassword(password);
   if (!valid) throw ApiError.unauthorized('Invalid credentials');
 
-  const tokens = issueTokens(res, user);
+  const tokens = issueTokens(res, user, rememberMe);
   await user.touchActivity();
 
   logger.info('User logged in via password', { userId: user._id, role: user.role });
@@ -546,7 +546,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
     throw ApiError.unauthorized('Session invalid. Please login again.');
   }
 
-  const tokens = issueTokens(res, user);
+  const tokens = issueTokens(res, user, decoded.rememberMe);
   res.status(200).json(new ApiResponse(200, { accessToken: tokens.accessToken }, 'Token refreshed'));
 });
 

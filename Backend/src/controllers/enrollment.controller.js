@@ -544,6 +544,7 @@ export const getMyQueries = asyncHandler(async (req, res) => {
     enrolled: QUERY_STATUS.ENROLLED,
     rejected: [QUERY_STATUS.REJECTED, QUERY_STATUS.EXPIRED], // teacher no-show = auto-expired
     expired:  QUERY_STATUS.LAPSED,                           // accepted but student didn't enroll
+    archived: 'archived',
   };
 
   const teacherTabMap = {
@@ -553,14 +554,29 @@ export const getMyQueries = asyncHandler(async (req, res) => {
     rejected: QUERY_STATUS.REJECTED,
     expired:  QUERY_STATUS.EXPIRED,   // teacher didn't respond in 24h
     refunded: QUERY_STATUS.LAPSED,    // student didn't enroll → teacher got 4% back
+    archived: 'archived',
   };
 
   const tabMap = isTeacher ? teacherTabMap : studentTabMap;
   const filter = isTeacher ? { teacherId: req.user._id } : { studentId: req.user._id };
 
-  if (tab && tabMap[tab]) {
-    const statusValue = tabMap[tab];
-    filter.status = Array.isArray(statusValue) ? { $in: statusValue } : statusValue;
+  if (tab === 'archived') {
+    if (isTeacher) {
+      filter.isArchivedByTeacher = true;
+    } else {
+      filter.isArchivedByStudent = true;
+    }
+  } else {
+    if (isTeacher) {
+      filter.isArchivedByTeacher = false;
+    } else {
+      filter.isArchivedByStudent = false;
+    }
+
+    if (tab && tabMap[tab]) {
+      const statusValue = tabMap[tab];
+      filter.status = Array.isArray(statusValue) ? { $in: statusValue } : statusValue;
+    }
   }
 
   const result = await EnrollmentQuery.paginate(filter, {
@@ -663,4 +679,80 @@ export const withdrawQuery = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /queries/:queryId/messages — Send chat message under a query
+// ─────────────────────────────────────────────────────────────────────────────
+export const sendQueryMessage = asyncHandler(async (req, res) => {
+  const { queryId } = req.params;
+  const { text } = req.body;
+
+  if (!text || !text.trim()) {
+    throw ApiError.badRequest('Message text is required');
+  }
+
+  const query = await EnrollmentQuery.findById(queryId);
+  if (!query) throw ApiError.notFound('Query');
+
+  const userId = req.user._id.toString();
+  const isStudent = query.studentId.toString() === userId;
+  const isTeacher = query.teacherId.toString() === userId;
+
+  if (!isStudent && !isTeacher) {
+    throw ApiError.forbidden('You are not authorized to send messages under this query');
+  }
+
+  if (query.status !== QUERY_STATUS.PENDING) {
+    throw ApiError.badRequest(`Cannot send messages when query is ${query.status}`);
+  }
+
+  query.messages = query.messages || [];
+  query.messages.push({
+    senderId: req.user._id,
+    text: text.trim(),
+    createdAt: new Date(),
+  });
+
+  await query.save();
+
+  res.status(200).json(new ApiResponse(200, query.messages, 'Message sent successfully'));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /queries/:queryId/archive — Archive/unarchive a query
+// ─────────────────────────────────────────────────────────────────────────────
+export const archiveQuery = asyncHandler(async (req, res) => {
+  const { queryId } = req.params;
+  const { archive = true } = req.body;
+
+  const query = await EnrollmentQuery.findById(queryId);
+  if (!query) throw ApiError.notFound('Query');
+
+  const userId = req.user._id.toString();
+  const isStudent = query.studentId.toString() === userId;
+  const isTeacher = query.teacherId.toString() === userId;
+
+  if (!isStudent && !isTeacher) {
+    throw ApiError.forbidden('You are not authorized to access this query');
+  }
+
+  // Active queries can't be archived by student or teacher
+  if (query.status === QUERY_STATUS.PENDING) {
+    throw ApiError.badRequest('Active queries cannot be archived');
+  }
+
+  if (isStudent) {
+    query.isArchivedByStudent = !!archive;
+  }
+  if (isTeacher) {
+    query.isArchivedByTeacher = !!archive;
+  }
+
+  await query.save();
+
+  res.status(200).json(new ApiResponse(200, {
+    isArchivedByStudent: query.isArchivedByStudent,
+    isArchivedByTeacher: query.isArchivedByTeacher
+  }, `Query ${archive ? 'archived' : 'unarchived'} successfully`));
 });

@@ -21,10 +21,11 @@ export const TokenService = {
    * Generate both tokens for a user document.
    * Payload is minimal — only what's needed for auth checks.
    */
-  generateTokenPair(user) {
+  generateTokenPair(user, rememberMe = false) {
     const payload = {
       _id:  user._id.toString(),
       role: user.role,
+      rememberMe,
     };
     return {
       accessToken:  this.generateAccessToken(payload),

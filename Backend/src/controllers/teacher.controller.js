@@ -560,3 +560,76 @@ export const replyToReview = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, review, 'Reply posted successfully'));
 });
+
+// ── GET / — Public list/search teachers ──────────────────────────────────────────
+export const searchTeachersPublic = asyncHandler(async (req, res) => {
+  const { q, page = 1, limit = 20 } = req.query;
+
+  const filter = {
+    role: 'teacher',
+    isActive: true,
+    deletedAt: null,
+  };
+
+  if (q) {
+    filter.$or = [
+      { name: { $regex: q, $options: 'i' } },
+      { username: { $regex: q, $options: 'i' } },
+      { email: { $regex: q, $options: 'i' } },
+      { city: { $regex: q, $options: 'i' } }
+    ];
+  }
+
+  const matchedUsers = await User.find(filter).select('_id name username avatarUrl city state').lean();
+  const teacherUserIds = matchedUsers.map(u => u._id);
+
+  const profiles = await TeacherProfile.find({
+    userId: { $in: teacherUserIds },
+    verificationStatus: 'approved'
+  }).select('userId subjects stats bio experienceYears headline').lean();
+
+  const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
+  const matchedTeachers = matchedUsers
+    .map(u => {
+      const p = profileMap.get(String(u._id));
+      if (!p) return null;
+      return {
+        _id: u._id,
+        id: u._id,
+        name: u.name,
+        username: u.username,
+        avatarUrl: u.avatarUrl,
+        city: u.city,
+        state: u.state,
+        subject: p.subjects?.[0] || 'General',
+        experience: p.experienceYears ? `${p.experienceYears}+ years` : '5+ years',
+        bio: p.bio || p.headline || '',
+        location: [u.city, u.state].filter(Boolean).join(', ') || 'Online',
+        mode: 'Online', // Default
+        tags: p.subjects || [],
+        rating: p.stats?.avgRating || 4.9,
+        reviews: p.stats?.totalReviews || 12,
+        price: 1500, // Default fee placeholder
+        profile: {
+          bio: p.bio,
+          experienceYears: p.experienceYears,
+          headline: p.headline,
+          subjects: p.subjects,
+          stats: p.stats
+        }
+      };
+    })
+    .filter(Boolean);
+
+  const pageNum = Number(page);
+  const limitNum = Number(limit);
+  const paginatedDocs = matchedTeachers.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+  res.status(200).json(new ApiResponse(200, {
+    docs: paginatedDocs,
+    totalDocs: matchedTeachers.length,
+    limit: limitNum,
+    page: pageNum,
+    totalPages: Math.ceil(matchedTeachers.length / limitNum),
+  }, 'Teachers fetched successfully'));
+});

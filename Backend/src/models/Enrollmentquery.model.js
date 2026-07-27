@@ -84,6 +84,19 @@ const enrollmentQuerySchema = new Schema(
       default: null,
       index:   true,
     },
+
+    // ── Chat/Messages under the query ──────────────────────────────────────────
+    messages: [
+      {
+        senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        text:     { type: String, required: true, trim: true },
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
+
+    // ── Archiving ──────────────────────────────────────────────────────────────
+    isArchivedByStudent: { type: Boolean, default: false },
+    isArchivedByTeacher: { type: Boolean, default: false },
   },
   {
     timestamps: true,
@@ -207,10 +220,12 @@ enrollmentQuerySchema.statics.findActiveQuery = function (studentId, classroomId
  */
 enrollmentQuerySchema.statics.teacherQueryCounts = async function (teacherId) {
   const counts = await this.aggregate([
-    { $match: { teacherId: new mongoose.Types.ObjectId(teacherId) } },
+    { $match: { teacherId: new mongoose.Types.ObjectId(teacherId), isArchivedByTeacher: false } },
     { $group: { _id: '$status', count: { $sum: 1 } } },
   ]);
-  const map = { active: 0, accepted: 0, enrolled: 0, rejected: 0, expired: 0, refunded: 0 };
+  const archivedCount = await this.countDocuments({ teacherId, isArchivedByTeacher: true });
+
+  const map = { active: 0, accepted: 0, enrolled: 0, rejected: 0, expired: 0, refunded: 0, archived: archivedCount };
   counts.forEach(({ _id, count }) => {
     const label = _id === 'pending' ? 'active' : _id === 'lapsed' ? 'refunded' : _id;
     if (label in map) map[label] = count;
@@ -228,10 +243,12 @@ enrollmentQuerySchema.statics.teacherQueryCounts = async function (teacherId) {
  */
 enrollmentQuerySchema.statics.studentQueryCounts = async function (studentId) {
   const counts = await this.aggregate([
-    { $match: { studentId: new mongoose.Types.ObjectId(studentId) } },
+    { $match: { studentId: new mongoose.Types.ObjectId(studentId), isArchivedByStudent: false } },
     { $group: { _id: '$status', count: { $sum: 1 } } },
   ]);
-  const map = { active: 0, accepted: 0, enrolled: 0, rejected: 0, expired: 0 };
+  const archivedCount = await this.countDocuments({ studentId, isArchivedByStudent: true });
+
+  const map = { active: 0, accepted: 0, enrolled: 0, rejected: 0, expired: 0, archived: archivedCount };
   counts.forEach(({ _id, count }) => {
     // NOTE: internal status "expired" (teacher no-response) maps to student tab "rejected";
     // internal status "lapsed" (student didn't enroll in time) maps to student tab "expired".

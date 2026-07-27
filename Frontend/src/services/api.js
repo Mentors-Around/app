@@ -11,6 +11,18 @@ export const generateIdempotencyKey = () => {
 /**
  * Helper to make HTTP requests with authentication headers and proper error handling
  */
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function subscribeTokenRefresh(cb) {
+  refreshSubscribers.push(cb);
+}
+
+function onRefreshed(token) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('trueed_token');
   const headers = { ...options.headers };
@@ -66,17 +78,51 @@ async function request(endpoint, options = {}) {
       error.data = resData;
 
       if (response.status === 401) {
-        // Auto-clear auth state on 401 unauthenticated if not already on login page
-        if (!window.location.pathname.includes('/login')) {
+        if (endpoint.includes('/auth/refresh')) {
           localStorage.removeItem('trueed_token');
           localStorage.removeItem('trueed_profile');
           localStorage.removeItem('trueed_role');
+          throw error;
+        }
+
+        if (!window.location.pathname.includes('/login')) {
+          if (!isRefreshing) {
+            isRefreshing = true;
+            api.auth.refresh()
+              .then((res) => {
+                isRefreshing = false;
+                const newToken = res.accessToken || res.token;
+                if (newToken) {
+                  localStorage.setItem('trueed_token', newToken);
+                  onRefreshed(newToken);
+                } else {
+                  throw new Error('Refresh failed');
+                }
+              })
+              .catch((err) => {
+                isRefreshing = false;
+                localStorage.removeItem('trueed_token');
+                localStorage.removeItem('trueed_profile');
+                localStorage.removeItem('trueed_role');
+                window.location.href = '/login';
+              });
+          }
+
+          return new Promise((resolve) => {
+            subscribeTokenRefresh((newToken) => {
+              const retryHeaders = { ...options.headers, 'Authorization': `Bearer ${newToken}` };
+              if (options.body && !(options.body instanceof FormData) && !retryHeaders['Content-Type']) {
+                retryHeaders['Content-Type'] = 'application/json';
+              }
+              const retryConfig = { ...options, headers: retryHeaders, credentials: options.credentials || 'include' };
+              resolve(request(endpoint, retryConfig));
+            });
+          });
         }
       }
       throw error;
     }
 
-    // Return inner data payload if wrapped in standard ApiResponse envelope { success, statusCode, data, message }
     if (resData && typeof resData === 'object' && 'data' in resData && 'success' in resData) {
       return resData.data !== undefined ? resData.data : resData;
     }
@@ -93,8 +139,8 @@ async function request(endpoint, options = {}) {
 export const api = {
   // ── AUTH ──────────────────────────────────────────────────────────────────
   auth: {
-    login: (email, password) =>
-      request('/auth/login/password', { method: 'POST', body: { email, password } }),
+    login: (email, password, rememberMe = false) =>
+      request('/auth/login/password', { method: 'POST', body: { email, password, rememberMe } }),
     
     signupSendOtp: (email, phone, role) =>
       request('/auth/signup/send-otp', { method: 'POST', body: { email, phone, role } }),
@@ -114,6 +160,9 @@ export const api = {
     resetPassword: (sessionToken, newPassword) =>
       request('/auth/forgot-password/reset', { method: 'POST', body: { sessionToken, newPassword } }),
     
+    refresh: () =>
+      request('/auth/refresh', { method: 'POST' }),
+
     logout: () =>
       request('/auth/logout', { method: 'POST' }),
   },
@@ -231,10 +280,17 @@ export const api = {
     
     submitReview: (enrollmentId, rating, comment) =>
       request(`/enrollments/${enrollmentId}/review`, { method: 'POST', body: { rating, comment } }),
+
+    sendQueryMessage: (queryId, text) =>
+      request(`/enrollments/queries/${queryId}/messages`, { method: 'POST', body: { text } }),
+
+    archiveQuery: (queryId, archive = true) =>
+      request(`/enrollments/queries/${queryId}/archive`, { method: 'PATCH', body: { archive } }),
   },
 
   // ── TEACHER ────────────────────────────────────────────────────────────────
   teacher: {
+    search: (query) => request(`/teachers?q=${encodeURIComponent(query)}`),
     getDashboard: () => request('/teachers/me/dashboard'),
     getEarnings: () => request('/teachers/me/earnings'),
     getMyClassrooms: () => request('/teachers/me/classrooms'),

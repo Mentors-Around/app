@@ -90,7 +90,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const res = await api.auth.login(email, password);
+      const res = await api.auth.login(email, password, rememberMe);
       const userObj = res.user || res;
       const accessToken = res.accessToken || res.token;
 

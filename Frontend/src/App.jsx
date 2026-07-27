@@ -14,6 +14,7 @@ import AdminLogin from './pages/auth/AdminLogin';
 import PageTransition from './components/PageTransition';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentDiscover from './pages/StudentDiscover';
+import StudentTutors from './pages/StudentTutors';
 import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherKYC from './pages/TeacherKYC';
 import AdminVerify from './pages/AdminVerify';
@@ -185,6 +186,7 @@ const App = () => {
         <Route path="/student" element={<DashboardLayout role="student" />}>
           <Route path="dashboard" element={<StudentDashboard />} />
           <Route path="discover" element={<StudentDiscover />} />
+          <Route path="tutors" element={<StudentTutors />} />
           <Route path="profile" element={<StudentProfile />} />
           <Route path="bookings" element={<StudentBookings />} />
           <Route path="favourites" element={<StudentFavourites />} />

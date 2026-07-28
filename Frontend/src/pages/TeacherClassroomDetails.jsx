@@ -19,6 +19,7 @@ export default function TeacherClassroomDetails() {
     startTime: '',
     endTime: '',
     schedule: '',
+    rawSchedule: [],
     status: 'inactive',
     sessions: [],
     liveSettings: { meetingPlatform: 'Google Meet', meetingLink: '', accessTimeMinutes: 15 },
@@ -57,6 +58,7 @@ export default function TeacherClassroomDetails() {
             startTime:   firstSlot?.startTime || '',
             endTime:     firstSlot?.endTime || '',
             schedule:    scheduleDays.length ? `${scheduleDays.join(', ')} (${firstSlot?.startTime || ''} - ${firstSlot?.endTime || ''})` : 'Flexible',
+            rawSchedule: c.schedule || [],
             startDate:   c.startDate ? c.startDate.split('T')[0] : '',
             endDate:     c.endDate   ? c.endDate.split('T')[0]   : '',
             status:      c.status || 'active',
@@ -89,6 +91,7 @@ export default function TeacherClassroomDetails() {
             const found = list.find(c => c.id?.toString() === id);
             if (found) {
               if (!found.sessions) found.sessions = [];
+              if (!found.rawSchedule) found.rawSchedule = found.schedule || [];
               setClassroom(found);
               setLiveSettingsForm({
                 meetingPlatform:   found.liveSettings?.meetingPlatform || 'Google Meet',
@@ -355,10 +358,46 @@ export default function TeacherClassroomDetails() {
     return count;
   };
 
+  const getDayName = (dayNum) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[dayNum] || 'Monday';
+  };
+  const getShortDayName = (dayNum) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dayNum] || 'Mon';
+  };
+
+  const schedules = [];
+  const scheduleSlots = classroom?.rawSchedule || [];
+  
+  const groups = {};
+  scheduleSlots.forEach(slot => {
+    const key = `${slot.startTime}-${slot.endTime}`;
+    if (!groups[key]) {
+      groups[key] = {
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        days: [],
+        dayNums: []
+      };
+    }
+    groups[key].days.push(getShortDayName(slot.day));
+    groups[key].dayNums.push(slot.day);
+  });
+
+  Object.values(groups).forEach((g, idx) => {
+    schedules.push({
+      id: idx,
+      days: g.days,
+      dayNums: g.dayNums,
+      startTime: g.startTime,
+      endTime: g.endTime
+    });
+  });
+
   let totalTeachingHoursVal = 0;
   let totalLecturesVal = 0;
   let sessionDurationContent = '-';
-  const schedules = classroom.schedules || [];
 
   if (classroom.startDate && classroom.endDate && schedules.length > 0) {
     const start = new Date(classroom.startDate);
@@ -374,21 +413,19 @@ export default function TeacherClassroomDetails() {
       });
     }
 
-    // Format Session Duration for display
-    const uniqueDurations = new Set();
     const durationTexts = [];
     schedules.forEach(sch => {
       if (sch.days.length > 0 && sch.startTime && sch.endTime) {
         const { text } = getSessionDuration(sch.startTime, sch.endTime);
         if (text && text !== '-') {
-          uniqueDurations.add(text);
-          durationTexts.push(`${sch.days.join('–')} : ${text}`);
+          const daysText = `${sch.days.length} day${sch.days.length > 1 ? 's' : ''} per week`;
+          durationTexts.push(`${text} (${daysText})`);
         }
       }
     });
     
-    if (uniqueDurations.size === 1) {
-      sessionDurationContent = Array.from(uniqueDurations)[0];
+    if (durationTexts.length === 1) {
+      sessionDurationContent = durationTexts[0];
     } else if (durationTexts.length > 0) {
       sessionDurationContent = (
         <div className="flex flex-col gap-1">

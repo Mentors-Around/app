@@ -330,8 +330,8 @@ classroomSchema.pre('save', async function () {
       .flatMap((s) => s.toLowerCase().trim().split(/\s+/));
     this.searchKeywords = [...new Set(kw)];
   }
-  if (this.startDate && this.endDate && this.endDate <= this.startDate) {
-    throw new Error('End date must be after start date');
+  if (this.startDate && this.endDate && new Date(this.endDate).getTime() < new Date(this.startDate).getTime()) {
+    throw new Error('End date must be on or after start date');
   }
 });
 

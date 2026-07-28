@@ -132,9 +132,8 @@ export const updateClassroom = asyncHandler(async (req, res) => {
     gmeetLink, meetingPlatform, accessTimeMinutes, meetingId, meetingPassword, sessions,
   } = req.body;
 
-  ClassroomService.validateScheduleUpdate(classroom, { totalPlannedHours: totalHoursPlanned, endDate });
-
-  if (!classroom.canScheduleUpdate()) {
+  const canUpdate = ['active', 'draft'].includes(classroom.status);
+  if (!canUpdate) {
     throw ApiError.badRequest(`Cannot update classroom in status: ${classroom.status}`);
   }
 

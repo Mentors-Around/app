@@ -273,11 +273,79 @@ const StudentClassroomDetails = () => {
     );
   }
 
-  const { hours: sessionHours, text: sessionDurationText } = getSessionDuration(classroom.startTime, classroom.endTime);
-  const expectedLecturesCount = getExpectedLectures(classroom.startDate, classroom.endDate, classroom.scheduleDays);
-  const totalTeachingHours = expectedLecturesCount === 'Not Available' || sessionDurationText === 'Not Available' 
-    ? 'Not Available' 
-    : `${(expectedLecturesCount * sessionHours).toFixed(1)} Hours`;
+  const getShortDayName = (dayNum) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dayNum] || 'Mon';
+  };
+
+  const schedules = [];
+  const scheduleSlots = classroom?.schedule || [];
+  
+  const groups = {};
+  scheduleSlots.forEach(slot => {
+    const key = `${slot.startTime}-${slot.endTime}`;
+    if (!groups[key]) {
+      groups[key] = {
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        days: [],
+        dayNums: []
+      };
+    }
+    groups[key].days.push(getShortDayName(slot.day));
+    groups[key].dayNums.push(slot.day);
+  });
+
+  Object.values(groups).forEach((g, idx) => {
+    schedules.push({
+      id: idx,
+      days: g.days,
+      dayNums: g.dayNums,
+      startTime: g.startTime,
+      endTime: g.endTime
+    });
+  });
+
+  let totalTeachingHoursVal = 0;
+  let totalLecturesVal = 0;
+  let sessionDurationText = 'Not Available';
+
+  if (classroom?.startDate && classroom?.endDate && schedules.length > 0) {
+    const start = new Date(classroom.startDate);
+    const end = new Date(classroom.endDate);
+    if (start <= end) {
+      schedules.forEach(sch => {
+        if (sch.days.length > 0 && sch.startTime && sch.endTime) {
+          const { hours: sessionHours } = getSessionDuration(sch.startTime, sch.endTime);
+          const lectures = getExpectedLectures(classroom.startDate, classroom.endDate, sch.days);
+          if (typeof lectures === 'number') {
+            totalLecturesVal += lectures;
+            totalTeachingHoursVal += (lectures * sessionHours);
+          }
+        }
+      });
+    }
+
+    const durationTexts = [];
+    schedules.forEach(sch => {
+      if (sch.days.length > 0 && sch.startTime && sch.endTime) {
+        const { text } = getSessionDuration(sch.startTime, sch.endTime);
+        if (text && text !== 'Not Available') {
+          const daysText = `${sch.days.length} day${sch.days.length > 1 ? 's' : ''} per week`;
+          durationTexts.push(`${text} (${daysText})`);
+        }
+      }
+    });
+    
+    if (durationTexts.length === 1) {
+      sessionDurationText = durationTexts[0];
+    } else if (durationTexts.length > 0) {
+      sessionDurationText = durationTexts.join(', ');
+    }
+  }
+
+  const expectedLecturesCount = schedules.length > 0 ? totalLecturesVal : 'Not Available';
+  const totalTeachingHours = schedules.length > 0 && totalTeachingHoursVal > 0 ? `${totalTeachingHoursVal.toFixed(1)} Hours` : 'Not Available';
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 md:pb-12">

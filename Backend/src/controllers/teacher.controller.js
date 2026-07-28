@@ -282,12 +282,36 @@ export const getTeacherWallet = asyncHandler(async (req, res) => {
   }, 'Teacher wallet balance'));
 });
 
-// ── POST /me/wallet/deposit — Initiate cash deposit via Razorpay ───────────────
 export const initiateTeacherDeposit = asyncHandler(async (req, res) => {
-  const { amountPaise } = req.body;
+  const { amountPaise, password } = req.body;
   if (!amountPaise || amountPaise < 100) throw ApiError.badRequest('amountPaise must be at least ₹1 (100 paise)');
 
-  const { Payment } = await import('../models/index.js');
+  const { Payment, User, TeacherProfile } = await import('../models/index.js');
+  const isGatewayConfigured = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET;
+
+  if (!isGatewayConfigured && password) {
+    const user = await User.findById(req.user._id);
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) throw ApiError.unauthorized('Invalid password');
+
+    // Credit teacher's wallet balance directly
+    const profile = await TeacherProfile.findOneAndUpdate(
+      { userId: req.user._id },
+      { $inc: { walletPaise: Math.round(Number(amountPaise)) } },
+      { new: true }
+    );
+
+    await Payment.create({
+      purpose:          PAYMENT_PURPOSE.CASH_DEPOSIT,
+      payerId:          req.user._id,
+      totalAmountPaise: Math.round(Number(amountPaise)),
+      status:           PAYMENT_STATUS.CAPTURED,
+      gateway:          'manual',
+    });
+
+    logger.info('Teacher direct deposit completed', { userId: req.user._id, amountPaise });
+    return res.status(200).json(new ApiResponse(200, { directDeposit: true }, 'Deposit completed successfully'));
+  }
 
   const order = await PaymentService.createOrder({
     amountPaise: Math.round(Number(amountPaise)),

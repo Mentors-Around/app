@@ -57,6 +57,7 @@ const ClassroomLobby = () => {
   const [status, setStatus] = useState({ state: 'loading', message: '' });
   const [joinUrl, setJoinUrl] = useState('');
   const [meetingInstructions, setMeetingInstructions] = useState(null);
+  const [showAddress, setShowAddress] = useState(false);
 
   // Resource sections from API
   const [materials, setMaterials] = useState([]);
@@ -133,11 +134,23 @@ const ClassroomLobby = () => {
           const isOffline = c.mode === 'offline';
           const isHybrid = c.mode === 'hybrid';
 
-          // Check if there is an explicit session today in the sessions database
-          const todayStr = now.toISOString().split('T')[0];
+          // Timezone-safe local date calculation
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const day = String(now.getDate()).padStart(2, '0');
+          const todayStr = `${year}-${month}-${day}`;
+
           const todaySession = (c.sessions || []).find(s => s.date === todayStr);
 
           if (todaySession) {
+            mappedRoom.startTime = todaySession.startTime;
+            mappedRoom.endTime = todaySession.endTime;
+            if (todaySession.gmeetLink) {
+              mappedRoom.liveSettings.meetingLink = todaySession.gmeetLink;
+              setJoinUrl(todaySession.gmeetLink);
+            }
+            setClassroom({ ...mappedRoom });
+
             const parseTimeToDate = (timeStr) => {
               const d = new Date();
               const [h, m] = timeStr.split(':');
@@ -288,6 +301,16 @@ const ClassroomLobby = () => {
     }
   };
 
+  const formatJoinUrl = (url) => {
+    if (!url) return '';
+    let trimmed = url.trim();
+    if (!trimmed) return '';
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  };
+
   const handleSecureJoin = async () => {
     if (status.state !== 'active' && status.state !== 'offline_active') return;
     setIsJoining(true);
@@ -306,16 +329,16 @@ const ClassroomLobby = () => {
       const meetingId = joinRes?.meetingId;
       const meetingPassword = joinRes?.meetingPassword;
 
-      if (link && link.startsWith('http')) {
-        window.open(link, '_blank', 'noopener,noreferrer');
+      if (link && (link.startsWith('http') || link.includes('.'))) {
+        window.open(formatJoinUrl(link), '_blank', 'noopener,noreferrer');
       } else if (meetingId) {
         setMeetingInstructions({
           platform,
           meetingId,
           meetingPassword
         });
-      } else if (joinUrl && joinUrl.startsWith('http')) {
-        window.open(joinUrl, '_blank', 'noopener,noreferrer');
+      } else if (joinUrl && (joinUrl.startsWith('http') || joinUrl.includes('.'))) {
+        window.open(formatJoinUrl(joinUrl), '_blank', 'noopener,noreferrer');
       } else {
         setError('No meeting link or credentials configured. Please ask your teacher to add one in classroom settings.');
       }
@@ -323,8 +346,8 @@ const ClassroomLobby = () => {
       if (err.status === 403 || err.status === 401) {
         setError('You are not authorized to join this class.');
         setStatus({ state: 'unauthorized', message: 'Not enrolled.' });
-      } else if (!isSessionOffline && joinUrl && joinUrl.startsWith('http')) {
-        window.open(joinUrl, '_blank', 'noopener,noreferrer');
+      } else if (!isSessionOffline && joinUrl && (joinUrl.startsWith('http') || joinUrl.includes('.'))) {
+        window.open(formatJoinUrl(joinUrl), '_blank', 'noopener,noreferrer');
       } else {
         setError(`Failed to join: ${err.message || 'Please try again.'}`);
       }
@@ -446,21 +469,35 @@ const ClassroomLobby = () => {
             <div className="flex flex-col gap-3 min-w-[300px]">
               {/* ── Offline class OR Offline Session in Hybrid ── */}
               {(isOffline || isSessionOffline) && (
-                <div className="w-full p-4 bg-amber-50 border border-amber-100 rounded-2xl text-center">
-                  <div className="flex items-center justify-center gap-2 text-amber-700 font-bold text-sm mb-2">
-                    <MapPin className="w-5 h-5" /> Offline Class
+                <div className="w-full p-4 bg-amber-50 border border-amber-100 rounded-2xl text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-amber-700 font-bold text-sm">
+                    <MapPin className="w-5 h-5" /> Offline Session
                   </div>
-                  <p className="text-sm text-amber-900 font-bold mb-1">Venue Address:</p>
-                  <p className="text-xs text-amber-600 font-medium mb-3">
-                    {classroom.offlineFacility?.address || 'Check with your teacher for the venue address.'}
-                  </p>
+                  
+                  {/* Show Address button - toggles address details */}
+                  <button
+                    type="button"
+                    onClick={() => setShowAddress(!showAddress)}
+                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition"
+                  >
+                    {showAddress ? 'Hide Address' : 'Show Address'}
+                  </button>
+
+                  {showAddress && (
+                    <div className="p-3 bg-white border border-amber-200 rounded-xl text-xs text-amber-900 font-bold animate-fade-in text-left">
+                      📍 Venue Address: {classroom.offlineFacility?.address || 'Check with your teacher for the venue address.'}
+                    </div>
+                  )}
+
+                  {/* I'm in the class button - appears 15 minutes prior to class timing */}
                   {(status.state === 'offline_active' || status.state === 'active') && !attendanceMarked && (
                     <button
+                      type="button"
                       onClick={handleMarkAttendance}
                       disabled={markingAttendance}
-                      className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition"
+                      className="w-full py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl text-xs transition"
                     >
-                      {markingAttendance ? 'Marking...' : "I'm Attending"}
+                      {markingAttendance ? 'Marking...' : "I'm in the class"}
                     </button>
                   )}
                   {attendanceMarked && (

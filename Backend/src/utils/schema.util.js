@@ -64,7 +64,7 @@ export const phoneValidator = {
 };
 
 export const urlValidator = {
-  validator: (v) => !v || /^https?:\/\/.+/.test(v),
+  validator: (v) => !v || /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(v),
   message:   "Must be a valid URL",
 };
 

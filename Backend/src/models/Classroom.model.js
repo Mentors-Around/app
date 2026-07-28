@@ -19,7 +19,7 @@ const scheduleSlotSchema = new Schema(
     day:             { type: Number, required: true, min: 0, max: 6 },
     startTime:       { type: String, required: true, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
     endTime:         { type: String, required: true, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
-    durationMinutes: { type: Number, required: true, min: 15 },
+    durationMinutes: { type: Number, required: true, min: 1 },
     conductedAt:     { type: Date,    default: null },
     isConducted:     { type: Boolean, default: false },
     gmeetLink:       { type: String,  trim: true, default: null },
@@ -36,6 +36,7 @@ const sessionDetailSchema = new Schema(
     endTime:     { type: String, required: true },
     notes:       { type: String, default: '' },
     sessionType: { type: String, enum: ['online', 'offline'], default: 'online' },
+    teacherPresent: { type: Boolean, default: false },
     attendance:  [
       {
         studentId: { type: Schema.Types.ObjectId, ref: 'User' },

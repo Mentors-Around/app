@@ -45,26 +45,30 @@ const TeacherWallet = () => {
     fetchEarningsStats();
   }, [user, teacherWallet]);
 
-  const handleDeposit = (amount) => {
+  const handleDeposit = async (amount, password) => {
     if (!amount || amount <= 0) return;
-    
-    setShowDepositModal(false);
-    
-    showToast(`₹${amount} has been added to your wallet.`);
-    
-    // Process recharge in context
-    processTeacherRecharge(amount);
+    try {
+      await api.teacher.depositWallet(amount * 100, password);
+      
+      setShowDepositModal(false);
+      showToast(`₹${amount} has been successfully added to your wallet.`);
+      
+      // Process recharge in context
+      processTeacherRecharge(amount);
 
-    const newTxn = {
-      id: `TXN-${Math.floor(10000 + Math.random() * 90000)}`,
-      date: new Date().toISOString(),
-      type: 'Wallet Deposit',
-      amount: amount,
-      status: 'Completed',
-      isCredit: true,
-      title: 'Added via UPI'
-    };
-    addTeacherTransaction(newTxn, 0, 0); // Deposits don't count towards earnings
+      const newTxn = {
+        id: `TXN-${Math.floor(10000 + Math.random() * 90000)}`,
+        date: new Date().toISOString(),
+        type: 'Wallet Deposit',
+        amount: amount,
+        status: 'Completed',
+        isCredit: true,
+        title: 'Direct Password Deposit'
+      };
+      addTeacherTransaction(newTxn, 0, 0);
+    } catch (err) {
+      alert(err.message || 'Deposit failed. Please check your password.');
+    }
   };
 
   return (

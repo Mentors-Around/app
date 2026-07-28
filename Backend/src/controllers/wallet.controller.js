@@ -105,9 +105,32 @@ export const getTokenTransactions = asyncHandler(async (req, res) => {
 });
 // ── POST /deposit/checkout — Student initiates cash deposit via Razorpay ──────
 export const createStudentDepositCheckout = asyncHandler(async (req, res) => {
-  const { amountPaise } = req.body;
+  const { amountPaise, password } = req.body;
   if (!amountPaise || Number(amountPaise) < 100) {
     throw ApiError.badRequest('amountPaise must be at least ₹1 (100 paise)');
+  }
+
+  const isGatewayConfigured = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET;
+
+  if (!isGatewayConfigured && password) {
+    const user = await User.findById(req.user._id);
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) throw ApiError.unauthorized('Invalid password');
+
+    user.walletPaise = (user.walletPaise || 0) + Math.round(Number(amountPaise));
+    await user.save();
+
+    await Payment.create({
+      purpose:          PAYMENT_PURPOSE.CASH_DEPOSIT,
+      payerId:          req.user._id,
+      totalAmountPaise: Math.round(Number(amountPaise)),
+      status:           PAYMENT_STATUS.CAPTURED,
+      gateway:          'manual',
+      idempotencyKey:   req.idempotencyKey || null,
+    });
+
+    logger.info('Student direct deposit completed', { userId: req.user._id, amountPaise });
+    return res.status(200).json(new ApiResponse(200, { directDeposit: true }, 'Deposit completed successfully'));
   }
 
   const order = await PaymentService.createOrder({

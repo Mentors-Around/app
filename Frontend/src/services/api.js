@@ -303,6 +303,7 @@ export const api = {
     getWallet: () => request('/teachers/me/wallet'),
     submitKYC: (formData) => request('/teachers/onboarding/kyc', { method: 'POST', body: formData }),
     submitProfile: (data) => request('/teachers/onboarding/profile', { method: 'POST', body: data }),
+    depositWallet: (amountPaise, password) => request('/teachers/me/wallet/deposit', { method: 'POST', body: { amountPaise, password } }),
   },
 
   // ── WALLET & PAYOUTS ───────────────────────────────────────────────────────
@@ -320,11 +321,11 @@ export const api = {
     verifyTokenPurchase: (data) =>
       request('/wallet/tokens/verify', { method: 'POST', body: data }),
     
-    depositCheckout: (amount) =>
+    depositCheckout: (amountPaise, password) =>
       request('/wallet/deposit/checkout', {
         method: 'POST',
         headers: { 'Idempotency-Key': generateIdempotencyKey() },
-        body: { amount },
+        body: { amountPaise, password },
       }),
     
     verifyDeposit: (data) =>

@@ -96,7 +96,7 @@ export const createClassroom = asyncHandler(async (req, res) => {
     maxStudents:          Number(maxStudents),
     mode:                 mode || CLASSROOM_MODE.ONLINE,
     offlineFacility:      (mode === CLASSROOM_MODE.OFFLINE || mode === CLASSROOM_MODE.HYBRID) ? offlineFacility : null,
-    gmeetLink,
+    gmeetLink:            (gmeetLink && !/^https?:\/\//i.test(gmeetLink.trim())) ? `https://${gmeetLink.trim()}` : (gmeetLink?.trim() || null),
     meetingPlatform:      meetingPlatform || 'Google Meet',
     meetingId:            meetingId || null,
     meetingPassword:      meetingPassword || null,
@@ -156,12 +156,56 @@ export const updateClassroom = asyncHandler(async (req, res) => {
   if (minimumAge !== undefined)           updates.minimumAge           = minimumAge ? Number(minimumAge) : null;
   if (academicLevel !== undefined)        updates.academicLevel        = academicLevel?.trim() || null;
   // Live class link — only meaningful for online/hybrid classrooms
-  if (gmeetLink !== undefined)            updates.gmeetLink            = gmeetLink?.trim() || null;
+  if (gmeetLink !== undefined) {
+    let cleanLink = gmeetLink?.trim() || null;
+    if (cleanLink && !/^https?:\/\//i.test(cleanLink)) {
+      cleanLink = `https://${cleanLink}`;
+    }
+    updates.gmeetLink = cleanLink;
+  }
   if (meetingPlatform !== undefined)      updates.meetingPlatform      = meetingPlatform?.trim() || null;
   if (accessTimeMinutes !== undefined)    updates.accessTimeMinutes    = Number(accessTimeMinutes) || 15;
   if (meetingId !== undefined)            updates.meetingId            = meetingId?.trim() || null;
   if (meetingPassword !== undefined)      updates.meetingPassword      = meetingPassword?.trim() || null;
-  if (sessions !== undefined)             updates.sessions             = sessions;
+  if (sessions !== undefined) {
+    const dbClassroom = await Classroom.findById(classroom._id).select('schedule').lean();
+    const schedule = dbClassroom?.schedule || [];
+    
+    updates.sessions = sessions.map(s => {
+      if (!s.date || !s.startTime) return s;
+      const sessionDate = new Date(s.date);
+      const dayOfWeek = sessionDate.getDay();
+      
+      const matchingSlot = schedule.find(slot => 
+        slot.day === dayOfWeek && 
+        slot.startTime === s.startTime
+      );
+      
+      if (matchingSlot) {
+        return {
+          ...s,
+          teacherPresent: true
+        };
+      }
+      return s;
+    });
+
+    updates.schedule = schedule.map(slot => {
+      const hasMatchingSession = sessions.some(s => {
+        if (!s.date || !s.startTime) return false;
+        const sessionDate = new Date(s.date);
+        return sessionDate.getDay() === slot.day && s.startTime === slot.startTime;
+      });
+      if (hasMatchingSession) {
+        return {
+          ...slot,
+          isConducted: true,
+          conductedAt: new Date()
+        };
+      }
+      return slot;
+    });
+  }
 
   const updated = await Classroom.findByIdAndUpdate(
     classroom._id,
@@ -276,9 +320,10 @@ export const getClassroomDetail = asyncHandler(async (req, res) => {
   let studentProgress  = null;
 
   const isClassroomTeacher = req.user && classroom.teacherId?._id?.toString() === req.user._id?.toString();
+  const isAdmin = req.user && req.user.role === 'admin';
 
-  if (isClassroomTeacher) {
-    // Teacher views their own classroom — full access, no data hidden
+  if (isClassroomTeacher || isAdmin) {
+    // Teacher / admin views classroom — full access, no data hidden
     enrollmentStatus = 'teacher_owner';
   } else if (req.user?.role === 'student') {
     const enrollment = await Enrollment.findOne({
@@ -497,36 +542,46 @@ export const joinClass = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'This classroom is not currently active', [], 'CLASSROOM_INACTIVE');
   }
 
-  // Verify the requester is enrolled
-  const enrollment = await Enrollment.findOne({
-    studentId:   req.user._id,
-    classroomId,
-    status:      'active',
-  });
+  const isTeacher = req.user && classroom.teacherId.toString() === req.user._id.toString();
+  const isAdmin = req.user && req.user.role === 'admin';
+  let alreadyMarkedToday = false;
 
-  if (!enrollment) {
-    throw ApiError.forbidden('You are not enrolled in this classroom');
-  }
-
-  // Increment classes attended (idempotent within the same calendar day)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const lastAttended = enrollment.lastAttendedAt ? new Date(enrollment.lastAttendedAt) : null;
-  if (lastAttended) lastAttended.setHours(0, 0, 0, 0);
-
-  const alreadyMarkedToday = lastAttended && lastAttended.getTime() === today.getTime();
-
-  if (!alreadyMarkedToday) {
-    await Enrollment.findByIdAndUpdate(enrollment._id, {
-      $inc: { classesAttended: 1 },
-      lastAttendedAt: new Date(),
+  if (!isTeacher && !isAdmin) {
+    // Verify the requester is enrolled
+    const enrollment = await Enrollment.findOne({
+      studentId:   req.user._id,
+      classroomId,
+      status:      'active',
     });
-    logger.info('Attendance marked', { classroomId, studentId: req.user._id });
+
+    if (!enrollment) {
+      throw ApiError.forbidden('You are not enrolled in this classroom');
+    }
+
+    // Increment classes attended (idempotent within the same calendar day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lastAttended = enrollment.lastAttendedAt ? new Date(enrollment.lastAttendedAt) : null;
+    if (lastAttended) lastAttended.setHours(0, 0, 0, 0);
+
+    alreadyMarkedToday = lastAttended && lastAttended.getTime() === today.getTime();
+
+    if (!alreadyMarkedToday) {
+      await Enrollment.findByIdAndUpdate(enrollment._id, {
+        $inc: { classesAttended: 1 },
+        lastAttendedAt: new Date(),
+      });
+      logger.info('Attendance marked', { classroomId, studentId: req.user._id });
+    }
   }
 
-  const meetingLink = classroom.gmeetLink ||
+  let meetingLink = classroom.gmeetLink ||
     (classroom.schedule && classroom.schedule.find(s => s.isConducted === false)?.gmeetLink) ||
     null;
+
+  if (meetingLink && !/^https?:\/\//i.test(meetingLink.trim())) {
+    meetingLink = `https://${meetingLink.trim()}`;
+  }
 
   res.status(200).json(new ApiResponse(200, {
     meetingLink,

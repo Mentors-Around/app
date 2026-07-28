@@ -118,6 +118,7 @@ export default function TeacherClassroomDetails() {
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [isLiveSettingsModalOpen, setIsLiveSettingsModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [showMeetingInstructions, setShowMeetingInstructions] = useState(null);
   
   // Report State
   const [studentToReport, setStudentToReport] = useState(null);
@@ -438,6 +439,70 @@ export default function TeacherClassroomDetails() {
   const expectedLecturesCount = schedules.length > 0 ? totalLecturesVal : '-';
   const totalTeachingHours = schedules.length > 0 && totalTeachingHoursVal > 0 ? `${totalTeachingHoursVal.toFixed(1)} Hours` : '-';
 
+  const todaySession = (() => {
+    if (!classroom || !classroom.sessions || classroom.sessions.length === 0) return null;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    return classroom.sessions.find(s => s.date === todayStr);
+  })();
+
+  const sessionTimeDiff = (() => {
+    if (!todaySession) return { state: 'none' };
+    const now = new Date();
+    const parseTimeToDate = (timeStr) => {
+      const d = new Date();
+      const [h, m] = timeStr.split(':');
+      d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+      return d;
+    };
+    const start = parseTimeToDate(todaySession.startTime);
+    const end = parseTimeToDate(todaySession.endTime);
+    if (now > end) return { state: 'ended' };
+    
+    const accessTime = new Date(start.getTime() - 15 * 60000);
+    if (now < accessTime) {
+      const diffMs = start - now;
+      const diffMins = Math.ceil(diffMs / 60000);
+      const hrs = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      return { state: 'waiting', hrs, mins };
+    }
+    
+    return { state: 'active', session: todaySession };
+  })();
+
+  const formatJoinUrl = (url) => {
+    if (!url) return '';
+    let trimmed = url.trim();
+    if (!trimmed) return '';
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  };
+
+  const handleTeacherJoin = () => {
+    const link = classroom.liveSettings?.meetingLink;
+    const platform = classroom.liveSettings?.meetingPlatform || 'Google Meet';
+    const meetingId = classroom.liveSettings?.meetingId;
+    const meetingPassword = classroom.liveSettings?.meetingPassword;
+
+    if (link && (link.startsWith('http') || link.includes('.'))) {
+      window.open(formatJoinUrl(link), '_blank', 'noopener,noreferrer');
+    } else if (meetingId) {
+      setShowMeetingInstructions({
+        platform,
+        meetingId,
+        meetingPassword
+      });
+    } else {
+      alert('No meeting link or credentials configured in Live Settings.');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto pb-12 space-y-8 relative">
       
@@ -446,6 +511,99 @@ export default function TeacherClassroomDetails() {
         <div className="fixed bottom-4 right-4 bg-navy text-white px-6 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 z-[60] animate-fade-in">
           <CheckCircle className="w-5 h-5" />
           {toastMessage}
+        </div>
+      )}
+
+      {/* Upcoming Session Banner for Teacher */}
+      {sessionTimeDiff.state === 'waiting' && (
+        <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl flex items-center justify-between text-sky-800 font-medium animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 bg-sky-500 rounded-full animate-pulse" />
+            Your upcoming session today is in {sessionTimeDiff.hrs > 0 ? `${sessionTimeDiff.hrs}h ` : ''}{sessionTimeDiff.mins}m ({todaySession.startTime} - {todaySession.endTime}).
+          </div>
+        </div>
+      )}
+
+      {sessionTimeDiff.state === 'active' && (
+        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center justify-between text-emerald-800 font-medium shadow-sm animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+            Your session is Live Now!
+          </div>
+          <button 
+            type="button"
+            onClick={handleTeacherJoin}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-sm transition shadow-sm"
+          >
+            Join Live Class
+          </button>
+        </div>
+      )}
+
+      {/* Meeting Instructions Modal for Teacher */}
+      {showMeetingInstructions && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/80 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+            <button 
+              type="button"
+              onClick={() => setShowMeetingInstructions(null)} 
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1 rounded-full bg-slate-50 hover:bg-slate-100 transition"
+            >
+              ✕
+            </button>
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto bg-sky/10 text-sky rounded-full flex items-center justify-center text-3xl font-bold">
+                🎦
+              </div>
+              <div>
+                <h3 className="font-sora font-extrabold text-navy text-xl">Join Live Class</h3>
+                <p className="text-sm font-semibold text-slate-500 mt-1">Please use the credentials below on {showMeetingInstructions.platform}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Meeting ID</span>
+                  <div className="flex justify-between items-center bg-white border border-slate-100 rounded-lg px-3 py-2 mt-1">
+                    <span className="font-mono font-bold text-navy select-all">{showMeetingInstructions.meetingId}</span>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(showMeetingInstructions.meetingId);
+                        alert('Meeting ID copied!');
+                      }}
+                      className="text-xs text-sky font-bold hover:underline"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                {showMeetingInstructions.meetingPassword && (
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password / Passcode</span>
+                    <div className="flex justify-between items-center bg-white border border-slate-100 rounded-lg px-3 py-2 mt-1">
+                      <span className="font-mono font-bold text-navy select-all">{showMeetingInstructions.meetingPassword}</span>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(showMeetingInstructions.meetingPassword);
+                          alert('Password copied!');
+                        }}
+                        className="text-xs text-sky font-bold hover:underline"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowMeetingInstructions(null)}
+                className="w-full py-3 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-sm"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

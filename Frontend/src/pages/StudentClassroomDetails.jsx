@@ -592,9 +592,8 @@ const StudentClassroomDetails = () => {
               <div>
                 <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">Message</label>
                 <textarea 
-                  required
                   rows="4"
-                  placeholder="Tell the teacher about your learning goals, current preparation level, or ask any questions before joining this classroom."
+                  placeholder="(Optional) Tell the teacher about your learning goals, current preparation level, or ask any questions before joining this classroom."
                   className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-medium focus:ring-1 outline-none transition-all resize-none ${
                     queryError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:border-navy focus:ring-navy'
                   }`}

@@ -26,8 +26,13 @@ export const sendQuery = asyncHandler(async (req, res) => {
   const { classroomId, message = '' } = req.body;
   if (!classroomId) throw ApiError.badRequest('classroomId is required');
 
+  let queryMessage = message.trim();
+  if (!queryMessage) {
+    queryMessage = "I want to join the classroom";
+  }
+
   // PII guard on student message
-  if (message) blockAllPII({ message });
+  blockAllPII({ message: queryMessage });
 
   const classroom = await Classroom.findById(classroomId);
   if (!classroom)                  throw ApiError.notFound('Classroom');
@@ -53,7 +58,7 @@ export const sendQuery = asyncHandler(async (req, res) => {
       studentId:           req.user._id,
       classroomId,
       teacherId:           classroom.teacherId,
-      message:             message.trim(),
+      message:             queryMessage,
       teacherDepositPaise: calcTeacherDeposit(classroom.feesPaise),
     }], { session });
 

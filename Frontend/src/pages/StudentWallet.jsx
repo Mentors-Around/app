@@ -63,27 +63,31 @@ const StudentWallet = () => {
     fetchPayments();
   }, [user, studentWallet]);
 
-  const handleDeposit = (amount) => {
+  const handleDeposit = async (amount, password) => {
     if (!amount || amount <= 0) return;
-    
-    setShowDepositModal(false);
-    
-    setSuccessMessage(`₹${amount} has been added to your wallet.`);
-    setShowSuccessModal(true);
-    
-    // Process recharge in context
-    processStudentRecharge(amount);
+    try {
+      await api.wallet.depositCheckout(amount * 100, password);
+      
+      setShowDepositModal(false);
+      setSuccessMessage(`₹${amount} has been successfully added to your wallet.`);
+      setShowSuccessModal(true);
+      
+      // Process recharge in context
+      processStudentRecharge(amount);
 
-    const newTxn = {
-      id: `TXN-${Math.floor(10000 + Math.random() * 90000)}`,
-      date: new Date().toISOString(),
-      type: 'Wallet Deposit',
-      amount: amount,
-      status: 'Completed',
-      isCredit: true,
-      title: 'Added via UPI'
-    };
-    addStudentTransaction(newTxn);
+      const newTxn = {
+        id: `TXN-${Math.floor(10000 + Math.random() * 90000)}`,
+        date: new Date().toISOString(),
+        type: 'Wallet Deposit',
+        amount: amount,
+        status: 'Completed',
+        isCredit: true,
+        title: 'Direct Password Deposit'
+      };
+      addStudentTransaction(newTxn);
+    } catch (err) {
+      alert(err.message || 'Deposit failed. Please check your password.');
+    }
   };
 
   const handleWithdrawClick = () => {

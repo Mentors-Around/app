@@ -3,9 +3,13 @@ import { X, Wallet } from 'lucide-react';
 
 const DepositModal = ({ isOpen, onClose, onProcess }) => {
   const [depositAmount, setDepositAmount] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
-    if (isOpen) setDepositAmount('');
+    if (isOpen) {
+      setDepositAmount('');
+      setPassword('');
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -35,7 +39,7 @@ const DepositModal = ({ isOpen, onClose, onProcess }) => {
             ))}
           </div>
 
-          <div className="relative mb-8">
+          <div className="relative mb-4">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-sora font-bold text-slate-400">₹</span>
             <input 
               type="number" 
@@ -45,20 +49,31 @@ const DepositModal = ({ isOpen, onClose, onProcess }) => {
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-800 font-bold focus:outline-none focus:border-navy focus:bg-white transition"
             />
           </div>
+
+          <div className="mb-6">
+            <input 
+              required
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your account password to verify"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-bold focus:outline-none focus:border-navy focus:bg-white transition text-sm"
+            />
+          </div>
           
           <div className="flex gap-3">
             <button 
               onClick={onClose}
-              className="flex-[1] py-4 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+              className="flex-[1] py-4 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-sm"
             >
               Cancel
             </button>
             <button 
-              onClick={() => onProcess(parseInt(depositAmount, 10))}
-              disabled={!depositAmount || parseInt(depositAmount, 10) <= 0}
-              className="flex-[2] py-4 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2"
+              onClick={() => onProcess(parseInt(depositAmount, 10), password)}
+              disabled={!depositAmount || parseInt(depositAmount, 10) <= 0 || !password.trim()}
+              className="flex-[2] py-4 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 text-sm"
             >
-              Proceed to Payment
+              Proceed to Deposit
             </button>
           </div>
         </div>

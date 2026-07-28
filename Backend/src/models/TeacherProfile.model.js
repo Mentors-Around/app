@@ -201,7 +201,8 @@ teacherProfileSchema.statics.pendingVerification = function (options = {}) {
       sort:     { createdAt: 1 },
       populate: [
         { path: 'userId', select: 'name phone email kycStatus' },
-        { path: 'verifiedBy', select: 'name email username' }
+        { path: 'verifiedBy', select: 'name email username' },
+        { path: 'kycDocumentIds' }
       ],
       ...options,
     },

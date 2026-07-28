@@ -264,7 +264,14 @@ const TeacherKYC = () => {
     if (field === '_err') { setError(val); return; }
     setTeachingData((p) => ({ ...p, [field]: val }));
   };
-  const updateDoc = (key, file) => setDocuments((p) => ({ ...p, [key]: file }));
+  const updateDoc = (key, file) => {
+    if (file && file.size > 5 * 1024 * 1024) {
+      setError('File size too large. Maximum size allowed is 5MB.');
+      return;
+    }
+    setError('');
+    setDocuments((p) => ({ ...p, [key]: file }));
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -336,8 +343,9 @@ const TeacherKYC = () => {
         )}
 
         <div className="bg-white rounded-brand shadow-brand p-6 md:p-10">
-          {step === 1 && <Step1 data={personalData} onChange={updatePersonal} onNext={() => { setError(''); setStep(2); }} error={error} />}
-          {step === 2 && <Step2 data={teachingData} onChange={updateTeaching} onNext={() => { setError(''); setStep(3); }} onBack={() => setStep(1)} error={error} />}
+          {error && <Alert message={error} type="error" show={!!error} onDismiss={() => setError('')} />}
+          {step === 1 && <Step1 data={personalData} onChange={updatePersonal} onNext={() => { setError(''); setStep(2); }} />}
+          {step === 2 && <Step2 data={teachingData} onChange={updateTeaching} onNext={() => { setError(''); setStep(3); }} onBack={() => setStep(1)} />}
           {step === 3 && <Step3 documents={documents} onFileChange={updateDoc} onNext={() => setStep(4)} onBack={() => setStep(2)} />}
           {step === 4 && <Step4 personalData={personalData} teachingData={teachingData} documents={documents} onSubmit={handleSubmit} onBack={() => setStep(3)} loading={loading} />}
           {step === 5 && <Step5 onGoToDashboard={() => navigate('/teacher/dashboard')} />}

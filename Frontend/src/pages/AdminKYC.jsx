@@ -21,7 +21,7 @@ export default function AdminKYC() {
         const name = u?.name || item.name || 'Teacher Application';
         const email = u?.email || item.email || 'N/A';
         return {
-          id: item._id || item.id,
+          id: u?._id || item.userId || item._id,
           teacher: {
             id: u?._id || item.userId || item._id,
             name,
@@ -35,10 +35,10 @@ export default function AdminKYC() {
             email: item.verifiedBy.email,
           } : null,
           documents: {
-            aadhaar: item.aadhaarNumber ? `Aadhaar (${item.aadhaarNumber})` : 'Aadhaar Document',
-            pan: item.panNumber ? `PAN (${item.panNumber})` : 'PAN Card',
-            bank: 'Bank Passbook / Cheque',
-            education: (item.education && item.education.length > 0) ? item.education[0].degree : 'Degree Certificate'
+            aadhaar: item.kycDocumentIds?.[0]?.fileUrl || null,
+            pan: item.kycDocumentIds?.[1]?.fileUrl || null,
+            bank: item.kycDocumentIds?.[2]?.fileUrl || null,
+            education: item.kycDocumentIds?.[3]?.fileUrl || null
           }
         };
       });
@@ -174,33 +174,65 @@ export default function AdminKYC() {
             
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2 text-slate-500">
-                    <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Aadhaar Card</span>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-slate-500">
+                      <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Aadhaar Card</span>
+                    </div>
+                    <p className="text-sm font-semibold text-navy truncate">
+                      {selectedKyc.documents.aadhaar ? 'Aadhaar ID Proof Uploaded' : 'No document uploaded'}
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold text-navy truncate">{selectedKyc.documents.aadhaar}</p>
-                  <button className="mt-3 text-xs font-bold text-sky hover:underline">View Document</button>
+                  {selectedKyc.documents.aadhaar && (
+                    <a href={selectedKyc.documents.aadhaar} target="_blank" rel="noopener noreferrer" className="mt-3 text-xs font-bold text-sky hover:underline w-max">
+                      View Document
+                    </a>
+                  )}
                 </div>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2 text-slate-500">
-                    <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">PAN Card</span>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-slate-500">
+                      <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">PAN Card</span>
+                    </div>
+                    <p className="text-sm font-semibold text-navy truncate">
+                      {selectedKyc.documents.pan ? 'PAN Card Uploaded' : 'No document uploaded'}
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold text-navy truncate">{selectedKyc.documents.pan}</p>
-                  <button className="mt-3 text-xs font-bold text-sky hover:underline">View Document</button>
+                  {selectedKyc.documents.pan && (
+                    <a href={selectedKyc.documents.pan} target="_blank" rel="noopener noreferrer" className="mt-3 text-xs font-bold text-sky hover:underline w-max">
+                      View Document
+                    </a>
+                  )}
                 </div>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2 text-slate-500">
-                    <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Bank Details</span>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-slate-500">
+                      <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Bank Details</span>
+                    </div>
+                    <p className="text-sm font-semibold text-navy truncate">
+                      {selectedKyc.documents.bank ? 'Bank Details Uploaded' : 'No document uploaded'}
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold text-navy truncate">{selectedKyc.documents.bank}</p>
-                  <button className="mt-3 text-xs font-bold text-sky hover:underline">View Document</button>
+                  {selectedKyc.documents.bank && (
+                    <a href={selectedKyc.documents.bank} target="_blank" rel="noopener noreferrer" className="mt-3 text-xs font-bold text-sky hover:underline w-max">
+                      View Document
+                    </a>
+                  )}
                 </div>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2 text-slate-500">
-                    <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Educational Docs</span>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-slate-500">
+                      <FileText className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Educational Docs</span>
+                    </div>
+                    <p className="text-sm font-semibold text-navy truncate">
+                      {selectedKyc.documents.education ? 'Degree / Certificate Uploaded' : 'No document uploaded'}
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold text-navy truncate">{selectedKyc.documents.education}</p>
-                  <button className="mt-3 text-xs font-bold text-sky hover:underline">View Document</button>
+                  {selectedKyc.documents.education && (
+                    <a href={selectedKyc.documents.education} target="_blank" rel="noopener noreferrer" className="mt-3 text-xs font-bold text-sky hover:underline w-max">
+                      View Document
+                    </a>
+                  )}
                 </div>
               </div>
 

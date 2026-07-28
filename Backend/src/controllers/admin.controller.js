@@ -131,7 +131,8 @@ export const getAllTeachers = asyncHandler(async (req, res) => {
     page: Number(page), limit: Math.min(Number(limit), 50),
     populate: [
       { path: 'userId', select: 'name phone email kycStatus isActive isBanned createdAt' },
-      { path: 'verifiedBy', select: 'name email username' }
+      { path: 'verifiedBy', select: 'name email username' },
+      { path: 'kycDocumentIds' }
     ],
     sort: { createdAt: -1 },
     select: '-adminNotes -bankAccount.accountNumber -aadhaarNumber',

@@ -1,52 +1,44 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, HelpCircle, CheckCircle, Clock, Eye, Lock, MessageSquare, X } from 'lucide-react';
+import api from '../services/api';
+import Spinner from '../components/shared/Spinner';
 
 export default function TeacherDoubtsPage() {
+  const [loading, setLoading] = useState(false);
+  const [doubts, setDoubts] = useState([]);
+
+  const fetchDoubts = async () => {
+    try {
+      setLoading(true);
+      const res = await api.teacher.getMyDoubts();
+      const list = Array.isArray(res) ? res : (res?.docs || res?.results || res?.doubts || []);
+      const mapped = list.map(d => ({
+        id: d._id || d.id,
+        studentName: d.studentId?.name || d.studentName || 'Student',
+        classroomName: d.classroomId?.title || 'Classroom',
+        classroomId: d.classroomId?._id || d.classroomId || '',
+        subject: d.classroomId?.subject || 'Subject',
+        classLevel: d.classroomId?.academicLevel || 'Class',
+        date: d.createdAt ? new Date(d.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
+        visibility: d.visibility === 'public' ? 'Public' : 'Private',
+        title: d.title || 'Doubt',
+        description: d.description || '',
+        image: d.attachmentUrl || null,
+        status: d.status === 'resolved' ? 'Answered' : 'Pending',
+        response: d.answer || d.reply || null
+      }));
+      setDoubts(mapped);
+    } catch (err) {
+      console.warn('Failed to fetch teacher doubts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.title = "Classroom Doubts — TrueEd";
+    fetchDoubts();
   }, []);
-
-  const [doubts, setDoubts] = useState(() => {
-    const saved = localStorage.getItem('trueed_classroom_doubts');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'DBT-1029',
-        studentName: 'Aarav Sharma',
-        classroomName: 'Crash Course: Organic Chemistry',
-        classroomId: 1,
-        subject: 'Chemistry',
-        classLevel: 'Class 12',
-        date: 'Oct 24, 2026',
-        visibility: 'Public',
-        title: 'Mechanism for SN2 Reactions',
-        description: 'Can someone explain why SN2 reactions lead to inversion of configuration? I am confused about the backside attack mechanism and how steric hindrance affects the rate.',
-        image: null,
-        status: 'Pending',
-        response: null
-      },
-      {
-        id: 'DBT-2918',
-        studentName: 'Neha Gupta',
-        classroomName: 'Board Prep: Calculus Masterclass',
-        classroomId: 2,
-        subject: 'Mathematics',
-        classLevel: 'Class 12',
-        date: 'Oct 23, 2026',
-        visibility: 'Private',
-        title: 'Integration by Parts Doubt',
-        description: 'Sir, in yesterday\'s assignment, question number 4 uses integration by parts but I am unable to identify which function to take as u and v. Can you please review my attempt attached below?',
-        image: 'attached-image.jpg',
-        status: 'Answered',
-        response: 'Hi Neha. You should follow the ILATE rule (Inverse, Logarithmic, Algebraic, Trigonometric, Exponential) to choose u. In Q4, you have an Algebraic and Trigonometric function, so Algebraic should be u.'
-      }
-    ];
-  });
-
-  // Keep localStorage synced if anything updates
-  useEffect(() => {
-    localStorage.setItem('trueed_classroom_doubts', JSON.stringify(doubts));
-  }, [doubts]);
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -86,19 +78,19 @@ export default function TeacherDoubtsPage() {
     setReplyError(null);
   };
 
-  const handlePostAnswer = (e) => {
+  const handlePostAnswer = async (e) => {
     e.preventDefault();
-    if (!responseText.trim()) return;
+    if (!responseText.trim() || !selectedDoubt) return;
 
-    setDoubts(prev => prev.map(d => {
-      if (d.id === selectedDoubt.id) {
-        return { ...d, status: 'Answered', response: responseText };
-      }
-      return d;
-    }));
-
-    setSelectedDoubt(null);
-    showToast("Doubt answered and marked resolved");
+    try {
+      setReplyError(null);
+      await api.classroom.answerDoubt(selectedDoubt.classroomId, selectedDoubt.id, responseText);
+      showToast("Doubt answered and marked resolved");
+      fetchDoubts();
+      setSelectedDoubt(null);
+    } catch (err) {
+      setReplyError(err.message || 'Failed to post answer.');
+    }
   };
 
   return (
@@ -195,7 +187,9 @@ export default function TeacherDoubtsPage() {
 
       {/* Doubts List */}
       <div className="space-y-4">
-        {filteredDoubts.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center p-12"><Spinner /></div>
+        ) : filteredDoubts.length > 0 ? (
           filteredDoubts.map(doubt => (
             <div key={doubt.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col md:flex-row gap-6">
               
@@ -266,7 +260,7 @@ export default function TeacherDoubtsPage() {
             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
               <HelpCircle className="w-10 h-10 text-slate-300" />
             </div>
-            <h3 className="text-xl font-sora font-bold text-navy mb-2">No doubts found</h3>
+            <h3 className="text-xl font-sora font-bold text-navy mb-2">No classroom doubts are encountered</h3>
             <p className="text-slate-500 max-w-sm mb-6">There are no classroom doubts matching your current filters. Adjust your search or try again later.</p>
             <button 
               onClick={() => { setSearch(''); setFilterStatus('All'); setFilterVisibility('All'); }}

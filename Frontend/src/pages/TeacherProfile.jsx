@@ -42,35 +42,41 @@ const TeacherProfile = () => {
 
   const [saving, setSaving] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
-  const fileInputRef = useRef(null);
-
-  useEffect(() => {
+  const fileInputRef = useRef(null);  useEffect(() => {
     const fetchTeacherProfile = async () => {
       try {
         const data = await api.user.getMe();
         if (data) {
-          // If teacher profile detail is nested or we can fetch via api.teacher.getDashboard/getProfile
-          const res = await api.user.getProfile(data._id || data.id);
-          const p = res?.teacherProfile || res?.profile || {};
+          const u = data.user || {};
+          const p = data.teacherProfile || {};
           
           setProfileForm({
-            bio: p.bio || data.bio || '',
-            subjects: Array.isArray(p.subjects) ? p.subjects.join(', ') : (data.subjects || ''),
-            location: p.city || data.city || '',
-            qualification: Array.isArray(p.education) ? p.education.map(e => e.degree).join(', ') : (p.education || ''),
-            experience: p.experienceYears || 0,
+            bio: p.bio || u.bio || '',
+            subjects: Array.isArray(p.subjects) ? p.subjects.join(', ') : '',
+            location: p.city || u.city || '',
+            qualification: Array.isArray(p.education) ? p.education.map(e => e.degree).join(', ') : '',
+            experience: p.experienceYears !== undefined ? p.experienceYears : '',
             languages: Array.isArray(p.languages) ? p.languages.join(', ') : '',
             demoVideo: p.introVideoUrl || ''
           });
 
-          if (p.workingDays || p.startTime || p.endTime) {
+          if (p.availability) {
             setAvailability({
-              workingDays: p.workingDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-              startTime: p.startTime || '17:00',
-              endTime: p.endTime || '21:00',
-              maxSessions: p.maxSessions || 4,
-              mode: p.mode || 'Online',
-              timezone: p.timezone || 'IST (Asia/Kolkata)'
+              workingDays: p.availability.workingDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+              startTime: p.availability.startTime || '17:00',
+              endTime: p.availability.endTime || '21:00',
+              maxSessions: p.availability.maxSessions || 4,
+              mode: p.teachingMode || p.availability.mode || 'Online',
+              timezone: p.availability.timezone || 'IST (Asia/Kolkata)'
+            });
+          } else {
+            setAvailability({
+              workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+              startTime: '17:00',
+              endTime: '21:00',
+              maxSessions: 4,
+              mode: p.teachingMode || 'Online',
+              timezone: 'IST (Asia/Kolkata)'
             });
           }
         }

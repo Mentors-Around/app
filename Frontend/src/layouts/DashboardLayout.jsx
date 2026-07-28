@@ -5,13 +5,31 @@ import Topbar from '../components/shared/Topbar';
 import PageTransition from '../components/PageTransition';
 
 import useAuth from '../hooks/useAuth';
+import api from '../services/api.js';
 
 const DashboardLayout = ({ role }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout: authLogout } = useAuth();
+  const { user, logout: authLogout, updateUser } = useAuth();
+
+  // Refresh user details from API on navigation changes
+  useEffect(() => {
+    const fetchLatestUser = async () => {
+      try {
+        const res = await api.user.getMe();
+        if (res?.user) {
+          updateUser(res.user);
+        }
+      } catch (err) {
+        console.warn('Failed to refresh user profile:', err.message);
+      }
+    };
+    if (localStorage.getItem('trueed_token')) {
+      fetchLatestUser();
+    }
+  }, [location.pathname]);
 
   // Route protection: redirect to /login if no user data in localStorage
   useEffect(() => {

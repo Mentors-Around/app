@@ -175,91 +175,67 @@ export const updateClassroom = asyncHandler(async (req, res) => {
 
 // ── GET /search — Marketplace search ──────────────────────────────────────────
 export const searchClassrooms = asyncHandler(async (req, res) => {
-  const {
-    query, subject, mode, classroomType, skillLevel,
-    minFee, maxFee, minRating, sort, page = 1,
-  } = req.query;
+  const { query } = req.query;
 
-  const result = await Classroom.search({
-    query,
-    subject,
-    mode,
-    classroomType,
-    skillLevel,
-    minFee:    minFee    ? Number(minFee)    : undefined,
-    maxFee:    maxFee    ? Number(maxFee)    : undefined,
-    minRating: minRating ? Number(minRating) : 0,
-    sort,
-    page:      Number(page),
-    limit:     20,
-  });
+  // User search implementation
+  const userRole = req.user?.role;
+  const allowedRoles = ['teacher', 'student'];
+  if (userRole === 'admin') {
+    allowedRoles.push('admin');
+  }
 
-  // If there's a text search query, also search for matching teachers/tutors and students
   let matchedTeachers = [];
   let matchedStudents = [];
+  let matchedAdmins = [];
+
   if (query) {
     const { User, TeacherProfile } = await import('../models/index.js');
     const matchedUsers = await User.find({
-      role: 'teacher',
+      role: { $in: allowedRoles },
       isActive: true,
       deletedAt: null,
       $or: [
         { name: { $regex: query, $options: 'i' } },
-        { username: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
-        { city: { $regex: query, $options: 'i' } }
+        { username: { $regex: query, $options: 'i' } }
       ]
-    }).select('_id name username avatarUrl city state').limit(5).lean();
+    }).select('_id name username avatarUrl role city state').limit(20).lean();
 
-    const teacherUserIds = matchedUsers.map(u => u._id);
+    const teachers = matchedUsers.filter(u => u.role === 'teacher');
+    const teacherUserIds = teachers.map(u => u._id);
+
     const profiles = await TeacherProfile.find({
-      userId: { $in: teacherUserIds },
-      verificationStatus: 'approved'
-    }).select('userId subjects stats bio experienceYears headline').lean();
+      userId: { $in: teacherUserIds }
+    }).select('userId subjects bio experienceYears').lean();
 
     const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
-    matchedTeachers = matchedUsers
-      .map(u => {
-        const p = profileMap.get(String(u._id));
-        if (!p) return null;
-        return {
-          _id: u._id,
-          name: u.name,
-          username: u.username,
-          avatarUrl: u.avatarUrl,
-          city: u.city,
-          state: u.state,
-          profile: {
-            bio: p.bio,
-            experienceYears: p.experienceYears,
-            headline: p.headline,
-            subjects: p.subjects,
-            stats: p.stats
-          }
-        };
-      })
-      .filter(Boolean);
+    
+    matchedTeachers = teachers.map(u => {
+      const p = profileMap.get(String(u._id));
+      return {
+        _id: u._id,
+        name: u.name,
+        username: u.username,
+        avatarUrl: u.avatarUrl,
+        city: u.city || (p ? p.city : ''),
+        state: u.state || (p ? p.state : ''),
+        profile: {
+          bio: p ? p.bio : '',
+          experienceYears: p ? p.experienceYears : 0,
+          subjects: p ? p.subjects : []
+        }
+      };
+    });
 
-    matchedStudents = await User.find({
-      role: 'student',
-      isActive: true,
-      deletedAt: null,
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { username: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } }
-      ]
-    }).select('_id name username avatarUrl').limit(5).lean();
+    matchedStudents = matchedUsers.filter(u => u.role === 'student');
+    matchedAdmins = matchedUsers.filter(u => u.role === 'admin');
   }
 
-  // Add teachers and students to the API response
-  const responseData = {
-    ...result,
+  res.status(200).json(new ApiResponse(200, {
+    classrooms: [],
     teachers: matchedTeachers,
-    students: matchedStudents
-  };
-
-  res.status(200).json(new ApiResponse(200, responseData, 'Search results'));
+    students: matchedStudents,
+    admins: matchedAdmins
+  }, 'User search results'));
 });
 
 // ── GET /discover — Personalised feed for logged-in students ──────────────────

@@ -35,7 +35,7 @@ const Topbar = ({ onMenuClick }) => {
   const sanitize = (str) => str.replace(/<[^>]*>/g, '');
 
   const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState({ classrooms: [], teachers: [], students: [] });
+  const [searchResults, setSearchResults] = useState({ classrooms: [], teachers: [], students: [], admins: [] });
   const [searchLoading, setSearchLoading] = useState(false);
   const searchDebounceRef = useRef(null);
   
@@ -96,22 +96,26 @@ const Topbar = ({ onMenuClick }) => {
   // ── Bug Fix: Real API search with debounce (was using static dummyTeachers array) ──
   const doSearch = useCallback(async (q) => {
     if (!q || q.trim().length < 2) {
-      setSearchResults({ classrooms: [], teachers: [], students: [] });
+      setSearchResults({ classrooms: [], teachers: [], students: [], admins: [] });
       setSearchLoading(false);
       return;
     }
     setSearchLoading(true);
     try {
       const res = await api.classroom.search(q.trim());
-      const classrooms = Array.isArray(res)
-        ? res
-        : (res?.results || res?.docs || res?.classrooms || []);
+      const classrooms = res?.classrooms || [];
       const teachers = res?.teachers || [];
       const students = res?.students || [];
-      setSearchResults({ classrooms: classrooms.slice(0, 5), teachers: teachers.slice(0, 5), students: students.slice(0, 5) });
+      const admins = res?.admins || [];
+      setSearchResults({ 
+        classrooms: classrooms.slice(0, 5), 
+        teachers: teachers.slice(0, 5), 
+        students: students.slice(0, 5),
+        admins: admins.slice(0, 5)
+      });
     } catch (err) {
       console.warn('Search failed:', err);
-      setSearchResults({ classrooms: [], teachers: [], students: [] });
+      setSearchResults({ classrooms: [], teachers: [], students: [], admins: [] });
     } finally {
       setSearchLoading(false);
     }
@@ -120,7 +124,7 @@ const Topbar = ({ onMenuClick }) => {
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     if (!query.trim()) {
-      setSearchResults({ classrooms: [], teachers: [], students: [] });
+      setSearchResults({ classrooms: [], teachers: [], students: [], admins: [] });
       setSearchLoading(false);
       return;
     }
@@ -131,7 +135,7 @@ const Topbar = ({ onMenuClick }) => {
 
   const handleResultClick = (item, type = 'classroom') => {
     setQuery('');
-    setSearchResults({ classrooms: [], teachers: [], students: [] });
+    setSearchResults({ classrooms: [], teachers: [], students: [], admins: [] });
     closeOverlay();
     if (type === 'teacher') {
       navigate(`/teacher/${item._id || item.id}`);
@@ -166,7 +170,7 @@ const Topbar = ({ onMenuClick }) => {
       : activeOverlayId === 'topbar-search';
     if (!query || !isActive) return null;
 
-    const totalResults = (searchResults.classrooms?.length || 0) + (searchResults.teachers?.length || 0) + (searchResults.students?.length || 0);
+    const totalResults = (searchResults.classrooms?.length || 0) + (searchResults.teachers?.length || 0) + (searchResults.students?.length || 0) + (searchResults.admins?.length || 0);
 
     return (
       <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden py-2 z-50 animate-slide-up-sm max-h-96 overflow-y-auto">
@@ -281,6 +285,37 @@ const Topbar = ({ onMenuClick }) => {
                       </span>
                       {s.username && (
                         <span className="text-xs text-muted font-medium block">@{s.username}</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {user?.role === 'admin' && searchResults.admins?.length > 0 && (
+              <div className="mb-2">
+                <p className="px-4 py-1 text-[10px] font-bold text-red-500 uppercase tracking-wider bg-slate-50/50">Admins</p>
+                {searchResults.admins.map(a => (
+                  <button
+                    key={a._id || a.id}
+                    onClick={() => handleResultClick(a, 'admin')}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 transition flex items-start gap-3 group"
+                  >
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mt-0.5">
+                      {a.avatarUrl ? (
+                        <img src={a.avatarUrl} alt={a.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-red-50 text-red-600 flex items-center justify-center text-xs font-bold">
+                          {a.name ? a.name[0] : 'A'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm text-navy group-hover:text-red-600 transition-colors block truncate">
+                        {a.name}
+                      </span>
+                      {a.username && (
+                        <span className="text-xs text-muted font-medium block">@{a.username}</span>
                       )}
                     </div>
                   </button>

@@ -106,6 +106,7 @@ const teacherProfileSchema = new Schema(
     // KYC / Verification
     verificationStatus: enumField(VERIFICATION_STATUS, VERIFICATION_STATUS.PENDING),
     verifiedAt:         { type: Date, default: null },
+    verifiedBy:         { type: Schema.Types.ObjectId, ref: 'User', default: null },
     rejectionReason:    { type: String, trim: true, default: null },
     kycDocumentIds:     [{ type: Schema.Types.ObjectId, ref: 'Document' }],
     // Aadhaar + bank submitted for admin verification
@@ -146,6 +147,7 @@ const teacherProfileSchema = new Schema(
     featuredUntil: { type: Date,    default: null },
     adminNotes:    { type: String,  trim: true, default: null, select: false },
     isAvailableForNewClassrooms: { type: Boolean, default: true },
+    teachingMode:  { type: String,  default: 'Online' },
   },
   {
     timestamps: true,
@@ -197,7 +199,10 @@ teacherProfileSchema.statics.pendingVerification = function (options = {}) {
     {
       ...defaultPaginateOptions,
       sort:     { createdAt: 1 },
-      populate: { path: 'userId', select: 'name phone email' },
+      populate: [
+        { path: 'userId', select: 'name phone email kycStatus' },
+        { path: 'verifiedBy', select: 'name email username' }
+      ],
       ...options,
     },
   );

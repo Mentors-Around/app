@@ -6,6 +6,7 @@ import {
   ExtraClass, Review, SystemSettings,
 } from '../models/index.js';
 import { NotificationService } from '../services/notification.service.js';
+import { EmailService }        from '../services/email.service.js';
 import { asyncHandler }        from '../utils/AsyncHandler.js';
 import ApiError                from '../utils/ApiError.js';
 import ApiResponse             from '../utils/ApiResponse.js';
@@ -39,7 +40,7 @@ export const approveTeacher = asyncHandler(async (req, res) => {
   try {
     const profile = await TeacherProfile.findOneAndUpdate(
       { userId: teacherId },
-      { $set: { verificationStatus: VERIFICATION_STATUS.APPROVED, verifiedAt: new Date(), rejectionReason: null } },
+      { $set: { verificationStatus: VERIFICATION_STATUS.APPROVED, verifiedAt: new Date(), verifiedBy: req.user._id, rejectionReason: null } },
       { new: true, session },
     );
     if (!profile) throw ApiError.notFound('Teacher profile');
@@ -53,7 +54,19 @@ export const approveTeacher = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
-    // Non-blocking notification
+    // Send email notifications
+    EmailService.send({
+      to: user.email,
+      subject: 'Your TrueEd Teacher Account KYC is Approved! 🎉',
+      html: `<!DOCTYPE html><html><body>
+        <h2>Congratulations ${user.name}!</h2>
+        <p>We are pleased to inform you that your KYC verification request has been reviewed and <strong>approved</strong> by our admin team.</p>
+        <p>You can now log in, access all teacher features, and start creating classrooms on the platform.</p>
+        <br/><p>Warm regards,<br/>The TrueEd Team</p>
+      </body></html>`,
+      text: `Congratulations ${user.name}! Your KYC verification has been approved. You can now access all features and create classrooms.`
+    }).catch(() => {});
+
     NotificationService.notifyTeacherApproved(user).catch(() => {});
 
     res.status(200).json(new ApiResponse(200, null, 'Teacher approved'));
@@ -72,19 +85,28 @@ export const rejectTeacher = asyncHandler(async (req, res) => {
 
   auditLog(req, 'REJECT_TEACHER', { teacherId, reason });
 
-  // DO NOT deactivate account — teacher can resubmit KYC
-  await Promise.all([
-    TeacherProfile.findOneAndUpdate(
-      { userId: teacherId },
-      { $set: { verificationStatus: VERIFICATION_STATUS.REJECTED, rejectionReason: reason, adminNotes: reason } },
-    ),
-    User.findByIdAndUpdate(teacherId, { $set: { kycStatus: 'rejected' } }),
-  ]);
+  const user = await User.findById(teacherId).select('phone name email');
+  if (!user) throw ApiError.notFound('Teacher user');
 
-  const user = await User.findById(teacherId).select('phone name');
-  NotificationService.notifyTeacherRejected(user, reason).catch(() => {});
+  // Send rejection email first
+  await EmailService.send({
+    to: user.email,
+    subject: 'Your TrueEd KYC Verification has been Rejected',
+    html: `<!DOCTYPE html><html><body>
+      <h2>Dear ${user.name},</h2>
+      <p>We regret to inform you that your KYC verification request was rejected by our admin team for the following reason:</p>
+      <blockquote style="background:#f9f9f9;border-left:5px solid #ccc;margin:1.5em 10px;padding:0.5em 10px;">${reason}</blockquote>
+      <p>Consequently, your teacher account creation has failed. You will need to sign up again and submit your documents with the correct details.</p>
+      <br/><p>Warm regards,<br/>The TrueEd Team</p>
+    </body></html>`,
+    text: `Dear ${user.name}, your KYC verification was rejected for the following reason: ${reason}. Your account creation has failed, and you need to sign up again and submit correct details.`
+  }).catch(() => {});
 
-  res.status(200).json(new ApiResponse(200, null, 'Teacher application rejected'));
+  // Then delete User and TeacherProfile records so they can sign up again
+  await TeacherProfile.findOneAndDelete({ userId: teacherId });
+  await User.findByIdAndDelete(teacherId);
+
+  res.status(200).json(new ApiResponse(200, null, 'Teacher application rejected and account removed'));
 });
 
 export const getAllTeachers = asyncHandler(async (req, res) => {
@@ -107,7 +129,10 @@ export const getAllTeachers = asyncHandler(async (req, res) => {
 
   const result = await TeacherProfile.paginate(filter, {
     page: Number(page), limit: Math.min(Number(limit), 50),
-    populate: { path: 'userId', select: 'name phone email kycStatus isActive isBanned createdAt' },
+    populate: [
+      { path: 'userId', select: 'name phone email kycStatus isActive isBanned createdAt' },
+      { path: 'verifiedBy', select: 'name email username' }
+    ],
     sort: { createdAt: -1 },
     select: '-adminNotes -bankAccount.accountNumber -aadhaarNumber',
   });

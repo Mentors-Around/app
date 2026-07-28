@@ -183,8 +183,8 @@ export default function TeacherClassrooms() {
       return;
     }
 
-    if (newRoom.startDate && newRoom.endDate && newRoom.endDate <= newRoom.startDate) {
-      setToastMessage('End date must be strictly after start date.');
+    if (newRoom.startDate && newRoom.endDate && newRoom.endDate < newRoom.startDate) {
+      setToastMessage('End date must be on or after start date.');
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Alert from '../components/shared/Alert';
 import Spinner from '../components/shared/Spinner';
 import Logo from '../components/shared/Logo';
+import api from '../services/api.js';
 
 const GRADES = ['CBSE 8-10', 'CBSE 11-12', 'IIT JEE', 'NEET', 'College', 'Foundation'];
 
@@ -214,6 +215,47 @@ const TeacherKYC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const loadProfileData = async () => {
+      try {
+        setLoading(true);
+        const res = await api.user.getMe();
+        if (res) {
+          const u = res.user;
+          const t = res.teacherProfile;
+          setPersonalData({
+            name: u?.name || '',
+            email: u?.email || '',
+            phone: u?.phone || '',
+            city: u?.city || t?.city || '',
+            bio: t?.bio || '',
+          });
+          
+          let experienceStr = '';
+          if (t?.experienceYears !== undefined) {
+            if (t.experienceYears <= 2) experienceStr = '1-2 years';
+            else if (t.experienceYears <= 5) experienceStr = '3-5 years';
+            else if (t.experienceYears <= 10) experienceStr = '5-10 years';
+            else experienceStr = '10+ years';
+          }
+
+          setTeachingData({
+            subjects: Array.isArray(t?.subjects) ? t.subjects.join(', ') : '',
+            grades: t?.grades || [],
+            experience: experienceStr,
+            mode: t?.teachingMode || 'Online',
+            rate: t?.hourlyRate || '',
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to load profile for KYC:', err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProfileData();
+  }, []);
+
   const updatePersonal = (field, val) => {
     if (field === '_err') { setError(val); return; }
     setPersonalData((p) => ({ ...p, [field]: val }));
@@ -226,10 +268,42 @@ const TeacherKYC = () => {
 
   const handleSubmit = async () => {
     setLoading(true);
-    localStorage.setItem('trueed_kyc_status', 'pending');
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setStep(5);
+    setError('');
+    try {
+      // 1. Submit teaching details
+      const subs = teachingData.subjects ? teachingData.subjects.split(',').map(s => s.trim()).filter(Boolean) : [];
+      let expYears = 0;
+      if (teachingData.experience) {
+        const match = String(teachingData.experience).match(/\d+/);
+        if (match) expYears = parseInt(match[0], 10);
+      }
+      const profilePayload = {
+        bio: personalData.bio,
+        subjects: subs,
+        experienceYears: expYears,
+        city: personalData.city,
+        country: 'india',
+        teachingMode: teachingData.mode || 'Online',
+      };
+      await api.teacher.submitProfile(profilePayload);
+
+      // 2. Submit documents
+      const formData = new FormData();
+      if (documents.idProof) formData.append('documents', documents.idProof);
+      if (documents.degree) formData.append('documents', documents.degree);
+      if (documents.experience) formData.append('documents', documents.experience);
+      if (documents.photo) formData.append('documents', documents.photo);
+      
+      formData.append('documentType', 'aadhaar');
+      await api.teacher.submitKYC(formData);
+
+      localStorage.setItem('trueed_kyc_status', 'under_review');
+      setStep(5);
+    } catch (err) {
+      setError(err.message || 'Failed to submit KYC application. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const progress = Math.min(((step - 1) / 4) * 100, 100);

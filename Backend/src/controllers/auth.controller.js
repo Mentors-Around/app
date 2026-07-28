@@ -176,25 +176,34 @@ export const signupComplete = asyncHandler(async (req, res) => {
         kycStatus:             'pending',
       }], { session: dbSession });
 
+      const subjects = (teacherFields.subjects && teacherFields.subjects.length > 0) ? teacherFields.subjects : ['General'];
+      const expMatch = String(teacherFields.experience || '').match(/\d+/);
+      const experienceYears = expMatch ? parseInt(expMatch[0], 10) : 0;
+      const education = teacherFields.qualification ? [{ degree: teacherFields.qualification.trim(), institution: 'Not Specified', year: new Date().getFullYear() }] : [];
+
       await TeacherProfile.create([{
         userId:             user._id,
         verificationStatus: 'pending',
-        subjects:           (teacherFields.subjects && teacherFields.subjects.length > 0) ? teacherFields.subjects : ['General'],
-        bio:                teacherFields.bio      || '',
-        city:               teacherFields.city     || '',
-        state:              teacherFields.state    || '',
+        subjects,
+        experienceYears,
+        education,
+        teachingMode:       teacherFields.teachingMode || 'Online',
+        bio:                teacherFields.bio          || '',
+        city:               teacherFields.city         || '',
+        state:              teacherFields.state        || '',
       }], { session: dbSession });
 
       await dbSession.commitTransaction();
 
-      // Teacher does NOT get full JWT — they need KYC approval first.
-      // Return registrationComplete flag so frontend routes them to KYC upload.
-      logger.info('Teacher registered, pending KYC', { userId: user._id });
+      const tokens = issueTokens(res, user);
+      logger.info('Teacher registered, auto-logged in', { userId: user._id });
       return res.status(201).json(new ApiResponse(201, {
+        user:                 safeProfile(user),
+        accessToken:          tokens.accessToken,
         registrationComplete: true,
-        message:              'Account created. Your profile is pending admin verification.',
+        kycPending:           true,
         userId:               user._id,
-      }, 'Teacher account created'));
+      }, 'Teacher account created. Please complete KYC.'));
     }
 
     throw ApiError.badRequest('Invalid role');

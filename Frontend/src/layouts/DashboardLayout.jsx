@@ -4,11 +4,14 @@ import Sidebar from '../components/shared/Sidebar';
 import Topbar from '../components/shared/Topbar';
 import PageTransition from '../components/PageTransition';
 
+import useAuth from '../hooks/useAuth';
+
 const DashboardLayout = ({ role }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout: authLogout } = useAuth();
 
   // Route protection: redirect to /login if no user data in localStorage
   useEffect(() => {
@@ -23,10 +26,17 @@ const DashboardLayout = ({ role }) => {
 
     // Role-based route protection
     if (role === 'admin' && savedRole !== 'admin') {
-      // Prevent non-admins from accessing admin routes
       navigate('/login', { replace: true });
+      return;
     }
-  }, [navigate, role]);
+
+    // If teacher KYC is not approved yet, redirect to KYC if it's pending/rejected
+    if (savedRole === 'teacher' && user) {
+      if (user.kycStatus === 'pending' || user.kycStatus === 'rejected') {
+        navigate('/teacher/kyc', { replace: true });
+      }
+    }
+  }, [navigate, role, user]);
 
   // Prevent body scrolling when sidebar drawer is open on mobile
   useEffect(() => {
@@ -61,11 +71,33 @@ const DashboardLayout = ({ role }) => {
         {/* Main content */}
         <div className={`flex-1 min-h-screen flex flex-col w-full relative z-30 transition-all duration-300 ease-in-out ${isCollapsed ? 'md:ml-[64px]' : 'md:ml-[240px]'}`}>
           <Topbar onMenuClick={() => setSidebarOpen(true)} />
-          <main className="p-4 md:p-6 lg:p-8 flex-1">
-            <PageTransition key={location.pathname}>
-              <Outlet />
-            </PageTransition>
-          </main>
+          {role === 'teacher' && user?.kycStatus === 'under_review' ? (
+            <main className="p-4 md:p-6 lg:p-8 flex-1 flex flex-col items-center justify-center min-h-[calc(100vh-80px)]">
+              <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-100 p-8 text-center space-y-6">
+                <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                  <i className="fa-solid fa-clock text-4xl" />
+                </div>
+                <h2 className="font-sora text-2xl font-bold text-navy">Verification In Progress</h2>
+                <p className="text-slate-500 font-medium text-sm leading-relaxed">
+                  Your KYC verification is ongoing. We will mail you once you are verified and then you can access the functionalities of our website.
+                </p>
+                <div className="pt-4 border-t border-slate-50">
+                  <button 
+                    onClick={() => { authLogout(); navigate('/login'); }} 
+                    className="px-6 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold rounded-xl text-xs transition"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              </div>
+            </main>
+          ) : (
+            <main className="p-4 md:p-6 lg:p-8 flex-1">
+              <PageTransition key={location.pathname}>
+                <Outlet />
+              </PageTransition>
+            </main>
+          )}
         </div>
       </div>
     </div>

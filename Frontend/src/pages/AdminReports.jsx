@@ -36,7 +36,11 @@ export default function AdminReports() {
         category: r.reportType || r.reason || r.category || 'General Help/Support',
         reason: r.description || r.reason || 'No description provided',
         date: r.createdAt || new Date().toISOString(),
-        status: r.status ? r.status.toUpperCase() : 'OPEN'
+        status: r.status ? r.status.toUpperCase() : 'OPEN',
+        resolvedBy: r.audit?.reviewedBy ? {
+          name: r.audit.reviewedBy.name,
+          email: r.audit.reviewedBy.email,
+        } : null
       }));
       setReports(mapped);
     } catch (err) {
@@ -231,6 +235,13 @@ export default function AdminReports() {
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Subject / Category</p>
                 <p className="font-bold text-slate-900">{selectedReport.category}</p>
               </div>
+
+              {selectedReport.resolvedBy && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Resolved By</p>
+                  <p className="font-bold text-emerald-950 text-sm">{selectedReport.resolvedBy.name} ({selectedReport.resolvedBy.email})</p>
+                </div>
+              )}
 
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Description / Message</p>

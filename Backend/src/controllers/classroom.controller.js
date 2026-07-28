@@ -62,8 +62,11 @@ export const createClassroom = asyncHandler(async (req, res) => {
 
   const start = new Date(startDate);
   const end   = new Date(endDate);
-  if (end <= start) throw ApiError.badRequest('End date must be after start date');
-  if (start < new Date()) throw ApiError.badRequest('Start date cannot be in the past');
+  if (end.getTime() < start.getTime()) throw ApiError.badRequest('End date must be on or after start date');
+  
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  if (start < todayStart) throw ApiError.badRequest('Start date cannot be in the past');
 
   const normalizedSchedule = schedule.map((slot) => ({
     day:             slot.day ?? slot.dayOfWeek,

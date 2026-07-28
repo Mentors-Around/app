@@ -14,26 +14,35 @@ export default function AdminKYC() {
     try {
       setLoading(true);
       const data = await api.admin.getPendingTeachers();
-      if (Array.isArray(data)) {
-        const mapped = data.map(item => ({
+      const docs = Array.isArray(data) ? data : (data?.docs || []);
+      
+      const mapped = docs.map(item => {
+        const u = item.userId;
+        const name = u?.name || item.name || 'Teacher Application';
+        const email = u?.email || item.email || 'N/A';
+        return {
           id: item._id || item.id,
           teacher: {
-            id: item._id || item.id,
-            name: item.name || item.user?.name || 'Teacher Application',
-            email: item.email || item.user?.email || 'N/A',
-            initials: (item.name || item.user?.name || 'T')[0].toUpperCase(),
+            id: u?._id || item.userId || item._id,
+            name,
+            email,
+            initials: name[0].toUpperCase(),
           },
           submittedAt: item.createdAt || new Date().toISOString(),
-          status: item.isVerificationPending ? 'PENDING' : item.isVerified ? 'VERIFIED' : 'PENDING',
-          documents: item.kycDocuments || {
+          status: item.verificationStatus ? item.verificationStatus.toUpperCase() : 'PENDING',
+          verifiedBy: item.verifiedBy ? {
+            name: item.verifiedBy.name,
+            email: item.verifiedBy.email,
+          } : null,
+          documents: {
             aadhaar: item.aadhaarNumber ? `Aadhaar (${item.aadhaarNumber})` : 'Aadhaar Document',
             pan: item.panNumber ? `PAN (${item.panNumber})` : 'PAN Card',
             bank: 'Bank Passbook / Cheque',
-            education: item.qualification || 'Degree Certificate'
+            education: (item.education && item.education.length > 0) ? item.education[0].degree : 'Degree Certificate'
           }
-        }));
-        setRequests(mapped);
-      }
+        };
+      });
+      setRequests(mapped);
     } catch (err) {
       console.warn('Failed to load pending teachers from API:', err.message);
     } finally {
@@ -199,6 +208,13 @@ export default function AdminKYC() {
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
                   <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">Rejection Reason</p>
                   <p className="text-sm font-medium text-red-900">{selectedKyc.reason}</p>
+                </div>
+              )}
+
+              {selectedKyc.verifiedBy && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Verified By</p>
+                  <p className="text-sm font-semibold text-emerald-950">{selectedKyc.verifiedBy.name} ({selectedKyc.verifiedBy.email})</p>
                 </div>
               )}
 

@@ -239,14 +239,16 @@ reportSchema.methods.dismiss = async function (adminId, note) {
 // ── Static methods ─────────────────────────────────────────────────────────────
 reportSchema.statics.openQueue = function (options = {}) {
   return this.paginate(
-    { status: { $in: [REPORT_STATUS.OPEN, REPORT_STATUS.UNDER_REVIEW] } },
+    {},
     {
       ...defaultPaginateOptions,
-      sort: { createdAt: 1 },
+      sort: { createdAt: -1 },
       populate: [
-        { path: 'reportedBy',  select: 'name phone' },
-        { path: 'teacherId',   select: 'name phone' },
+        { path: 'reportedBy',  select: 'name phone email role' },
+        { path: 'reporterId',  select: 'name phone email role' },
+        { path: 'teacherId',   select: 'name phone email role' },
         { path: 'classroomId', select: 'title subject' },
+        { path: 'audit.reviewedBy', select: 'name email username' },
       ],
       ...options,
     },

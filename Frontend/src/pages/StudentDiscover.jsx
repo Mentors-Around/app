@@ -196,6 +196,7 @@ const StudentDiscover = () => {
   const [localFilters, setLocalFilters] = useState(filters);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchBy, setSearchBy] = useState('all');
   const [locationQuery, setLocationQuery] = useState('');
 
   const [backendTutors, setBackendTutors] = useState([]);
@@ -309,14 +310,28 @@ const StudentDiscover = () => {
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      list = list.filter((t) => 
-        t.name.toLowerCase().includes(q) || 
-        t.subject.toLowerCase().includes(q) || 
-        (t.title && t.title.toLowerCase().includes(q)) ||
-        (t.dynamicSubjects && t.dynamicSubjects.some(s => s.toLowerCase().includes(q))) ||
-        (t.dynamicLevels && t.dynamicLevels.some(l => l.toLowerCase().includes(q))) ||
-        (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q)))
-      );
+      list = list.filter((t) => {
+        if (searchBy === 'classroom') {
+          return t.title && t.title.toLowerCase().includes(q);
+        }
+        if (searchBy === 'tutor') {
+          return t.name && t.name.toLowerCase().includes(q);
+        }
+        if (searchBy === 'exam') {
+          return (t.dynamicLevels && t.dynamicLevels.some(l => l.toLowerCase().includes(q))) ||
+                 (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q))) ||
+                 (t.bio && t.bio.toLowerCase().includes(q));
+        }
+        if (searchBy === 'subject') {
+          return t.subject && t.subject.toLowerCase().includes(q);
+        }
+        return t.name.toLowerCase().includes(q) || 
+               t.subject.toLowerCase().includes(q) || 
+               (t.title && t.title.toLowerCase().includes(q)) ||
+               (t.dynamicSubjects && t.dynamicSubjects.some(s => s.toLowerCase().includes(q))) ||
+               (t.dynamicLevels && t.dynamicLevels.some(l => l.toLowerCase().includes(q))) ||
+               (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q)));
+      });
     }
     if (filters.minRating) {
       list = list.filter((t) => t.rating >= filters.minRating);
@@ -386,7 +401,7 @@ const StudentDiscover = () => {
     }
 
     return list;
-  }, [backendTutors, filters, sortBy, searchQuery, locationQuery]);
+  }, [backendTutors, filters, sortBy, searchQuery, searchBy, locationQuery]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -427,11 +442,11 @@ const StudentDiscover = () => {
             
             <div className={`relative z-20 flex flex-col sm:flex-row items-center bg-white rounded-3xl sm:rounded-full shadow-lg border border-gray-200 overflow-visible sm:h-16 ${searchDropdownOpen ? 'ring-2 ring-navy/10' : ''}`}>
               {/* Subject Input Section */}
-              <div className="flex-1 flex items-center w-full h-14 sm:h-full pl-6 border-b sm:border-b-0 sm:border-r border-gray-200">
+              <div className="flex-2 flex items-center w-full h-14 sm:h-full pl-6 border-b sm:border-b-0 sm:border-r border-gray-200">
                 <i className="fa-solid fa-book-open text-gray-400 mr-3 text-lg" />
                 <input 
                   type="text" 
-                  placeholder="Search Subjects, Tutors, Exams..." 
+                  placeholder="Search Subjects, Tutors, Classrooms..." 
                   className="w-full h-full outline-none text-gray-800 bg-transparent placeholder:text-gray-400 font-medium text-base sm:text-lg"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -439,6 +454,17 @@ const StudentDiscover = () => {
                     if (activeOverlayId !== 'discover-search-dropdown') toggleOverlay('discover-search-dropdown');
                   }}
                 />
+                <select
+                  value={searchBy}
+                  onChange={(e) => setSearchBy(e.target.value)}
+                  className="mr-3 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-navy focus:outline-none transition cursor-pointer"
+                >
+                  <option value="all">Search All</option>
+                  <option value="classroom">Classroom Name</option>
+                  <option value="tutor">Tutor Name</option>
+                  <option value="exam">Exam / Level</option>
+                  <option value="subject">Subject</option>
+                </select>
                 {searchQuery && (
                   <button 
                     onClick={() => {

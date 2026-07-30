@@ -123,10 +123,6 @@ const StudentClassroomDetails = () => {
   // Send enrollment query — calls real backend API (deducts 1 query token)
   const handleQuerySubmit = async (e) => {
     e.preventDefault();
-    if (!queryForm.message.trim()) {
-      setQueryError('Please write a message to the teacher.');
-      return;
-    }
     if (!user) {
       setQueryError('You must be logged in to send a query.');
       return;
@@ -140,7 +136,8 @@ const StudentClassroomDetails = () => {
     try {
       const newQuery = await api.enrollment.sendQuery({
         classroomId: classroom.id || classroom._id,
-        message: queryForm.message.trim(),
+        // message is optional — backend defaults to 'I want to join the classroom'
+        message: queryForm.message.trim() || 'I want to join the classroom',
       });
       // Backend returns the query object
       setClassroomQuery({ ...newQuery, id: newQuery._id || newQuery.id, status: 'pending' });

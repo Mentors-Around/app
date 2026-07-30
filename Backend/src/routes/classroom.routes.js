@@ -55,7 +55,7 @@ const router = Router();
 // CLASSROOM CORE
 // ─────────────────────────────────────────────────────────────────────────────
 
-router.get('/search', searchLimiter, searchClassrooms);
+router.get('/search', searchLimiter, optionalAuthenticate, searchClassrooms);
 
 // NOTE: literal-path routes (/search, /discover) MUST be registered before the
 // '/:classroomId' param route below, otherwise Express matches them as an ID.

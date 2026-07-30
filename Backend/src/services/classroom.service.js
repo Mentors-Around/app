@@ -28,7 +28,7 @@ export const ClassroomService = {
         throw ApiError.badRequest(`Invalid startTime format: ${startTime}. Use HH:MM.`, "INVALID_SLOT");
       }
 
-      if (!durationMinutes || durationMinutes < 1) {
+      if (!durationMinutes || durationMinutes < 0) {
         throw ApiError.badRequest(
           "Each class must have a valid duration.",
           "INVALID_DURATION"

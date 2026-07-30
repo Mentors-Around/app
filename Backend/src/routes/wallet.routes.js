@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { authenticate }         from '../middlewares/auth.middleware.js';
 import { requireStudent }       from '../middlewares/student.middleware.js';
-import { requireIdempotencyKey } from '../middlewares/idempotency.middleware.js';
+import { optionalIdempotency }  from '../middlewares/idempotency.middleware.js';
 import { paymentLimiter }       from '../middlewares/rateLimit.middleware.js';
 import {
   getWallet, createTokenCheckout, verifyTokenPurchase, getTokenTransactions,
@@ -16,15 +16,16 @@ router.use(authenticate, requireStudent);
 router.get('/',             getWallet);
 router.get('/transactions', getTokenTransactions);
 
-// ── Tokens (Razorpay — ₹19 for 3 tokens) ─────────────────────────────────────
-router.post('/tokens/checkout', paymentLimiter, requireIdempotencyKey, createTokenCheckout);
+// ── Tokens (Mock or Razorpay) ─────────────────────────────────────────────────
+// Use optionalIdempotency so mock mode works without sending an idempotency key
+router.post('/tokens/checkout', paymentLimiter, optionalIdempotency, createTokenCheckout);
 router.post('/tokens/verify',   paymentLimiter, verifyTokenPurchase);
 
-// ── Cash deposit (Razorpay) ───────────────────────────────────────────────────
-router.post('/deposit/checkout', paymentLimiter, requireIdempotencyKey, createStudentDepositCheckout);
+// ── Cash deposit ──────────────────────────────────────────────────────────────
+router.post('/deposit/checkout', paymentLimiter, optionalIdempotency, createStudentDepositCheckout);
 router.post('/deposit/verify',   paymentLimiter, verifyStudentDeposit);
 
-// ── Cash withdrawal (to bank — processed by admin/cron) ───────────────────────
+// ── Cash withdrawal ───────────────────────────────────────────────────────────
 router.post('/withdraw', paymentLimiter, requestStudentWithdrawal);
 
 export default router;

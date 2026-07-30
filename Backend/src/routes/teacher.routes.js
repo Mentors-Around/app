@@ -12,7 +12,7 @@ import {
   getMyReviews, replyToReview, getMyStudents, searchTeachersPublic,
 } from '../controllers/teacher.controller.js';
 import { paymentLimiter }       from '../middlewares/rateLimit.middleware.js';
-import { requireIdempotencyKey } from '../middlewares/idempotency.middleware.js';
+import { optionalIdempotency } from '../middlewares/idempotency.middleware.js';
 
 const router = Router();
 
@@ -39,7 +39,7 @@ router.get('/:teacherId/public', optionalAuthenticate, getPublicProfile);
 
 // ── Teacher wallet — balance, deposit (Razorpay), earnings ───────────────────
 router.get('/me/wallet',                authenticate, requireTeacher, getTeacherWallet);
-router.post('/me/wallet/deposit',        authenticate, requireTeacher, paymentLimiter, requireIdempotencyKey, initiateTeacherDeposit);
+router.post('/me/wallet/deposit',        authenticate, requireTeacher, paymentLimiter, optionalIdempotency, initiateTeacherDeposit);
 router.post('/me/wallet/deposit/verify', authenticate, requireTeacher, paymentLimiter, verifyTeacherDeposit);
 
 export default router;

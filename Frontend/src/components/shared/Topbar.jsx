@@ -81,7 +81,17 @@ const Topbar = ({ onMenuClick }) => {
     try {
       await api.notification.markAllAsRead().catch(() => null);
     } catch (e) {}
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    // Mark all as read locally — unreadCount becomes 0 so the red dot disappears
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    closeOverlay();
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      await api.notification.clearAll?.().catch(() => null);
+    } catch (e) {}
+    setNotifications([]);
+    closeOverlay();
   };
 
   const markSingleAsRead = async (id) => {
@@ -451,12 +461,19 @@ const Topbar = ({ onMenuClick }) => {
                 )}
               </div>
               <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-                <button onClick={() => { markAllAsRead(); closeOverlay(); }} className="text-[11px] font-bold text-slate-500 hover:text-navy transition">
+                <button onClick={markAllAsRead} className="text-[11px] font-bold text-slate-500 hover:text-navy transition">
                   Mark all as read
                 </button>
-                <Link to={`/${user?.role || 'student'}/notifications`} onClick={() => closeOverlay()} className="text-[11px] font-bold text-sky hover:text-navy transition">
-                  View all
-                </Link>
+                <div className="flex items-center gap-3">
+                  {notifications.length > 0 && (
+                    <button onClick={clearAllNotifications} className="text-[11px] font-bold text-red-400 hover:text-red-600 transition">
+                      Clear all
+                    </button>
+                  )}
+                  <Link to={`/${user?.role || 'student'}/notifications`} onClick={() => closeOverlay()} className="text-[11px] font-bold text-sky hover:text-navy transition">
+                    View all
+                  </Link>
+                </div>
               </div>
             </div>
           )}

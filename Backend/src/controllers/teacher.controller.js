@@ -205,22 +205,16 @@ export const getEarnings = asyncHandler(async (req, res) => {
 
 // ── GET /me/students ──────────────────────────────────────────────────────────
 export const getMyStudents = asyncHandler(async (req, res) => {
-  const { Enrollment, EnrollmentQuery, Classroom } = await import('../models/index.js');
+  const { Enrollment } = await import('../models/index.js');
   const teacherId = req.user._id;
 
-  const [enrollments, queries, classrooms] = await Promise.all([
-    Enrollment.find({ teacherId })
-      .populate('studentId', 'name email phone city avatarUrl role')
-      .populate('classroomId', 'title subject mode schedule status')
-      .sort({ createdAt: -1 })
-      .lean(),
-    EnrollmentQuery.find({ teacherId, studentId: { $ne: null } })
-      .populate('studentId', 'name email phone city avatarUrl role')
-      .populate('classroomId', 'title subject mode schedule status')
-      .sort({ createdAt: -1 })
-      .lean(),
-    Classroom.find({ teacherId }).select('_id title subject mode').lean()
-  ]);
+  // Only fetch students who have ACTIVE enrollments in this teacher's classrooms
+  // Do NOT include students who just sent a query (not enrolled yet)
+  const enrollments = await Enrollment.find({ teacherId, status: 'active' })
+    .populate('studentId', 'name city avatarUrl role streakDays')
+    .populate('classroomId', 'title subject mode schedule status')
+    .sort({ createdAt: -1 })
+    .lean();
 
   const studentMap = new Map();
 
@@ -231,41 +225,34 @@ export const getMyStudents = asyncHandler(async (req, res) => {
         studentMap.set(sId, {
           id: sId,
           name: e.studentId.name || 'Student',
-          email: e.studentId.email || 'N/A',
-          phone: e.studentId.phone || 'N/A',
           city: e.studentId.city || 'India',
           avatarUrl: e.studentId.avatarUrl || null,
           classroom: e.classroomId?.title || 'Classroom',
           subject: e.classroomId?.subject || 'General',
-          status: e.status || 'ACTIVE',
+          classroomId: e.classroomId?._id || null,
+          status: e.status?.toUpperCase() || 'ACTIVE',
           enrolledAt: e.createdAt,
+          streakDays: e.studentId.streakDays || 0,
+          classesAttended: e.classesAttended || 0,
+          assignmentsCompleted: e.assignmentsCompleted || 0,
+          additionalClassrooms: [],
         });
-      }
-    }
-  });
-
-  queries.forEach((q) => {
-    if (q.studentId) {
-      const sId = q.studentId._id ? q.studentId._id.toString() : q.studentId.toString();
-      if (!studentMap.has(sId)) {
-        studentMap.set(sId, {
-          id: sId,
-          name: q.studentId.name || 'Student',
-          email: q.studentId.email || 'N/A',
-          phone: q.studentId.phone || 'N/A',
-          city: q.studentId.city || 'India',
-          avatarUrl: q.studentId.avatarUrl || null,
-          classroom: q.classroomId?.title || 'Classroom Query',
-          subject: q.classroomId?.subject || 'General',
-          status: q.status === 'accepted' || q.status === 'enrolled' ? 'ACTIVE' : 'QUERY_ENROLLED',
-          enrolledAt: q.createdAt,
-        });
+      } else {
+        // Student enrolled in multiple classrooms — append classroom info
+        const existing = studentMap.get(sId);
+        if (e.classroomId) {
+          existing.additionalClassrooms.push({
+            id: e.classroomId._id,
+            title: e.classroomId.title,
+            subject: e.classroomId.subject,
+          });
+        }
       }
     }
   });
 
   const students = Array.from(studentMap.values());
-  res.status(200).json(new ApiResponse(200, students, 'My students list'));
+  res.status(200).json(new ApiResponse(200, students, 'My students list (enrolled only)'));
 });
 
 // ── GET /me/wallet — Teacher wallet balance ────────────────────────────────────
@@ -279,6 +266,7 @@ export const getTeacherWallet = asyncHandler(async (req, res) => {
     walletRupees:       (profile?.walletPaise || 0) / 100,
     totalEarningsPaise: profile?.stats?.totalEarningsPaise || 0,
     withdrawnPaise:     profile?.stats?.withdrawnPaise     || 0,
+    isMockGateway: process.env.PAYMENT_GATEWAY === 'mock' || (!process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_KEY_SECRET),
   }, 'Teacher wallet balance'));
 });
 
@@ -286,12 +274,14 @@ export const initiateTeacherDeposit = asyncHandler(async (req, res) => {
   const { amountPaise, password } = req.body;
   if (!amountPaise || amountPaise < 100) throw ApiError.badRequest('amountPaise must be at least ₹1 (100 paise)');
 
-  const { Payment, User, TeacherProfile } = await import('../models/index.js');
-  const isGatewayConfigured = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET;
+  const { Payment, User } = await import('../models/index.js');
+  const isMockGateway = process.env.PAYMENT_GATEWAY === 'mock' || (!process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_KEY_SECRET);
 
-  if (!isGatewayConfigured && password) {
-    const user = await User.findById(req.user._id);
-    const isMatch = await user.comparePassword(password);
+  if (isMockGateway) {
+    if (!password) throw ApiError.badRequest('Password is required for wallet deposit');
+    const userWithPass = await User.findById(req.user._id).select('+passwordHash');
+    if (!userWithPass?.passwordHash) throw ApiError.badRequest('No password set on this account');
+    const isMatch = await userWithPass.comparePassword(password);
     if (!isMatch) throw ApiError.unauthorized('Invalid password');
 
     // Credit teacher's wallet balance directly

@@ -10,6 +10,11 @@ import { PAYMENT_PURPOSE, PAYMENT_STATUS } from '../constants/enums.js';
 import { PLATFORM_FEE } from '../constants/app.constants.js';
 import logger            from '../config/logger.config.js';
 
+// Helper: check if we're running in mock payment mode
+const isMockGateway = () =>
+  process.env.PAYMENT_GATEWAY === 'mock' ||
+  (!process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_KEY_SECRET);
+
 // ── GET / — Get wallet balance ────────────────────────────────────────────────
 export const getWallet = asyncHandler(async (req, res) => {
   const wallet = await WalletService.getOrCreate(req.user._id);
@@ -19,11 +24,58 @@ export const getWallet = asyncHandler(async (req, res) => {
     cashBalanceRupees:   wallet.cashBalancePaise / 100,
     totalTokensPurchased:wallet.totalTokensPurchased,
     totalTokensUsed:     wallet.totalTokensUsed,
+    isMockGateway:       isMockGateway(),
   }, 'Wallet balance'));
 });
 
 // ── POST /tokens/checkout — Create token purchase order ───────────────────────
 export const createTokenCheckout = asyncHandler(async (req, res) => {
+  // MOCK MODE: verify password and credit tokens directly
+  if (isMockGateway()) {
+    const { password } = req.body;
+    if (!password) throw ApiError.badRequest('Password is required for mock token purchase');
+
+    const { User } = await import('../models/index.js');
+    const userWithPass = await User.findById(req.user._id).select('+passwordHash');
+    if (!userWithPass?.passwordHash) throw ApiError.badRequest('No password set on this account');
+    const isMatch = await userWithPass.comparePassword(password);
+    if (!isMatch) throw ApiError.unauthorized('Invalid password');
+
+    const { default: mongoose } = await import('mongoose');
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const allocatedPaymentId = new mongoose.Types.ObjectId();
+      await Payment.create([{
+        _id:              allocatedPaymentId,
+        purpose:          PAYMENT_PURPOSE.TOKEN_PURCHASE,
+        payerId:          req.user._id,
+        totalAmountPaise: PLATFORM_FEE.TOKEN_PRICE_PAISE,
+        tokensBought:     PLATFORM_FEE.TOKENS_PER_PURCHASE,
+        status:           PAYMENT_STATUS.CAPTURED,
+        gateway:          'mock',
+        capturedAt:       new Date(),
+      }], { session });
+
+      await WalletService.creditTokens(req.user._id, allocatedPaymentId, session);
+      await session.commitTransaction();
+
+      const wallet = await WalletService.getOrCreate(req.user._id);
+      logger.info('[MOCK] Tokens credited directly', { userId: req.user._id });
+      return res.status(200).json(new ApiResponse(200, {
+        mockMode:     true,
+        tokensAdded:  PLATFORM_FEE.TOKENS_PER_PURCHASE,
+        tokenBalance: wallet.tokenBalance,
+      }, `${PLATFORM_FEE.TOKENS_PER_PURCHASE} tokens credited (mock mode)`));
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  // REAL MODE: Create Razorpay order
   const order = await PaymentService.createTokenPurchaseOrder(req.user._id);
 
   await Payment.create({
@@ -46,6 +98,11 @@ export const createTokenCheckout = asyncHandler(async (req, res) => {
 
 // ── POST /tokens/verify — Verify payment and credit tokens ───────────────────
 export const verifyTokenPurchase = asyncHandler(async (req, res) => {
+  // MOCK MODE: This endpoint is not needed in mock mode (handled by checkout)
+  if (isMockGateway()) {
+    return res.status(200).json(new ApiResponse(200, null, 'Mock mode: tokens already credited'));
+  }
+
   const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
   if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
     throw ApiError.badRequest('razorpayOrderId, razorpayPaymentId and razorpaySignature are required');
@@ -103,36 +160,59 @@ export const getTokenTransactions = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, result, 'Token transactions'));
 });
-// ── POST /deposit/checkout — Student initiates cash deposit via Razorpay ──────
+
+// ── POST /deposit/checkout — Student initiates cash deposit ──────────────────
 export const createStudentDepositCheckout = asyncHandler(async (req, res) => {
   const { amountPaise, password } = req.body;
   if (!amountPaise || Number(amountPaise) < 100) {
     throw ApiError.badRequest('amountPaise must be at least ₹1 (100 paise)');
   }
 
-  const isGatewayConfigured = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET;
+  // MOCK MODE: verify password and deposit directly
+  if (isMockGateway()) {
+    if (!password) throw ApiError.badRequest('Password is required for wallet deposit');
 
-  if (!isGatewayConfigured && password) {
-    const user = await User.findById(req.user._id);
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) throw ApiError.unauthorized('Invalid password');
+    const { User } = await import('../models/index.js');
+    const userWithPass = await User.findById(req.user._id).select('+passwordHash');
+    if (!userWithPass?.passwordHash) {
+      throw ApiError.badRequest('No password set. Please set a password to make wallet deposits.');
+    }
+    const isMatch = await userWithPass.comparePassword(password);
+    if (!isMatch) throw ApiError.unauthorized('Incorrect password. Deposit failed.');
 
-    user.walletPaise = (user.walletPaise || 0) + Math.round(Number(amountPaise));
-    await user.save();
+    const { default: mongoose } = await import('mongoose');
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const depositAmount = Math.round(Number(amountPaise));
+      await Payment.create([{
+        purpose:          PAYMENT_PURPOSE.CASH_DEPOSIT,
+        payerId:          req.user._id,
+        totalAmountPaise: depositAmount,
+        status:           PAYMENT_STATUS.CAPTURED,
+        gateway:          'mock',
+        capturedAt:       new Date(),
+      }], { session });
 
-    await Payment.create({
-      purpose:          PAYMENT_PURPOSE.CASH_DEPOSIT,
-      payerId:          req.user._id,
-      totalAmountPaise: Math.round(Number(amountPaise)),
-      status:           PAYMENT_STATUS.CAPTURED,
-      gateway:          'manual',
-      idempotencyKey:   req.idempotencyKey || null,
-    });
+      const wallet = await WalletService.creditCash(req.user._id, depositAmount, session);
+      await session.commitTransaction();
 
-    logger.info('Student direct deposit completed', { userId: req.user._id, amountPaise });
-    return res.status(200).json(new ApiResponse(200, { directDeposit: true }, 'Deposit completed successfully'));
+      logger.info('[MOCK] Student deposit completed', { userId: req.user._id, amountPaise: depositAmount });
+      return res.status(200).json(new ApiResponse(200, {
+        mockMode:        true,
+        depositedPaise:  depositAmount,
+        cashBalancePaise: wallet.cashBalancePaise,
+        cashBalanceRupees: wallet.cashBalancePaise / 100,
+      }, 'Deposit successful (mock mode)'));
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
   }
 
+  // REAL MODE: Create Razorpay order
   const order = await PaymentService.createOrder({
     amountPaise: Math.round(Number(amountPaise)),
     receipt:     `sdep_${req.user._id.toString().slice(-8)}_${Date.now()}`,
@@ -154,6 +234,11 @@ export const createStudentDepositCheckout = asyncHandler(async (req, res) => {
 
 // ── POST /deposit/verify — Verify Razorpay payment and credit student wallet ──
 export const verifyStudentDeposit = asyncHandler(async (req, res) => {
+  // MOCK MODE: Not needed
+  if (isMockGateway()) {
+    return res.status(200).json(new ApiResponse(200, null, 'Mock mode: deposit already processed'));
+  }
+
   const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
   if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
     throw ApiError.badRequest('razorpayOrderId, razorpayPaymentId and razorpaySignature are required');
@@ -211,9 +296,9 @@ export const verifyStudentDeposit = asyncHandler(async (req, res) => {
   }
 });
 
-// ── POST /withdraw — Student withdraws cash balance to bank (via Razorpay X) ──
+// ── POST /withdraw — Student withdraws cash balance ──────────────────────────
 export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
-  const { amountPaise } = req.body;
+  const { amountPaise, password } = req.body;
   if (!amountPaise || Number(amountPaise) < 100) {
     throw ApiError.badRequest('Minimum withdrawal is ₹1 (100 paise)');
   }
@@ -225,7 +310,40 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
     throw new ApiError(402, `Insufficient balance. Available: ₹${(wallet.cashBalancePaise / 100).toFixed(2)}`, [], 'INSUFFICIENT_BALANCE');
   }
 
-  // Verify user has bank account linked (via user profile)
+  // MOCK MODE: verify password and debit directly
+  if (isMockGateway()) {
+    if (!password) throw ApiError.badRequest('Password is required for withdrawal');
+
+    const { User } = await import('../models/index.js');
+    const userWithPass = await User.findById(req.user._id).select('+passwordHash');
+    if (!userWithPass?.passwordHash) throw ApiError.badRequest('No password set on this account');
+    const isMatch = await userWithPass.comparePassword(password);
+    if (!isMatch) throw ApiError.unauthorized('Incorrect password. Withdrawal failed.');
+
+    const { default: mongoose } = await import('mongoose');
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await WalletService.debitCashOrThrow(req.user._id, requestedPaise, session);
+      await session.commitTransaction();
+
+      const updatedWallet = await WalletService.getOrCreate(req.user._id);
+      logger.info('[MOCK] Student withdrawal processed', { userId: req.user._id, amountPaise: requestedPaise });
+      return res.status(200).json(new ApiResponse(200, {
+        mockMode:         true,
+        withdrawnPaise:   requestedPaise,
+        cashBalancePaise: updatedWallet.cashBalancePaise,
+        cashBalanceRupees: updatedWallet.cashBalancePaise / 100,
+      }, 'Withdrawal successful (mock mode)'));
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  // REAL MODE: create payout record for admin/cron to process
   const { User } = await import('../models/index.js');
   const user = await User.findById(req.user._id).select('name email bankAccount').lean();
 
@@ -235,10 +353,9 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
   try {
     await WalletService.debitCashOrThrow(req.user._id, requestedPaise, session);
 
-    // Create payout record — actual bank transfer processed by admin/cron
     const { Payout } = await import('../models/index.js');
     const payout = await Payout.create([{
-      teacherId:              req.user._id, // reuse field as withdrawer
+      teacherId:              req.user._id,
       grossFeesCollectedPaise: requestedPaise,
       teacherPayoutPaise:     requestedPaise,
       platformFeePaise:       0,
@@ -249,7 +366,6 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
-    // Email receipt
     const { EmailService } = await import('../services/email.service.js');
     if (user?.email) {
       EmailService.sendPaymentReceipt(user.email, {

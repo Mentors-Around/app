@@ -18,22 +18,13 @@ const PasswordVerificationModal = ({ isOpen, amount, onClose, onVerified, isWith
     }
     
     setVerifying(true);
-    
     try {
-      // Expected backend integration: POST /verify-password
-      const payload = { password, amount };
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (password === 'wrong') {
-        throw new Error("Incorrect password. Please try again.");
-      }
-      
-      // Password verified successfully
-      onVerified();
+      // Call parent with the password — parent will call the real API
+      // If the API returns an error (wrong password), display it here
+      await onVerified(password);
       setPassword('');
     } catch (err) {
-      setError(err.message || "Verification failed");
+      setError(err.message || "Verification failed. Please check your password.");
     } finally {
       setVerifying(false);
     }

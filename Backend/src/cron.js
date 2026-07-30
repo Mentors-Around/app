@@ -159,26 +159,55 @@ async function runClassroomOverdueJob() {
   }
 }
 
+// ── Nightly streak reset: users who didn't log in today get streakDays = 0 ──────
+async function runStreakResetJob() {
+  const todayStr = new Date().toISOString().split('T')[0];
+  try {
+    const result = await User.updateMany(
+      {
+        lastActiveDate: { $exists: true, $ne: null, $lt: todayStr },
+        streakDays:     { $gt: 0 },
+      },
+      { $set: { streakDays: 0 } },
+    );
+    if (result.modifiedCount > 0) {
+      logger.info(`[CRON] Streak reset: ${result.modifiedCount} users had streak cleared`);
+    }
+  } catch (err) {
+    logger.error('[CRON] Streak reset error', { error: err.message });
+  }
+}
+
 export function initCronJobs() {
+  // ── Every hour: expire pending queries not responded to by teacher ──────────
   cron.schedule('0 * * * *', async () => {
     try { await runQueryExpiryJob(); }
     catch (err) { logger.error('[CRON] runQueryExpiryJob fatal', { error: err.message }); }
   });
 
+  // ── Every 30 min: lapse accepted queries where student didn't pay ───────────
   cron.schedule('30 * * * *', async () => {
     try { await runAcceptedQueryLapseJob(); }
     catch (err) { logger.error('[CRON] runAcceptedQueryLapseJob fatal', { error: err.message }); }
   });
 
+  // ── Every 15 min: expire early-end polls ────────────────────────────────────
   cron.schedule('15 * * * *', async () => {
     try { await runPollExpiryJob(); }
     catch (err) { logger.error('[CRON] runPollExpiryJob fatal', { error: err.message }); }
   });
 
+  // ── Every 6 hours: auto-complete overdue classrooms ─────────────────────────
   cron.schedule('0 */6 * * *', async () => {
     try { await runClassroomOverdueJob(); }
     catch (err) { logger.error('[CRON] runClassroomOverdueJob fatal', { error: err.message }); }
   });
 
-  logger.info('✅ Cron jobs initialized successfully with settlement support');
+  // ── Midnight daily: reset streaks for inactive users ─────────────────────────
+  cron.schedule('0 0 * * *', async () => {
+    try { await runStreakResetJob(); }
+    catch (err) { logger.error('[CRON] runStreakResetJob fatal', { error: err.message }); }
+  });
+
+  logger.info('✅ Cron jobs initialized successfully with settlement + streak support');
 }

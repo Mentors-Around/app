@@ -11,6 +11,16 @@ export const generateIdempotencyKey = () => {
 /**
  * Helper to make HTTP requests with authentication headers and proper error handling
  */
+// Loading overlay callback bridge
+// App.jsx calls `registerLoadingCallbacks` once after mounting LoadingProvider
+let _onLoadingStart = null;
+let _onLoadingStop  = null;
+
+export function registerLoadingCallbacks(onStart, onStop) {
+  _onLoadingStart = onStart;
+  _onLoadingStop  = onStop;
+}
+
 let isRefreshing = false;
 let refreshSubscribers = [];
 
@@ -60,6 +70,8 @@ async function request(endpoint, options = {}) {
   }
 
   try {
+    // Signal loading start
+    if (_onLoadingStart && !options._silent) _onLoadingStart();
     const response = await fetch(url, config);
     let resData = null;
 
@@ -79,6 +91,7 @@ async function request(endpoint, options = {}) {
 
       if (response.status === 401) {
         if (endpoint.includes('/auth/refresh')) {
+          if (_onLoadingStop && !options._silent) _onLoadingStop();
           localStorage.removeItem('trueed_token');
           localStorage.removeItem('trueed_profile');
           localStorage.removeItem('trueed_role');
@@ -120,8 +133,11 @@ async function request(endpoint, options = {}) {
           });
         }
       }
+      if (_onLoadingStop && !options._silent) _onLoadingStop();
       throw error;
     }
+
+    if (_onLoadingStop && !options._silent) _onLoadingStop();
 
     if (resData && typeof resData === 'object' && 'data' in resData && 'success' in resData) {
       return resData.data !== undefined ? resData.data : resData;
@@ -129,6 +145,7 @@ async function request(endpoint, options = {}) {
 
     return resData;
   } catch (err) {
+    if (_onLoadingStop && !options._silent) _onLoadingStop();
     if (!err.status) {
       console.error(`Network or API Error at ${endpoint}:`, err);
     }
@@ -311,28 +328,29 @@ export const api = {
     getStudentWallet: () => request('/wallet'),
     getTokenTransactions: () => request('/wallet/transactions'),
     
-    buyTokens: (packageId) =>
+    // In mock mode, password is used to verify and tokens are credited directly
+    buyTokens: (password) =>
       request('/wallet/tokens/checkout', {
         method: 'POST',
-        headers: { 'Idempotency-Key': generateIdempotencyKey() },
-        body: { packageId },
+        body: { password },
       }),
     
     verifyTokenPurchase: (data) =>
       request('/wallet/tokens/verify', { method: 'POST', body: data }),
     
+    // In mock mode, password is used to verify and cash is credited directly
     depositCheckout: (amountPaise, password) =>
       request('/wallet/deposit/checkout', {
         method: 'POST',
-        headers: { 'Idempotency-Key': generateIdempotencyKey() },
         body: { amountPaise, password },
       }),
     
     verifyDeposit: (data) =>
       request('/wallet/deposit/verify', { method: 'POST', body: data }),
     
-    withdrawStudent: (amount, bankAccount) =>
-      request('/wallet/withdraw', { method: 'POST', body: { amount, bankAccount } }),
+    // In mock mode, password is used to verify and cash is debited directly
+    withdrawStudent: (amountPaise, password) =>
+      request('/wallet/withdraw', { method: 'POST', body: { amountPaise, password } }),
   },
 
   payout: {
@@ -376,6 +394,8 @@ export const api = {
     getUnreadCount: () => request('/notifications/unread-count'),
     markAsRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
     markAllAsRead: () => request('/notifications/read-all', { method: 'PATCH' }),
+    clearAll: () => request('/notifications', { method: 'DELETE' }),
+    delete: (id) => request(`/notifications/${id}`, { method: 'DELETE' }),
   },
 };
 

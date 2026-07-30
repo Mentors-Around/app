@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
+import { LoadingProvider, useLoading } from './contexts/LoadingContext';
+import { registerLoadingCallbacks } from './services/api';
+import LoadingOverlay from './components/shared/LoadingOverlay';
 import CookieConsent from './components/CookieConsent';
 import Navbar from './components/landing/Navbar';
 import Footer from './components/landing/Footer';
@@ -78,6 +81,15 @@ import TeacherWallet from './pages/TeacherWallet';
 
 import { WalletProvider } from './contexts/WalletContext';
 
+// Bridge component: connects React LoadingContext to the plain api.js module
+function LoadingBridge() {
+  const { startLoading, stopLoading } = useLoading();
+  useEffect(() => {
+    registerLoadingCallbacks(startLoading, stopLoading);
+  }, [startLoading, stopLoading]);
+  return null;
+}
+
 const App = () => {
   const location = useLocation();
 
@@ -137,8 +149,11 @@ const App = () => {
 
   return (
     <ErrorBoundary>
-      <WalletProvider>
-        <OverlayProvider>
+      <LoadingProvider>
+        <LoadingBridge />
+        <LoadingOverlay />
+        <WalletProvider>
+          <OverlayProvider>
           <Routes>
             {/* Public Routes with Navbar/Footer */}
           <Route element={
@@ -237,11 +252,12 @@ const App = () => {
         {/* 404 Catch All */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-        </OverlayProvider>
-      </WalletProvider>
+          </OverlayProvider>
+        </WalletProvider>
 
-      {/* Cookie Consent — appears on all pages */}
-      <CookieConsent />
+        {/* Cookie Consent — appears on all pages */}
+        <CookieConsent />
+      </LoadingProvider>
     </ErrorBoundary>
   );
 };

@@ -108,15 +108,18 @@ const StudentWallet = () => {
     setShowPasswordModal(true);
   };
 
-  const handleWithdrawComplete = () => {
-    setShowPasswordModal(false);
-    setIsProcessing(true);
+  const handleWithdrawComplete = async (password) => {
     const amount = parseInt(withdrawAmount, 10);
-    
-    setTimeout(() => {
-      setIsProcessing(false);
+    if (!amount || amount <= 0) return;
+
+    setIsProcessing(true);
+    try {
+      // Call real API — backend verifies password and debits wallet
+      await api.wallet.withdrawStudent(amount * 100, password);
+      
+      setShowPasswordModal(false);
       updateStudentBalance((studentWallet?.balance || 0) - amount);
-      setSuccessMessage(`₹${amount} has been successfully refunded to your original payment method.`);
+      setSuccessMessage(`₹${amount} has been successfully withdrawn from your wallet.`);
       setShowSuccessModal(true);
       setWithdrawAmount('');
 
@@ -127,10 +130,15 @@ const StudentWallet = () => {
         amount: amount,
         status: 'Completed',
         isCredit: false,
-        title: 'Refund to Original Payment Method'
+        title: 'Wallet Withdrawal'
       };
       addStudentTransaction(newTxn);
-    }, 1500);
+    } catch (err) {
+      // Re-throw so PasswordVerificationModal can display the error
+      throw err;
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const formatDate = (dateStr) => {

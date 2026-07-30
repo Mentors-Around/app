@@ -75,11 +75,15 @@ export default function TeacherStudents() {
 
   const displayStudents = realStudents;
 
-  // Compute enriched students with classrooms
+  // Compute enriched students with classrooms (using real data from backend)
   const enrichedStudents = displayStudents.map(student => {
-    let studentClassrooms = student.classrooms || [];
-    if (studentClassrooms.length === 0 && classrooms.length > 0) {
-      studentClassrooms = classrooms.slice(0, 1);
+    // Build classroom list from the primary classroom + additionalClassrooms
+    let studentClassrooms = [];
+    if (student.classroom) {
+      studentClassrooms.push({ name: student.classroom, subject: student.subject, mode: 'Online' });
+    }
+    if (Array.isArray(student.additionalClassrooms)) {
+      studentClassrooms.push(...student.additionalClassrooms.map(c => ({ name: c.title, subject: c.subject, mode: 'Online' })));
     }
     return { ...student, classrooms: studentClassrooms };
   });
@@ -132,7 +136,7 @@ export default function TeacherStudents() {
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-sora font-extrabold text-navy">My Students</h1>
           <span className="bg-sky/10 text-sky font-bold px-3 py-1 rounded-full text-sm">
-            {mockStudents.length} Total
+            {realStudents.length} Enrolled
           </span>
         </div>
       </div>

@@ -216,42 +216,67 @@ export const updateClassroom = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, updated, 'Classroom updated'));
 });
 
-// ── GET /search — Marketplace search ──────────────────────────────────────────
+// ── GET /search — Global search (classrooms + users) ─────────────────────────
 export const searchClassrooms = asyncHandler(async (req, res) => {
-  const { query } = req.query;
+  const { q: query, query: legacyQuery } = req.query;
+  const searchQuery = (query || legacyQuery || '').trim();
 
-  // User search implementation
   const userRole = req.user?.role;
-  const allowedRoles = ['teacher', 'student'];
-  if (userRole === 'admin') {
-    allowedRoles.push('admin');
-  }
+  // Admin can see everything; teachers/students cannot see admin accounts
+  const isAdmin = userRole === 'admin';
 
+  // Roles visible in user search
+  const visibleRoles = isAdmin ? ['teacher', 'student', 'admin'] : ['teacher', 'student'];
+
+  let matchedClassrooms = [];
   let matchedTeachers = [];
   let matchedStudents = [];
   let matchedAdmins = [];
 
-  if (query) {
+  if (searchQuery && searchQuery.length >= 1) {
     const { User, TeacherProfile } = await import('../models/index.js');
-    const matchedUsers = await User.find({
-      role: { $in: allowedRoles },
+    const regexQ = { $regex: searchQuery, $options: 'i' };
+
+    // 1. Search classrooms by title and subject
+    const classroomFilter = {
+      status: CLASSROOM_STATUS.ACTIVE,
+      $or: [
+        { title: regexQ },
+        { subject: regexQ },
+        { tags: regexQ },
+        { description: regexQ },
+      ],
+    };
+    matchedClassrooms = await Classroom.find(classroomFilter)
+      .select('_id title subject feesPaise mode thumbnailUrl classroomType teacherId')
+      .populate('teacherId', 'name avatarUrl')
+      .limit(10)
+      .lean();
+
+    // 2. Search users by name and username (exclude admins for non-admin users)
+    const userFilter = {
+      role: { $in: visibleRoles },
       isActive: true,
       deletedAt: null,
       $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { username: { $regex: query, $options: 'i' } }
-      ]
-    }).select('_id name username avatarUrl role city state').limit(20).lean();
+        { name: regexQ },
+        { username: regexQ },
+      ],
+    };
+    const matchedUsers = await User.find(userFilter)
+      .select('_id name username avatarUrl role city state')
+      .limit(20)
+      .lean();
 
     const teachers = matchedUsers.filter(u => u.role === 'teacher');
     const teacherUserIds = teachers.map(u => u._id);
 
     const profiles = await TeacherProfile.find({
-      userId: { $in: teacherUserIds }
+      userId: { $in: teacherUserIds },
     }).select('userId subjects bio experienceYears').lean();
 
     const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
-    
+
     matchedTeachers = teachers.map(u => {
       const p = profileMap.get(String(u._id));
       return {
@@ -259,26 +284,30 @@ export const searchClassrooms = asyncHandler(async (req, res) => {
         name: u.name,
         username: u.username,
         avatarUrl: u.avatarUrl,
-        city: u.city || (p ? p.city : ''),
-        state: u.state || (p ? p.state : ''),
+        city: u.city || '',
+        state: u.state || '',
         profile: {
           bio: p ? p.bio : '',
           experienceYears: p ? p.experienceYears : 0,
-          subjects: p ? p.subjects : []
-        }
+          subjects: p ? p.subjects : [],
+        },
       };
     });
 
     matchedStudents = matchedUsers.filter(u => u.role === 'student');
-    matchedAdmins = matchedUsers.filter(u => u.role === 'admin');
+
+    // Only include admin results for admin users
+    if (isAdmin) {
+      matchedAdmins = matchedUsers.filter(u => u.role === 'admin');
+    }
   }
 
   res.status(200).json(new ApiResponse(200, {
-    classrooms: [],
+    classrooms: matchedClassrooms,
     teachers: matchedTeachers,
     students: matchedStudents,
-    admins: matchedAdmins
-  }, 'User search results'));
+    admins: matchedAdmins,
+  }, 'Search results'));
 });
 
 // ── GET /discover — Personalised feed for logged-in students ──────────────────

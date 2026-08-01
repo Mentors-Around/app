@@ -157,19 +157,19 @@ export const WalletProvider = ({ children }) => {
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, config: null, onSuccess: null });
   const [noTokensModal, setNoTokensModal] = useState({ isOpen: false, onSuccess: null });
   const [confirmTokenUsageModal, setConfirmTokenUsageModal] = useState({ isOpen: false, onSuccess: null, count: 1 });
-  const [passwordModal, setPasswordModal] = useState({ isOpen: false, amount: 0, onSuccess: null, onStartProcessing: null });
+  const [passwordModal, setPasswordModal] = useState({ isOpen: false, amount: 0, onSuccess: null, onStartProcessing: null, onFailure: null });
 
   // -------------------------------------------------------------
   // CORE FUNCTIONS
   // -------------------------------------------------------------
 
-  const requireBalance = (amount, onSuccess, onStartProcessing) => {
+  const requireBalance = (amount, onSuccess, onStartProcessing, onFailure) => {
     // Only students make purchases (tokens/classrooms)
     const currentBalance = studentWallet.balance;
     if (currentBalance >= amount) {
-      setPasswordModal({ isOpen: true, amount, onSuccess, onStartProcessing });
+      setPasswordModal({ isOpen: true, amount, onSuccess, onStartProcessing, onFailure });
     } else {
-      setInsufficientModal({ isOpen: true, requiredAmount: amount, onSuccess, onStartProcessing });
+      setInsufficientModal({ isOpen: true, requiredAmount: amount, onSuccess, onStartProcessing, onFailure });
     }
   };
 
@@ -223,6 +223,14 @@ export const WalletProvider = ({ children }) => {
     showToast(`Successfully added ₹${amount} to wallet.`);
   };
 
+  const processRecharge = (amount) => {
+    if (user?.role === 'teacher') {
+      processTeacherRecharge(amount);
+    } else {
+      processStudentRecharge(amount);
+    }
+  };
+
   const addBankAccount = (bankDetails) => {
     const newAccounts = [...teacherBankAccounts, { id: Date.now().toString(), ...bankDetails }];
     if (bankDetails.isDefault || newAccounts.length === 1) {
@@ -266,24 +274,39 @@ export const WalletProvider = ({ children }) => {
     navigate('/student/wallet');
   };
 
-  const executeWalletPayment = async (amount, onSuccess, onStartProcessing) => {
-    // 1. Close password modal
-    setPasswordModal({ isOpen: false, amount: 0, onSuccess: null, onStartProcessing: null });
-    
-    // 2. Trigger processing state in UI
+  const executeWalletPayment = async (amount, onSuccess, onStartProcessing, password, onFailure) => {
+    // 1. Trigger processing state in UI (sets step to 'processing')
     if (onStartProcessing) onStartProcessing();
 
-    // 3. Process Wallet Payment API simulation
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 4. Complete purchase and deduct from Student Wallet (only students buy tokens/classrooms)
-    setStudentWallet(prev => {
-      const newBal = prev.balance - amount;
-      return { ...prev, balance: newBal };
-    });
-    
-    showToast('Purchase completed successfully.');
-    if (onSuccess) onSuccess();
+    try {
+      // 2. Make real API request to buy tokens/check password
+      const result = await api.wallet.buyTokens(amount, password);
+
+      // 3. Close password modal on success
+      setPasswordModal({ isOpen: false, amount: 0, onSuccess: null, onStartProcessing: null, onFailure: null });
+
+      // 4. Complete purchase and deduct from Student Wallet
+      setStudentWallet(prev => {
+        const newBal = prev.balance - amount;
+        return { ...prev, balance: newBal };
+      });
+      
+      if (result && result.tokenBalance !== undefined) {
+        updateTokens(result.tokenBalance);
+      } else {
+        const walletData = await api.wallet.getStudentWallet();
+        if (walletData) {
+          updateTokens(walletData.tokenBalance);
+        }
+      }
+
+      showToast('Purchase completed successfully.');
+      if (onSuccess) onSuccess(result?.tokenBalance);
+    } catch (err) {
+      // Reset parent step back to confirm
+      if (onFailure) onFailure(err);
+      throw err;
+    }
   };
 
   return (
@@ -467,8 +490,11 @@ export const WalletProvider = ({ children }) => {
       <PasswordVerificationModal
         isOpen={passwordModal.isOpen}
         amount={passwordModal.amount}
-        onClose={() => setPasswordModal({ isOpen: false, amount: 0, onSuccess: null, onStartProcessing: null })}
-        onVerified={() => executeWalletPayment(passwordModal.amount, passwordModal.onSuccess, passwordModal.onStartProcessing)}
+        onClose={() => {
+          setPasswordModal({ isOpen: false, amount: 0, onSuccess: null, onStartProcessing: null, onFailure: null });
+          if (passwordModal.onFailure) passwordModal.onFailure();
+        }}
+        onVerified={(pass) => executeWalletPayment(passwordModal.amount, passwordModal.onSuccess, passwordModal.onStartProcessing, pass, passwordModal.onFailure)}
       />
     </WalletContext.Provider>
   );

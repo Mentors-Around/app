@@ -136,8 +136,7 @@ const StudentClassroomDetails = () => {
     try {
       const newQuery = await api.enrollment.sendQuery({
         classroomId: classroom.id || classroom._id,
-        // message is optional — backend defaults to 'I want to join the classroom'
-        message: queryForm.message.trim() || 'I want to join the classroom',
+        message: queryForm.message.trim(),
       });
       // Backend returns the query object
       setClassroomQuery({ ...newQuery, id: newQuery._id || newQuery.id, status: 'pending' });

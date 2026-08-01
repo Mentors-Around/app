@@ -17,11 +17,11 @@ export const WalletService = {
     return wallet;
   },
 
-  async creditTokens(studentId, paymentId, session = null) {
-    const tokens = PLATFORM_FEE.TOKENS_PER_PURCHASE;
+  async creditTokens(studentId, paymentId, count = null, session = null) {
+    const tokens = typeof count === 'number' ? count : PLATFORM_FEE.TOKENS_PER_PURCHASE;
     const wallet = await StudentWallet.findOneAndUpdate(
       { studentId },
-      { $inc: { tokenBalance: tokens } },
+      { $inc: { tokenBalance: tokens, totalTokensPurchased: tokens } },
       { new: true, upsert: true, session }
     );
 
@@ -33,7 +33,7 @@ export const WalletService = {
         amount: tokens,
         balanceAfter: wallet.tokenBalance,
         paymentId,
-        note: `Purchased ${tokens} tokens for ₹${PLATFORM_FEE.TOKEN_PRICE_PAISE / 100}`,
+        note: `Purchased ${tokens} tokens for ₹${(tokens === 5 ? 19 : tokens === 10 ? 35 : 79)}`,
       }],
       { session }
     );

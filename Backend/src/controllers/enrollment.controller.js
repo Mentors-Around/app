@@ -23,10 +23,10 @@ import logger                 from '../config/logger.config.js';
 // POST /queries — Student sends enrollment query (costs 1 token)
 // ─────────────────────────────────────────────────────────────────────────────
 export const sendQuery = asyncHandler(async (req, res) => {
-  const { classroomId, message = '' } = req.body;
+  const { classroomId, message } = req.body;
   if (!classroomId) throw ApiError.badRequest('classroomId is required');
 
-  let queryMessage = message.trim();
+  let queryMessage = (typeof message === 'string') ? message.trim() : '';
   if (!queryMessage) {
     queryMessage = "I want to join the classroom";
   }

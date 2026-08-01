@@ -71,9 +71,12 @@ const WalletPaymentModal = ({ isOpen, onClose, onSuccess, onPaymentComplete, cur
           // onStartProcessing
           () => {
              setStep('processing');
+          },
+          // onFailure / onCancel
+          () => {
+             setStep('confirm');
           }
         );
-      } else {
          if (!isClassroom) {
            const newTokens = currentTokens + selectedTokenPkg.tokens;
            localStorage.setItem('trueed_student_tokens', newTokens.toString());

@@ -88,13 +88,18 @@ async function request(endpoint, options = {}) {
       const error = new Error(errorMessage);
       error.status = response.status;
       error.data = resData;
-
       if (response.status === 401) {
-        if (endpoint.includes('/auth/refresh')) {
+        const isPasswordEndpoint = 
+          endpoint.includes('/auth/refresh') ||
+          endpoint.includes('/checkout') ||
+          endpoint.includes('/withdraw') ||
+          endpoint.includes('/enroll') ||
+          endpoint.includes('/deposit') ||
+          resData?.code === 'INVALID_PASSWORD' ||
+          resData?.code === 'INVALID_TRANSACTION_PASSWORD';
+
+        if (isPasswordEndpoint) {
           if (_onLoadingStop && !options._silent) _onLoadingStop();
-          localStorage.removeItem('trueed_token');
-          localStorage.removeItem('trueed_profile');
-          localStorage.removeItem('trueed_role');
           throw error;
         }
 
@@ -328,11 +333,12 @@ export const api = {
     getStudentWallet: () => request('/wallet'),
     getTokenTransactions: () => request('/wallet/transactions'),
     
+
     // In mock mode, password is used to verify and tokens are credited directly
-    buyTokens: (password) =>
+    buyTokens: (price, password) =>
       request('/wallet/tokens/checkout', {
         method: 'POST',
-        body: { password },
+        body: { price, password },
       }),
     
     verifyTokenPurchase: (data) =>

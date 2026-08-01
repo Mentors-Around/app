@@ -28,11 +28,12 @@ export const getWallet = asyncHandler(async (req, res) => {
   }, 'Wallet balance'));
 });
 
+
 // ── POST /tokens/checkout — Create token purchase order ───────────────────────
 export const createTokenCheckout = asyncHandler(async (req, res) => {
   // MOCK MODE: verify password and credit tokens directly
   if (isMockGateway()) {
-    const { password } = req.body;
+    const { password, price } = req.body;
     if (!password) throw ApiError.badRequest('Password is required for mock token purchase');
 
     const { User } = await import('../models/index.js');
@@ -41,32 +42,54 @@ export const createTokenCheckout = asyncHandler(async (req, res) => {
     const isMatch = await userWithPass.comparePassword(password);
     if (!isMatch) throw ApiError.unauthorized('Invalid password');
 
+    // Determine package based on price
+    let tokens = 5;
+    let amountPaise = 1900;
+    if (price === 19) {
+      tokens = 5;
+      amountPaise = 1900;
+    } else if (price === 35) {
+      tokens = 10;
+      amountPaise = 3500;
+    } else if (price === 79) {
+      tokens = 25;
+      amountPaise = 7900;
+    } else {
+      // If not passed or invalid, default to 5 tokens for 19 rupees
+      tokens = 5;
+      amountPaise = 1900;
+    }
+
     const { default: mongoose } = await import('mongoose');
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
       const allocatedPaymentId = new mongoose.Types.ObjectId();
+      
+      // Debit cash from student wallet first
+      await WalletService.debitCashOrThrow(req.user._id, amountPaise, session);
+
       await Payment.create([{
         _id:              allocatedPaymentId,
         purpose:          PAYMENT_PURPOSE.TOKEN_PURCHASE,
         payerId:          req.user._id,
-        totalAmountPaise: PLATFORM_FEE.TOKEN_PRICE_PAISE,
-        tokensBought:     PLATFORM_FEE.TOKENS_PER_PURCHASE,
+        totalAmountPaise: amountPaise,
+        tokensBought:     tokens,
         status:           PAYMENT_STATUS.CAPTURED,
         gateway:          'mock',
         capturedAt:       new Date(),
       }], { session });
 
-      await WalletService.creditTokens(req.user._id, allocatedPaymentId, session);
+      await WalletService.creditTokens(req.user._id, allocatedPaymentId, tokens, session);
       await session.commitTransaction();
 
       const wallet = await WalletService.getOrCreate(req.user._id);
-      logger.info('[MOCK] Tokens credited directly', { userId: req.user._id });
+      logger.info('[MOCK] Tokens credited directly', { userId: req.user._id, tokens });
       return res.status(200).json(new ApiResponse(200, {
         mockMode:     true,
-        tokensAdded:  PLATFORM_FEE.TOKENS_PER_PURCHASE,
+        tokensAdded:  tokens,
         tokenBalance: wallet.tokenBalance,
-      }, `${PLATFORM_FEE.TOKENS_PER_PURCHASE} tokens credited (mock mode)`));
+      }, `${tokens} tokens credited (mock mode)`));
     } catch (err) {
       await session.abortTransaction();
       throw err;
@@ -295,12 +318,26 @@ export const verifyStudentDeposit = asyncHandler(async (req, res) => {
     session.endSession();
   }
 });
-
 // ── POST /withdraw — Student withdraws cash balance ──────────────────────────
 export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
   const { amountPaise, password } = req.body;
   if (!amountPaise || Number(amountPaise) < 100) {
     throw ApiError.badRequest('Minimum withdrawal is ₹1 (100 paise)');
+  }
+
+  if (!password) {
+    throw ApiError.badRequest('Password is required for withdrawal');
+  }
+
+  const { User } = await import('../models/index.js');
+  const userWithPass = await User.findById(req.user._id).select('+passwordHash');
+  if (!userWithPass?.passwordHash) {
+    throw ApiError.badRequest('No password set on this account. Please set a password first.');
+  }
+
+  const isMatch = await userWithPass.comparePassword(password);
+  if (!isMatch) {
+    throw ApiError.unauthorized('Incorrect password. Withdrawal failed.');
   }
 
   const requestedPaise = Math.round(Number(amountPaise));
@@ -310,16 +347,8 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
     throw new ApiError(402, `Insufficient balance. Available: ₹${(wallet.cashBalancePaise / 100).toFixed(2)}`, [], 'INSUFFICIENT_BALANCE');
   }
 
-  // MOCK MODE: verify password and debit directly
+  // MOCK MODE: debit directly
   if (isMockGateway()) {
-    if (!password) throw ApiError.badRequest('Password is required for withdrawal');
-
-    const { User } = await import('../models/index.js');
-    const userWithPass = await User.findById(req.user._id).select('+passwordHash');
-    if (!userWithPass?.passwordHash) throw ApiError.badRequest('No password set on this account');
-    const isMatch = await userWithPass.comparePassword(password);
-    if (!isMatch) throw ApiError.unauthorized('Incorrect password. Withdrawal failed.');
-
     const { default: mongoose } = await import('mongoose');
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -342,11 +371,8 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
       session.endSession();
     }
   }
-
   // REAL MODE: create payout record for admin/cron to process
-  const { User } = await import('../models/index.js');
   const user = await User.findById(req.user._id).select('name email bankAccount').lean();
-
   const { default: mongoose } = await import('mongoose');
   const session = await mongoose.startSession();
   session.startTransaction();

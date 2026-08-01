@@ -104,7 +104,7 @@ const paymentSchema = new Schema(
     teacherPayoutPaise:  { ...moneyField() },
     studentRefundPaise:  { ...moneyField() },
     currency:            { type: String, default: 'INR', uppercase: true },
-    gateway:             { type: String, default: 'razorpay', enum: ['razorpay', 'manual', 'wallet'] },
+    gateway:             { type: String, default: 'razorpay', enum: ['razorpay', 'manual', 'wallet', 'mock'] },
     method:              { type: String, trim: true, default: null },
     idempotencyKey: {
       type:   String,

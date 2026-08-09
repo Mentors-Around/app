@@ -40,12 +40,21 @@ export default function StudentSettings() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleSupportSubmit = (e) => {
+  const handleSupportSubmit = async (e) => {
     e.preventDefault();
     if (!supportForm.subject || !supportForm.message) return;
-    
-    showToast("✅ Your support request has been submitted successfully. Our team will contact you via your registered email.");
-    setSupportForm({ subject: '', category: 'Account & Profile', message: '' });
+    try {
+      await api.report.fileReport({
+        reportType: 'HELP_SUPPORT',
+        targetType: 'OTHER',
+        targetId: user?._id || user?.id || '600000000000000000000001',
+        description: `[Category: ${supportForm.category}] [Subject: ${supportForm.subject.trim()}] ${supportForm.message.trim()}`,
+      });
+      showToast('✅ Your support request has been submitted. Our team will contact you via your registered email.');
+      setSupportForm({ subject: '', category: 'Account & Profile', message: '' });
+    } catch (err) {
+      showToast(err.message || 'Failed to submit request. Please try again.');
+    }
   };
 
   const handleUpdateClick = (field) => {
@@ -344,13 +353,13 @@ export default function StudentSettings() {
                     Contact Us
                   </h2>
                   <div className="space-y-4">
-                    <a href="mailto:support@trueed.in" className="flex items-center gap-3 text-slate-300 hover:text-white transition group">
+                    <a href="mailto:trued.alex@gmail.com" className="flex items-center gap-3 text-slate-300 hover:text-white transition group">
                       <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition">
                         <Mail className="w-5 h-5" />
                       </div>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Email Support</p>
-                        <p className="font-semibold text-sm">support@trueed.in</p>
+                        <p className="font-semibold text-sm">trued.alex@gmail.com</p>
                       </div>
                     </a>
                     <a href="http://www.trueed.in" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-slate-300 hover:text-white transition group">
@@ -433,9 +442,9 @@ export default function StudentSettings() {
 
               {/* Legal */}
               <div className="flex gap-4 items-center pl-2">
-                <a href="#" className="text-sm font-bold text-slate-500 hover:text-navy transition">Terms & Conditions</a>
+                <a href="/legal" className="text-sm font-bold text-slate-500 hover:text-navy transition">Terms &amp; Conditions</a>
                 <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                <a href="#" className="text-sm font-bold text-slate-500 hover:text-navy transition">Privacy Policy</a>
+                <a href="/legal" className="text-sm font-bold text-slate-500 hover:text-navy transition">Privacy Policy</a>
               </div>
             </div>
           )}

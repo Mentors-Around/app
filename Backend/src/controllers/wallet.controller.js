@@ -340,7 +340,9 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
     throw ApiError.unauthorized('Incorrect password. Withdrawal failed.');
   }
 
-  const requestedPaise = Math.round(Number(amountPaise));
+  const requestedPaise    = Math.round(Number(amountPaise));
+  const platformFeePaise  = Math.round(requestedPaise * 0.02);  // 2% platform cut
+  const netPaise          = requestedPaise - platformFeePaise;   // amount user receives
   const wallet = await WalletService.getOrCreate(req.user._id);
 
   if (wallet.cashBalancePaise < requestedPaise) {
@@ -357,11 +359,13 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
       await session.commitTransaction();
 
       const updatedWallet = await WalletService.getOrCreate(req.user._id);
-      logger.info('[MOCK] Student withdrawal processed', { userId: req.user._id, amountPaise: requestedPaise });
+      logger.info('[MOCK] Student withdrawal processed', { userId: req.user._id, amountPaise: requestedPaise, platformFeePaise, netPaise });
       return res.status(200).json(new ApiResponse(200, {
-        mockMode:         true,
-        withdrawnPaise:   requestedPaise,
-        cashBalancePaise: updatedWallet.cashBalancePaise,
+        mockMode:          true,
+        requestedPaise,
+        platformFeePaise,
+        netPaise,
+        cashBalancePaise:  updatedWallet.cashBalancePaise,
         cashBalanceRupees: updatedWallet.cashBalancePaise / 100,
       }, 'Withdrawal successful (mock mode)'));
     } catch (err) {
@@ -383,8 +387,8 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
     const payout = await Payout.create([{
       teacherId:              req.user._id,
       grossFeesCollectedPaise: requestedPaise,
-      teacherPayoutPaise:     requestedPaise,
-      platformFeePaise:       0,
+      teacherPayoutPaise:     netPaise,
+      platformFeePaise,
       studentRefundTotalPaise: 0,
       status:                 PAYOUT_STATUS?.QUEUED || 'queued',
       notes:                  'Student cash withdrawal',
@@ -397,19 +401,21 @@ export const requestStudentWithdrawal = asyncHandler(async (req, res) => {
       EmailService.sendPaymentReceipt(user.email, {
         recipientName:     user.name,
         transactionId:     payout[0]._id.toString(),
-        description:       'Wallet withdrawal',
-        type:              'withdrawal',
-        amountPaise:       requestedPaise,
+        description:       `Wallet withdrawal (2% platform fee: ₹${(platformFeePaise / 100).toFixed(2)})`,
+        type:              'cash_withdrawal',
+        amountPaise:       netPaise,
         date:              new Date().toISOString(),
         balanceAfterPaise: wallet.cashBalancePaise - requestedPaise,
       }).catch(() => {});
     }
 
-    logger.info('Student withdrawal requested', { userId: req.user._id, amountPaise: requestedPaise });
+    logger.info('Student withdrawal requested', { userId: req.user._id, requestedPaise, platformFeePaise, netPaise });
     res.status(201).json(new ApiResponse(201, {
-      payoutId:    payout[0]._id,
-      amountPaise: requestedPaise,
-      status:      'queued',
+      payoutId:        payout[0]._id,
+      requestedPaise,
+      platformFeePaise,
+      netPaise,
+      status:          'queued',
     }, 'Withdrawal request submitted. Funds will be transferred within 2-3 business days.'));
   } catch (err) {
     await session.abortTransaction();

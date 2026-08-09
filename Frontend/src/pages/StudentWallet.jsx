@@ -413,13 +413,36 @@ const StudentWallet = () => {
                   />
                 </div>
               </div>
-              
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 mb-8 text-center">
-                 <p className="text-sm font-semibold text-slate-600 mb-1">Refund to Original Payment Method</p>
-                 <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
-                   <Clock className="w-3 h-3" /> Usually processed within 5–7 business days.
-                 </p>
-              </div>
+
+              {/* Live fee breakdown */}
+              {withdrawAmount && parseInt(withdrawAmount, 10) > 0 && (
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-slate-600">Amount requested</span>
+                    <span className="font-bold text-slate-800">₹{parseInt(withdrawAmount, 10).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-slate-500">Platform fee (2%)</span>
+                    <span className="font-semibold text-rose-500">− ₹{Math.round(parseInt(withdrawAmount, 10) * 0.02).toLocaleString()}</span>
+                  </div>
+                  <div className="h-px bg-slate-200 my-1" />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-bold text-navy">You'll receive</span>
+                    <span className="font-bold text-emerald-600 text-base">₹{(parseInt(withdrawAmount, 10) - Math.round(parseInt(withdrawAmount, 10) * 0.02)).toLocaleString()}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                    <Clock className="w-3 h-3" /> Processed within 2–3 business days to your linked bank account.
+                  </p>
+                </div>
+              )}
+
+              {!withdrawAmount && (
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 mb-6 text-center">
+                  <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
+                    <Clock className="w-3 h-3" /> A 2% platform fee applies. Processed within 2–3 business days.
+                  </p>
+                </div>
+              )}
               
               <div className="flex gap-3">
                 <button 

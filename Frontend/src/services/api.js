@@ -233,7 +233,7 @@ export const api = {
     
     getDetail: (id) => request(`/classrooms/${id}`),
     
-    create: (data) => request('/classrooms', { method: 'POST', body: data }),
+    create: (data) => request('/classrooms', { method: 'POST', headers: { 'Idempotency-Key': generateIdempotencyKey() }, body: data }),
     
     update: (id, data) => request(`/classrooms/${id}`, { method: 'PATCH', body: data }),
     
@@ -315,9 +315,9 @@ export const api = {
     search: (query) => request(`/teachers?q=${encodeURIComponent(query)}`),
     getDashboard: () => request('/teachers/me/dashboard'),
     getEarnings: () => request('/teachers/me/earnings'),
-    getMyClassrooms: () => request('/teachers/me/classrooms'),
+    getMyClassrooms: (params = {}) => request('/teachers/me/classrooms', { query: { limit: 100, ...params } }),
     getMyStudents: () => request('/teachers/me/students'),
-    getMyQueries: () => request('/teachers/me/queries'),
+    getMyQueries: (params = {}) => request('/teachers/me/queries', { query: { limit: 200, ...params } }),
     getMyDoubts: () => request('/teachers/me/doubts'),
     getMyReviews: () => request('/teachers/me/reviews'),
     updateAvailability: (availability) => request('/teachers/me/availability', { method: 'PATCH', body: { availability } }),
@@ -402,6 +402,10 @@ export const api = {
     markAllAsRead: () => request('/notifications/read-all', { method: 'PATCH' }),
     clearAll: () => request('/notifications', { method: 'DELETE' }),
     delete: (id) => request(`/notifications/${id}`, { method: 'DELETE' }),
+  },
+  // ── REPORTS ────────────────────────────────────────────────────────────────
+  report: {
+    fileReport: (data) => request('/reports', { method: 'POST', body: data }),
   },
 };
 

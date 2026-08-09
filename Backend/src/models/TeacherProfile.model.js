@@ -148,6 +148,17 @@ const teacherProfileSchema = new Schema(
     adminNotes:    { type: String,  trim: true, default: null, select: false },
     isAvailableForNewClassrooms: { type: Boolean, default: true },
     teachingMode:  { type: String,  default: 'Online' },
+    // Detailed availability (set from Teacher Profile page)
+    availability: {
+      type: new mongoose.Schema({
+        workingDays: { type: [String], default: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] },
+        startTime:   { type: String, default: '17:00' },
+        endTime:     { type: String, default: '21:00' },
+        maxSessions: { type: Number, default: 4, min: 1, max: 20 },
+        timezone:    { type: String, default: 'IST (Asia/Kolkata)' },
+      }, { _id: false }),
+      default: () => ({}),
+    },
   },
   {
     timestamps: true,

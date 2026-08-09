@@ -1,8 +1,9 @@
 // src/controllers/material.controller.js
 import { Material, Enrollment, Classroom } from '../models/index.js';
-import { CloudinaryService }  from '../services/cloudinary.service.js';
+import { CloudinaryService }   from '../services/cloudinary.service.js';
 import { NotificationService } from '../services/notification.service.js';
-import { asyncHandler }       from '../utils/AsyncHandler.js';
+import { EmailService }        from '../services/email.service.js';
+import { asyncHandler }        from '../utils/AsyncHandler.js';
 import ApiError               from '../utils/ApiError.js';
 import ApiResponse            from '../utils/ApiResponse.js';
 import { MATERIAL_TYPE, ENROLLMENT_STATUS } from '../constants/enums.js';
@@ -48,15 +49,27 @@ export const uploadMaterial = asyncHandler(async (req, res) => {
       }))
     );
 
-    // Non-blocking student notifications
+    // Non-blocking: SMS + email notifications to enrolled students
     const { User } = await import('../models/index.js');
     Enrollment.find({ classroomId, status: ENROLLMENT_STATUS.ACTIVE })
       .select('studentId').lean()
       .then(async (enrollments) => {
         const students = await User.find({
           _id: { $in: enrollments.map((e) => e.studentId) },
-        }).select('phone').lean();
+        }).select('phone email name').lean();
         NotificationService.notifyNewMaterial(students, { title: classroom.title }, title.trim()).catch(() => {});
+        // Email each enrolled student
+        students.forEach((student) => {
+          if (student.email) {
+            EmailService.sendClassroomNotification(student.email, {
+              studentName:    student.name || 'Student',
+              classroomTitle: classroom.title,
+              eventType:      'material',
+              eventTitle:     title.trim(),
+              eventBody:      description?.trim() || '',
+            });
+          }
+        });
       });
 
     logger.info('Materials uploaded', { classroomId, count: materials.length });

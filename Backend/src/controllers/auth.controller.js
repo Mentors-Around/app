@@ -251,9 +251,14 @@ export const loginWithPassword = asyncHandler(async (req, res) => {
   const tokens = issueTokens(res, user, rememberMe);
   await user.touchActivity();
 
+  // Re-read the user so we return the freshly-updated streakDays / lastActiveAt
+  const freshUser = await User.findById(user._id)
+    .select('-fcmTokens -passwordHash -mfaSecret')
+    .lean({ virtuals: true });
+
   logger.info('User logged in via password', { userId: user._id, role: user.role });
   res.status(200).json(new ApiResponse(200, {
-    user:        safeProfile(user),
+    user:        freshUser ? { ...freshUser } : safeProfile(user),
     accessToken: tokens.accessToken,
     kycPending:  user.role === ROLES.TEACHER && user.isVerificationPending,
   }, 'Login successful'));

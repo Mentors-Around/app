@@ -2,6 +2,7 @@
 import { Announcement, Enrollment, Classroom } from '../models/index.js';
 import { ENROLLMENT_STATUS }   from '../constants/enums.js';
 import { NotificationService } from '../services/notification.service.js';
+import { EmailService }        from '../services/email.service.js';
 import { asyncHandler }        from '../utils/AsyncHandler.js';
 import ApiError                from '../utils/ApiError.js';
 import ApiResponse             from '../utils/ApiResponse.js';
@@ -33,16 +34,29 @@ export const createAnnouncement = asyncHandler(async (req, res) => {
     attachmentUrls,
   });
 
-  // Non-blocking SMS notification to enrolled students
+  // Non-blocking: SMS + email notification to enrolled students
   const { User } = await import('../models/index.js');
   Enrollment.find({ classroomId, status: ENROLLMENT_STATUS.ACTIVE })
     .select('studentId').lean()
     .then(async (enrollments) => {
       const students = await User.find({
         _id: { $in: enrollments.map((e) => e.studentId) },
-      }).select('phone').lean();
+      }).select('phone email name').lean();
       const excerpt = body.length > 80 ? `${body.slice(0, 77)}...` : body;
+      // SMS / in-app
       NotificationService.notifyNewAnnouncement(students, { title: classroom.title }, excerpt).catch(() => {});
+      // Email to each enrolled student who has an email address
+      students.forEach((student) => {
+        if (student.email) {
+          EmailService.sendClassroomNotification(student.email, {
+            studentName:    student.name || 'Student',
+            classroomTitle: classroom.title,
+            eventType:      'announcement',
+            eventTitle:     title.trim(),
+            eventBody:      excerpt,
+          });
+        }
+      });
     });
 
   logger.info('Announcement created', { classroomId, announcementId: announcement._id });

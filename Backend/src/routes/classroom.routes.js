@@ -10,6 +10,7 @@ import {
   handleMaterialUpload,
 } from '../middlewares/upload.middleware.js';
 import { searchLimiter, uploadLimiter } from '../middlewares/rateLimit.middleware.js';
+import { optionalIdempotency } from '../middlewares/idempotency.middleware.js';
 import { Classroom } from '../models/index.js';
 
 import {
@@ -62,7 +63,7 @@ router.get('/search', searchLimiter, optionalAuthenticate, searchClassrooms);
 router.get('/discover', optionalAuthenticate, discoverClassrooms);
 
 router.get('/:classroomId', optionalAuthenticate, getClassroomDetail);
-router.post('/', authenticate, requireTeacher, createClassroom);
+router.post('/', authenticate, requireTeacher, optionalIdempotency, createClassroom);
 
 router.patch(
   '/:classroomId',

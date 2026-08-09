@@ -1,10 +1,11 @@
 // src/controllers/poll.controller.js
 import { Poll, Enrollment, Classroom } from '../models/index.js';
-import { asyncHandler }       from '../utils/AsyncHandler.js';
-import ApiError               from '../utils/ApiError.js';
-import ApiResponse            from '../utils/ApiResponse.js';
+import { EmailService }        from '../services/email.service.js';
+import { asyncHandler }        from '../utils/AsyncHandler.js';
+import ApiError                from '../utils/ApiError.js';
+import ApiResponse             from '../utils/ApiResponse.js';
 import { POLL_TYPE, POLL_STATUS, ENROLLMENT_STATUS, CLASSROOM_STATUS } from '../constants/enums.js';
-import logger                 from '../config/logger.config.js';
+import logger                  from '../config/logger.config.js';
 
 // ── POST /classrooms/:classroomId/polls ───────────────────────────────────────
 export const createPoll = asyncHandler(async (req, res) => {
@@ -38,6 +39,28 @@ export const createPoll = asyncHandler(async (req, res) => {
   });
 
   logger.info('Poll created', { classroomId, pollId: poll._id });
+
+  // Non-blocking: email enrolled students about the new poll
+  const { User } = await import('../models/index.js');
+  Enrollment.find({ classroomId, status: ENROLLMENT_STATUS.ACTIVE })
+    .select('studentId').lean()
+    .then(async (enrollments) => {
+      const students = await User.find({
+        _id: { $in: enrollments.map((e) => e.studentId) },
+      }).select('email name').lean();
+      students.forEach((student) => {
+        if (student.email) {
+          EmailService.sendClassroomNotification(student.email, {
+            studentName:    student.name || 'Student',
+            classroomTitle: classroom.title,
+            eventType:      'poll',
+            eventTitle:     question.trim(),
+            eventBody:      `This poll closes in ${expiresInHours} hour(s). Log in to cast your vote.`,
+          });
+        }
+      });
+    }).catch(() => {});
+
   res.status(201).json(new ApiResponse(201, poll, 'Poll created'));
 });
 

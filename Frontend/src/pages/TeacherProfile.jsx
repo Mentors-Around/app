@@ -20,18 +20,18 @@ const TeacherProfile = () => {
   const [editForm, setEditForm] = useState({});
 
   const [profileForm, setProfileForm] = useState({
-    bio: 'Experienced educator passionate about teaching.',
-    subjects: 'Mathematics, Physics',
-    location: 'Bangalore',
-    qualification: 'M.Sc. Physics, B.Ed',
-    experience: 8,
-    languages: 'English, Hindi, Kannada',
+    bio: '',
+    subjects: '',
+    location: '',
+    qualification: '',
+    experience: '',
+    languages: '',
     demoVideo: ''
   });
 
   const [availability, setAvailability] = useState({
     workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-    startTime: '17:00', endTime: '21:00', maxSessions: 4, mode: 'Online', timezone: 'IST (Asia/Kolkata)'
+    startTime: '09:00', endTime: '17:00', maxSessions: 4, mode: 'Online', timezone: 'IST (Asia/Kolkata)'
   });
 
   const [hasPhoto, setHasPhoto] = useState(!!user?.avatarUrl);
@@ -164,6 +164,9 @@ const TeacherProfile = () => {
       setSaving(false);
     }
   };
+
+  // Save availability button in JSX — also needed below the availability section
+  const handleSaveAvailabilityClick = handleSaveAvailability;
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
@@ -432,6 +435,18 @@ const TeacherProfile = () => {
                 </select>
               </div>
             </div>
+          </div>
+
+          {/* Save Availability Button */}
+          <div className="mt-6 pt-5 border-t border-slate-100 flex justify-end">
+            <button
+              onClick={handleSaveAvailabilityClick}
+              disabled={saving}
+              className="px-6 py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-sm disabled:opacity-70 flex items-center gap-2"
+            >
+              {saving && <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              Save Availability
+            </button>
           </div>
         </div>
 

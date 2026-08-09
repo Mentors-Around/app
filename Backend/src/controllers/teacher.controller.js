@@ -391,7 +391,7 @@ export const getMyQueries = asyncHandler(async (req, res) => {
 
   const result = await EnrollmentQuery.paginate(filter, {
     page:     Number(page),
-    limit:    Math.min(Number(limit), 50),
+    limit:    Math.min(Number(limit), 200),
     sort:     { createdAt: -1 },
     populate: [
       { path: 'studentId',   select: 'name phone avatarUrl' },
@@ -449,7 +449,7 @@ export const getMyClassrooms = asyncHandler(async (req, res) => {
 
   const result = await Classroom.paginate(filter, {
     page:  Number(page),
-    limit: Math.min(Number(limit), 30),
+    limit: Math.min(Number(limit), 100),
     sort:  { createdAt: -1 },
   });
 
@@ -478,11 +478,49 @@ export const getMyDoubts = asyncHandler(async (req, res) => {
 
 // ── PATCH /me/availability ─────────────────────────────────────────────────────
 export const updateAvailability = asyncHandler(async (req, res) => {
-  const { isAvailableForNewClassrooms } = req.body;
-  if (typeof isAvailableForNewClassrooms !== 'boolean') {
-    throw ApiError.badRequest('isAvailableForNewClassrooms must be a boolean');
+  const {
+    isAvailableForNewClassrooms,
+    workingDays,
+    startTime,
+    endTime,
+    maxSessions,
+    timezone,
+    mode,
+    // frontend sends nested: { availability: { ... } } OR flat fields
+    availability: availabilityObj,
+  } = req.body;
+
+  const updateFields = {};
+
+  // Accept boolean availability toggle
+  if (typeof isAvailableForNewClassrooms === 'boolean') {
+    updateFields.isAvailableForNewClassrooms = isAvailableForNewClassrooms;
   }
-  await TeacherProfile.findOneAndUpdate({ userId: req.user._id }, { isAvailableForNewClassrooms });
+
+  // Build nested availability object from either nested payload or flat fields
+  const avail = availabilityObj || {};
+  const resolved = {
+    workingDays: avail.workingDays ?? workingDays,
+    startTime:   avail.startTime   ?? startTime,
+    endTime:     avail.endTime     ?? endTime,
+    maxSessions: avail.maxSessions ?? maxSessions,
+    timezone:    avail.timezone    ?? timezone,
+  };
+  if (resolved.workingDays !== undefined) updateFields['availability.workingDays'] = resolved.workingDays;
+  if (resolved.startTime   !== undefined) updateFields['availability.startTime']   = resolved.startTime;
+  if (resolved.endTime     !== undefined) updateFields['availability.endTime']     = resolved.endTime;
+  if (resolved.maxSessions !== undefined) updateFields['availability.maxSessions'] = Number(resolved.maxSessions);
+  if (resolved.timezone    !== undefined) updateFields['availability.timezone']    = resolved.timezone;
+
+  // Teaching mode
+  const teachingMode = avail.mode ?? mode;
+  if (teachingMode !== undefined) updateFields.teachingMode = teachingMode;
+
+  if (Object.keys(updateFields).length === 0) {
+    throw ApiError.badRequest('No valid availability fields provided');
+  }
+
+  await TeacherProfile.findOneAndUpdate({ userId: req.user._id }, { $set: updateFields });
   res.status(200).json(new ApiResponse(200, null, 'Availability updated'));
 });
 

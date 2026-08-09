@@ -4,9 +4,11 @@ import OTPModal from '../components/shared/OTPModal';
 import ChangePasswordModal from '../components/shared/ChangePasswordModal';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api.js';
+import { useNavigate } from 'react-router-dom';
 
 export default function TeacherSettings() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('notifications');
   const [toast, setToast] = useState(null);
   
@@ -49,19 +51,23 @@ export default function TeacherSettings() {
     showToast('✅ Password updated successfully.', 'success');
   };
 
-  const handleDeleteAccount = (e) => {
+  const handleDeleteAccount = async (e) => {
     e.preventDefault();
     if (!deleteConfirmPassword) {
       showToast('Password is required to delete account', 'error');
       return;
     }
     setDeleting(true);
-    setTimeout(() => {
+    try {
+      await api.user.deleteMe();
+      logout();
+      navigate('/login');
+    } catch (err) {
       setDeleting(false);
       setShowDeleteForm(false);
       setDeleteConfirmPassword('');
-      showToast('Account deletion request submitted', 'error');
-    }, 1000);
+      showToast(err.message || 'Failed to delete account. Please try again.', 'error');
+    }
   };
 
   const handleSupportSubmit = async (e) => {
@@ -325,13 +331,13 @@ export default function TeacherSettings() {
                     Contact Us
                   </h2>
                   <div className="space-y-4">
-                    <a href="mailto:support@trueed.in" className="flex items-center gap-3 text-slate-300 hover:text-white transition group">
+                    <a href="mailto:trued.alex@gmail.com" className="flex items-center gap-3 text-slate-300 hover:text-white transition group">
                       <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition">
                         <Mail className="w-5 h-5" />
                       </div>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Email Support</p>
-                        <p className="font-semibold text-sm">support@trueed.in</p>
+                        <p className="font-semibold text-sm">trued.alex@gmail.com</p>
                       </div>
                     </a>
                     <a href="http://www.trueed.in" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-slate-300 hover:text-white transition group">
@@ -413,9 +419,9 @@ export default function TeacherSettings() {
 
               {/* Legal */}
               <div className="flex gap-4 items-center pl-2">
-                <a href="#" className="text-sm font-bold text-slate-500 hover:text-navy transition">Terms & Conditions</a>
+                <a href="/legal" className="text-sm font-bold text-slate-500 hover:text-navy transition">Terms &amp; Conditions</a>
                 <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                <a href="#" className="text-sm font-bold text-slate-500 hover:text-navy transition">Privacy Policy</a>
+                <a href="/legal" className="text-sm font-bold text-slate-500 hover:text-navy transition">Privacy Policy</a>
               </div>
             </div>
           )}

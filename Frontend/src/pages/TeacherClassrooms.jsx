@@ -32,7 +32,7 @@ export default function TeacherClassrooms() {
         schedules: item.schedules || [],
         enrolled: item.stats?.enrolledStudents || item.enrolledStudentsCount || item.enrolled || 0,
         schedule: Array.isArray(item.schedule) ? `${item.schedule.length} Weekly Sessions` : (item.schedule || 'Flexible Schedule'),
-        status: item.status === 'active' ? 'active' : 'inactive'
+        status: item.status || 'draft'
       }));
       setClassrooms(mapped);
     } catch (err) {
@@ -60,6 +60,7 @@ export default function TeacherClassrooms() {
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'completed'
   const [toastMessage, setToastMessage] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -175,6 +176,7 @@ export default function TeacherClassrooms() {
 
   const handleSaveClassroom = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // Prevent duplicate submissions
     
     const todayStr = new Date().toISOString().split('T')[0];
     if (newRoom.startDate && newRoom.startDate < todayStr) {
@@ -197,6 +199,7 @@ export default function TeacherClassrooms() {
     }
 
     try {
+      setIsSubmitting(true);
       const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
       const scheduleSlots = [];
 
@@ -211,7 +214,7 @@ export default function TeacherClassrooms() {
               dayOfWeek: dayOfWeek,
               startTime: sch.startTime,
               endTime: sch.endTime,
-              durationMinutes: durationMinutes > 0 ? durationMinutes : 60,
+              durationMinutes: durationMinutes > 0 ? durationMinutes : 1,
             });
           }
         });
@@ -263,6 +266,8 @@ export default function TeacherClassrooms() {
         }
       }
       setToastMessage(msg);
+    } finally {
+      setIsSubmitting(false);
     }
     
     setTimeout(() => setToastMessage(null), 3000);
@@ -508,15 +513,15 @@ export default function TeacherClassrooms() {
             <div>
               <h2 className="font-sora text-xl font-bold text-navy mb-4 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                Completed Classrooms ({classrooms.filter(r => r.status !== 'active').length})
+                Completed Classrooms ({classrooms.filter(r => r.status === 'completed').length})
               </h2>
-        {classrooms.filter(r => r.status !== 'active').length === 0 ? (
+        {classrooms.filter(r => r.status === 'completed').length === 0 ? (
           <div className="bg-slate-50 p-8 rounded-xl border border-dashed border-slate-200 text-center">
-            <p className="text-slate-500 text-sm font-medium">No completed classrooms.</p>
+            <p className="text-slate-500 text-sm font-medium">No completed classrooms yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {classrooms.filter(r => r.status !== 'active').map(room => (
+            {classrooms.filter(r => r.status === 'completed').map(room => (
               <div key={room.id} className="bg-slate-50 border border-slate-200 rounded-xl shadow-sm overflow-hidden opacity-80">
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
@@ -820,8 +825,8 @@ export default function TeacherClassrooms() {
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-3 shrink-0 bg-slate-50 rounded-b-2xl">
               <button type="button" onClick={closeModal} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg transition hover:bg-slate-100 cursor-pointer">Cancel</button>
-              <button type="submit" form="classroom-form" className="px-6 py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-lg transition shadow-sm flex items-center gap-2 cursor-pointer">
-                <i className="fa-solid fa-floppy-disk"></i> {editingClassroomId ? 'Save Changes' : 'Create Classroom'}
+              <button type="submit" form="classroom-form" disabled={isSubmitting} className={`px-6 py-2.5 bg-navy hover:bg-navy-light text-white font-bold rounded-lg transition shadow-sm flex items-center gap-2 ${isSubmitting ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <i className="fa-solid fa-floppy-disk"></i>} {editingClassroomId ? 'Save Changes' : 'Create Classroom'}
               </button>
             </div>
           </div>

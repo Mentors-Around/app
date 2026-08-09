@@ -214,6 +214,56 @@ export const EmailService = {
     });
   },
 
+  /**
+   * Send a classroom event notification email to an enrolled student.
+   * Fire-and-forget — never blocks the API response.
+   *
+   * @param {string}   to               - recipient email
+   * @param {object}   data
+   * @param {string}   data.studentName - recipient name
+   * @param {string}   data.classroomTitle
+   * @param {string}   data.eventType   - 'announcement' | 'material' | 'poll' | 'session'
+   * @param {string}   data.eventTitle  - e.g. announcement title, material name
+   * @param {string}   [data.eventBody] - optional summary
+   */
+  async sendClassroomNotification(to, data) {
+    if (!to) return null;
+    const { studentName, classroomTitle, eventType, eventTitle, eventBody = '' } = data;
+
+    const typeConfig = {
+      announcement: { emoji: '📢', label: 'New Announcement',       color: '#4F46E5' },
+      material:     { emoji: '📄', label: 'New Study Material',     color: '#059669' },
+      poll:         { emoji: '🗳️', label: 'New Poll / Vote',        color: '#D97706' },
+      session:      { emoji: '📅', label: 'Session Schedule Update', color: '#7C3AED' },
+    };
+    const config = typeConfig[eventType] || { emoji: '🔔', label: 'Classroom Update', color: '#4F46E5' };
+
+    const subject = `${config.emoji} ${config.label} in "${classroomTitle}"`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>TrueEd Notification</title></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:40px 0;"><tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+<tr><td style="background:${config.color};padding:28px 40px;"><h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">TrueEd</h1><p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">${config.label}</p></td></tr>
+<tr><td style="padding:36px 40px 28px;">
+<p style="margin:0 0 16px;color:#374151;font-size:15px;">Hi <strong>${studentName}</strong>,</p>
+<p style="margin:0 0 24px;color:#374151;font-size:15px;">There's a new update in your classroom <strong>"${classroomTitle}"</strong>:</p>
+<div style="background:#F9FAFB;border-left:4px solid ${config.color};border-radius:0 8px 8px 0;padding:16px 20px;margin:0 0 24px;">
+  <p style="margin:0 0 4px;font-weight:700;color:#111827;font-size:15px;">${config.emoji} ${eventTitle}</p>
+  ${eventBody ? `<p style="margin:0;color:#6B7280;font-size:14px;line-height:1.6;">${eventBody}</p>` : ''}
+</div>
+<p style="margin:0 0 24px;color:#374151;font-size:14px;">Log in to your TrueEd dashboard to view the full details.</p>
+</td></tr>
+<tr><td style="background:#F9FAFB;padding:20px 40px;border-top:1px solid #E5E7EB;"><p style="margin:0;color:#9CA3AF;font-size:12px;">© ${new Date().getFullYear()} TrueEd · Automated notification, do not reply directly. Contact us at <a href="mailto:trued.alex@gmail.com" style="color:#4F46E5;">trued.alex@gmail.com</a></p></td></tr>
+</table></td></tr></table></body></html>`;
+
+    const text = `Hi ${studentName},\n\n${config.label} in "${classroomTitle}"\n${eventTitle}\n${eventBody}\n\nLog in to view details.\n\n— TrueEd Team`;
+    this.send({ to, subject, html, text }).catch((err) => {
+      logger.error('[Email] Classroom notification failed (non-critical)', {
+        to: _maskEmail(to), error: err.message,
+      });
+    });
+  },
+
   async verifyConnection() {
     if (env.EMAIL_PROVIDER === 'mock') {
       logger.info('[Email] Mock provider — skipping connection check');

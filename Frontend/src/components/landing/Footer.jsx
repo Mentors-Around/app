@@ -130,8 +130,9 @@ const Footer = () => {
         <div>© {new Date().getFullYear()} TrueEd. All rights reserved. Built in India 🇮🇳</div>
         <div className="flex gap-6">
           <Link to="/about" className="hover:text-amber transition">About Us</Link>
-          <Link to="/privacy" className="hover:text-amber transition">Privacy Policy</Link>
-          <Link to="/terms" className="hover:text-amber transition">Terms of Service</Link>
+          <Link to="/privacy-policy" className="hover:text-amber transition">Privacy Policy</Link>
+          <Link to="/terms-and-conditions" className="hover:text-amber transition">Terms &amp; Conditions</Link>
+          <Link to="/refund-cancellation" className="hover:text-amber transition">Refund Policy</Link>
         </div>
       </div>
     </footer>

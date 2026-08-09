@@ -419,9 +419,9 @@ export default function TeacherSettings() {
 
               {/* Legal */}
               <div className="flex gap-4 items-center pl-2">
-                <a href="/legal" className="text-sm font-bold text-slate-500 hover:text-navy transition">Terms &amp; Conditions</a>
+                <a href="/terms-and-conditions" className="text-sm font-bold text-slate-500 hover:text-navy transition">Terms &amp; Conditions</a>
                 <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                <a href="/legal" className="text-sm font-bold text-slate-500 hover:text-navy transition">Privacy Policy</a>
+                <a href="/privacy-policy" className="text-sm font-bold text-slate-500 hover:text-navy transition">Privacy Policy</a>
               </div>
             </div>
           )}

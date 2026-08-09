@@ -84,20 +84,10 @@ const env = cleanEnv(process.env, {
   TWILIO_AUTH_TOKEN:    str({ default: "" }),
   TWILIO_PHONE_NUMBER:  str({ default: "" }),
 
-  // ── Email (Nodemailer) ──────────────────────────────────────────────────────
-  EMAIL_PROVIDER:     str({ choices: ['gmail', 'smtp', 'mock'], default: 'mock' }),
-  EMAIL_FROM:         str({ default: '' }),
-  // Gmail provider
-  GMAIL_USER:         str({ default: '' }),
-  GMAIL_APP_PASSWORD: str({ default: '' }),
-  // SMTP provider (Brevo / SendGrid / custom)
-  SMTP_HOST:          str({ default: '' }),
-  SMTP_PORT:          num({ default: 587 }),
-  SMTP_USER:          str({ default: '' }),
-  SMTP_PASS:          str({ default: '' }),
-  // Ethereal mock (auto-catch in dev)
-  ETHEREAL_USER:      str({ default: '' }),
-  ETHEREAL_PASS:      str({ default: '' }),
+  // ── Email (Resend) ──────────────────────────────────────────────────────────
+  EMAIL_PROVIDER: str({ choices: ['resend', 'mock'], default: 'resend' }),
+  EMAIL_FROM:     str({ default: 'TrueEd <onboarding@resend.dev>' }),
+  RESEND_API_KEY: str({ default: '' }),
 
   // ── WhatsApp (Meta Cloud API) ────────────────────────────────────────────────
   WHATSAPP_OTP_ENABLED:      str({ default: 'false' }),

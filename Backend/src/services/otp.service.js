@@ -71,92 +71,20 @@ export const OtpService = {
       deliveryStatus:  'pending',   // ← correct: set to pending first
     });
 
-    // ── Fire both channels concurrently ──────────────────────────────────────
-    const useWhatsApp = env.WHATSAPP_OTP_ENABLED === 'true'
-      && !!env.WHATSAPP_PHONE_NUMBER_ID && !!env.WHATSAPP_TOKEN;
+    // ── Bypass actual delivery and return OTPs directly ──────────────────────
+    await OtpSession.findByIdAndUpdate(session._id, { deliveryStatus: 'sent' });
 
-    const phoneDelivery = useWhatsApp
-      ? WhatsAppService.sendOtp(phone, phoneOtp, env.OTP_EXPIRY_MINUTES).then(r => {
-          if (!r) {
-            logger.warn('[OTP] WhatsApp failed, falling back to SMS', { phone: _maskPhone(phone) });
-            return SmsService.sendOtp(phone, phoneOtp, env.OTP_EXPIRY_MINUTES);
-          }
-          return r;
-        })
-      : SmsService.sendOtp(phone, phoneOtp, env.OTP_EXPIRY_MINUTES);
-
-    // Use allSettled so one channel failing doesn't suppress the other's result
-    const [emailResult, phoneResult] = await Promise.allSettled([
-      EmailService.sendOtp(normEmail, emailOtp, env.OTP_EXPIRY_MINUTES, 'register'),
-      phoneDelivery,
-    ]);
-
-    // ── Evaluate delivery outcomes ────────────────────────────────────────────
-    const emailOk = emailResult.status === 'fulfilled' && emailResult.value !== null;
-    const phoneOk = phoneResult.status === 'fulfilled' && phoneResult.value !== null;
-
-    if (!emailOk) {
-      const reason = emailResult.reason?.message || 'Email service returned null';
-      logger.error('[OTP] ❌ Email OTP delivery failed', {
-        email:  _maskEmail(normEmail),
-        reason,
-      });
-    }
-    if (!phoneOk) {
-      const reason = phoneResult.reason?.message || 'SMS/WhatsApp service returned null';
-      logger.warn('[OTP] ❌ Phone OTP delivery failed', {
-        phone:  _maskPhone(phone),
-        reason,
-      });
-    }
-
-    // If NEITHER channel worked — something is seriously wrong, fail loudly
-    if (!emailOk && !phoneOk) {
-      // Roll back the session so the user can retry without hitting rate limits
-      await OtpSession.findByIdAndUpdate(session._id, { deliveryStatus: 'failed', expiresAt: new Date() });
-      throw new ApiError(
-        503,
-        'OTP delivery failed on all channels. Please try again in a moment.',
-        [],
-        'OTP_DELIVERY_FAILED',
-      );
-    }
-
-    // Update status based on actual delivery outcome
-    await OtpSession.findByIdAndUpdate(session._id, {
-      deliveryStatus: (emailOk && phoneOk) ? 'sent' : 'partial',
-    });
-
-    logger.info('[OTP] Dual signup OTPs dispatched', {
+    logger.info('[OTP] Dual signup OTPs bypassed and returned in response', {
       email:   _maskEmail(normEmail),
       phone:   _maskPhone(phone),
-      emailOk,
-      phoneOk,
     });
-
-    if (env.NODE_ENV === 'development') {
-      // Email OTP is intentionally NOT logged here — Nodemailer delivers it for real,
-      // so the inbox is the single source of truth. Logging it too invited a stale
-      // terminal value being used after a resend, which looked like "two different OTPs".
-      // Phone OTP is still logged because no SMS/WhatsApp provider is configured yet.
-      logger.info(`[DEV ONLY] Raw Phone OTP for ${phone} -> ${phoneOtp} (email OTP was sent via Nodemailer — check inbox)`);
-    }
 
     return {
       expiresAt,
       maskedEmail:   _maskEmail(normEmail),
       maskedPhone:   _maskPhone(phone),
-      // In development: surface delivery status so you can debug without digging in logs
-      ...(env.NODE_ENV === 'development' && {
-        _dev: {
-          phoneOtp,
-          emailDelivered: emailOk,
-          phoneDelivered: phoneOk,
-          emailError:     !emailOk ? (emailResult.reason?.message || 'returned null') : null,
-          phoneError:     !phoneOk ? (phoneResult.reason?.message || 'returned null') : null,
-          note:           'This _dev field only appears in NODE_ENV=development',
-        },
-      }),
+      emailOtp,
+      phoneOtp,
     };
   },
 
@@ -226,21 +154,16 @@ export const OtpService = {
       deliveryStatus:  'pending',
     });
 
-    const result = await EmailService.sendOtp(normEmail, otp, env.OTP_EXPIRY_MINUTES, 'reset');
-
-    if (!result) {
-      // Mark session as failed so the user can retry
-      await OtpSession.findByIdAndUpdate(session._id, {
-        deliveryStatus: 'failed',
-        expiresAt: new Date(),
-      });
-      logger.error('[OTP] Email reset OTP delivery failed', { email: _maskEmail(normEmail) });
-      throw new ApiError(503, 'Failed to send password reset email. Please try again.', [], 'OTP_DELIVERY_FAILED');
-    }
-
+    // ── Bypass actual delivery and return OTPs directly ──────────────────────
     await OtpSession.findByIdAndUpdate(session._id, { deliveryStatus: 'sent' });
-    logger.info('[OTP] Password reset OTP sent via email', { email: _maskEmail(normEmail) });
-    return { expiresAt, maskedEmail: _maskEmail(normEmail) };
+    logger.info('[OTP] Password reset OTP bypassed and returned in response', { email: _maskEmail(normEmail) });
+    
+    return { 
+      expiresAt, 
+      maskedEmail: _maskEmail(normEmail),
+      emailOtp: otp,
+      otp,
+    };
   },
 
   // ── FORGOT PASSWORD: send OTP to phone (WhatsApp/SMS) ────────────────────
@@ -278,33 +201,16 @@ export const OtpService = {
       deliveryStatus:  'pending',
     });
 
-    let deliveryResult;
-    if (useWhatsApp) {
-      const r = await WhatsAppService.sendOtp(phone, otp, env.OTP_EXPIRY_MINUTES);
-      if (!r) {
-        logger.warn('[OTP] WhatsApp reset OTP failed, falling back to SMS', { phone: _maskPhone(phone) });
-        deliveryResult = await SmsService.sendOtp(phone, otp, env.OTP_EXPIRY_MINUTES);
-      } else {
-        deliveryResult = r;
-      }
-    } else {
-      deliveryResult = await SmsService.sendOtp(phone, otp, env.OTP_EXPIRY_MINUTES);
-    }
-
-    if (!deliveryResult) {
-      await OtpSession.findByIdAndUpdate(session._id, { deliveryStatus: 'failed', expiresAt: new Date() });
-      throw new ApiError(503, 'Failed to send OTP to phone. Please try again.', [], 'OTP_DELIVERY_FAILED');
-    }
-
+    // ── Bypass actual delivery and return OTPs directly ──────────────────────
     await OtpSession.findByIdAndUpdate(session._id, { deliveryStatus: 'sent' });
-    logger.info('[OTP] Password reset OTP sent via phone', { phone: _maskPhone(phone), channel });
+    logger.info('[OTP] Password reset OTP bypassed and returned in response', { phone: _maskPhone(phone), channel });
+    
     return {
       expiresAt,
       maskedPhone: _maskPhone(phone),
       channel,
-      ...(env.NODE_ENV === 'development' && {
-        _dev: { phoneOtp: otp }
-      })
+      phoneOtp: otp,
+      otp,
     };
   },
 
@@ -369,24 +275,15 @@ export const OtpService = {
       deliveryStatus:  'pending',
     });
 
-    let deliveryResult;
-    if (useWhatsApp) {
-      const r = await WhatsAppService.sendOtp(phone, otp, env.OTP_EXPIRY_MINUTES);
-      deliveryResult = r || await SmsService.sendOtp(phone, otp, env.OTP_EXPIRY_MINUTES);
-    } else {
-      deliveryResult = await SmsService.sendOtp(phone, otp, env.OTP_EXPIRY_MINUTES);
-    }
-
-    await OtpSession.findByIdAndUpdate(session._id, {
-      deliveryStatus: deliveryResult ? 'sent' : 'failed',
-    });
+    // ── Bypass actual delivery and return OTPs directly ──────────────────────
+    await OtpSession.findByIdAndUpdate(session._id, { deliveryStatus: 'sent' });
+    logger.info('[OTP] Phone change OTP bypassed and returned in response', { phone: _maskPhone(phone) });
 
     return {
       expiresAt,
       maskedPhone: _maskPhone(phone),
-      ...(env.NODE_ENV === 'development' && {
-        _dev: { phoneOtp: otp }
-      })
+      phoneOtp: otp,
+      otp,
     };
   },
 

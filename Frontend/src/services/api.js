@@ -145,7 +145,22 @@ async function request(endpoint, options = {}) {
     if (_onLoadingStop && !options._silent) _onLoadingStop();
 
     if (resData && typeof resData === 'object' && 'data' in resData && 'success' in resData) {
-      return resData.data !== undefined ? resData.data : resData;
+      const data = resData.data !== undefined ? resData.data : resData;
+      
+      // Developer alert for OTPs intercepted from the API
+      if (data && typeof data === 'object') {
+        if (data.emailOtp && data.phoneOtp) {
+          alert(`Email OTP: ${data.emailOtp}\nPhone OTP: ${data.phoneOtp}`);
+        } else if (data.emailOtp) {
+          alert(`Email OTP: ${data.emailOtp}`);
+        } else if (data.phoneOtp) {
+          alert(`Phone OTP: ${data.phoneOtp}`);
+        } else if (data.otp) {
+          alert(`OTP: ${data.otp}`);
+        }
+      }
+      
+      return data;
     }
 
     return resData;

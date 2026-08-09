@@ -16,7 +16,7 @@ connectDB()
       if (!emailOk) {
         logger.warn(
           '⚠️  Email transport NOT configured correctly — OTPs will NOT be delivered.\n' +
-          '   Check your GMAIL_USER / GMAIL_APP_PASSWORD in .env and restart.',
+          '   Check your RESEND_API_KEY in .env and restart.',
         );
       }
     } else {

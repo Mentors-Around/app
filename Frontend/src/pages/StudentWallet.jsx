@@ -35,27 +35,35 @@ const StudentWallet = () => {
         setLoading(true);
         const res = await api.user.getPayments().catch(() => []);
         const list = Array.isArray(res) ? res : (res?.docs || res?.payments || []);
-        if (list.length > 0) {
-          const mapped = list.map(p => {
-            const rawTitle = p.description || p.purpose || p.type || 'Transaction';
-            const cleanTitle = rawTitle.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            return {
-              id: p._id || p.id,
-              date: p.createdAt || new Date().toISOString(),
-              type: p.purpose || p.type || 'Payment',
-              amount: Math.abs(p.amountPaise ? p.amountPaise / 100 : (p.amount || 0)),
-              status: p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Captured',
-              isCredit: p.type === 'deposit' || p.isCredit || (p.amountPaise > 0 && !p.purpose?.includes('enrollment')),
-              title: cleanTitle,
-            };
-          });
-          setTransactions(mapped);
-        } else {
-          setTransactions(studentWallet?.transactions || []);
-        }
+        
+        const mappedDb = list.map(p => {
+          const rawTitle = p.description || p.purpose || p.type || 'Transaction';
+          const cleanTitle = rawTitle.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          const isDepositOrCredit = p.purpose === 'cash_deposit' || p.type === 'deposit' || p.isCredit || (p.totalAmountPaise > 0 && !p.purpose?.includes('enrollment') && !p.purpose?.includes('token'));
+          return {
+            id: p._id || p.id,
+            date: p.createdAt || new Date().toISOString(),
+            type: p.purpose ? p.purpose.replace(/_/g, ' ').toUpperCase() : (p.type || 'Payment'),
+            amount: Math.abs(p.totalAmountPaise ? p.totalAmountPaise / 100 : (p.amountPaise ? p.amountPaise / 100 : (p.amount || 0))),
+            status: p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Completed',
+            isCredit: isDepositOrCredit,
+            title: cleanTitle,
+          };
+        });
+
+        const localTxns = studentWallet?.transactions || [];
+        const mergedMap = new Map();
+        [...mappedDb, ...localTxns].forEach(t => {
+          const key = t.id || t.date;
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, t);
+          }
+        });
+        const finalTxns = Array.from(mergedMap.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
+        setTransactions(finalTxns);
       } catch (err) {
         console.warn('Failed to load payments:', err);
-        setTransactions(studentWallet?.transactions || []);
+        setTransactions((studentWallet?.transactions || []).sort((a, b) => new Date(b.date) - new Date(a.date)));
       } finally {
         setLoading(false);
       }

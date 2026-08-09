@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Hari, Rohit, Sugyan } from '../assets/team';
 
 const AboutUs = () => {
   useEffect(() => { document.title = 'About Us — TrueEd'; }, []);
@@ -75,32 +76,26 @@ const AboutUs = () => {
           <h2 className="font-sora text-3xl md:text-4xl font-extrabold text-navy tracking-tight mb-4">Meet the Team</h2>
           <p className="text-lg text-slate-500 font-medium">Building India's most trusted student–teacher learning platform.</p>
         </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
           {[
             {
               name: "Rohit Kumar",
-              role: "Founder",
+              role: "CEO",
               initials: "RK",
-              image: null
+              image: Rohit
             },
             {
-              name: "Sugayan Singh",
-              role: "Co-Founder",
+              name: "Sugyan Singh",
+              role: "CTO",
               initials: "SS",
-              image: null
-            },
-            {
-              name: "Akanksha",
-              role: "Co-Founder",
-              initials: "AK",
-              image: null
+              image: Sugyan
             },
             {
               name: "Hari Prasad L",
-              role: "Co-Founder",
+              role: "COO",
               initials: "HP",
-              image: null
+              image: Hari
             }
           ].map((f, i) => (
             <div key={i} className="text-center bg-white p-10 rounded-[20px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-300 flex flex-col items-center justify-center animate-fade-in-up h-full" style={{ animationDelay: `${i * 100}ms` }}>

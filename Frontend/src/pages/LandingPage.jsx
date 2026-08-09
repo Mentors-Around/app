@@ -15,10 +15,8 @@ const LandingPage = () => {
   return (
     <>
       <Hero />
-      <SubjectCarousel />
       <HowItWorks />
       <ForWhom />
-      <RefundPolicy />
       <TrustStats />
       <CTASection />
     </>

@@ -172,7 +172,6 @@ const App = () => {
           <Route path="/about" element={<AboutUs />} />
           <Route path="/teacher/earnings-info" element={<TeacherEarningsInfo />} />
           <Route path="/teacher/verification" element={<TeacherVerification />} />
-          <Route path="/community" element={<Community />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/privacy" element={<Legal />} />
           <Route path="/privacy-policy" element={<Legal />} />
@@ -185,7 +184,6 @@ const App = () => {
           <Route path="/tutor/:id" element={<PublicTeacherProfile />} />
           <Route path="/student/:studentId" element={<PublicStudentProfile />} />
           <Route path="/classroom/:classroomId" element={<StudentClassroomDetails />} />
-          <Route path="/coaching-centers" element={<CoachingCenters />} />
           <Route path="/how-payments-work" element={<HowPaymentsWork />} />
           <Route path="/lessons/:subject" element={<SubjectLandingPage />} />
           <Route path="/lessons/:subject/:city/:teacherSlug" element={<PublicTeacherProfile />} />

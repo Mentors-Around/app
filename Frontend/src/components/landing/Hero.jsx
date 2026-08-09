@@ -19,14 +19,9 @@ const Hero = () => {
   return (
     <section className="min-h-screen bg-gradient-to-b from-cream to-cream-warm flex flex-col items-center justify-center pt-36 pb-20 px-6 text-center relative overflow-hidden hero-glow-right hero-glow-left">
       <div className="relative z-10 max-w-[700px] w-full">
-        <h1 className="font-sora font-extrabold leading-[1.1] text-navy mb-4 tracking-tight text-[2.4rem] md:text-[3.6rem]">
+        <h1 className="font-sora font-extrabold leading-[1.1] text-navy mb-8 tracking-tight text-[2.4rem] md:text-[3.6rem]">
           Find your<br />perfect <span className="text-amber">teacher</span>
         </h1>
-        <p className="text-muted text-lg mb-12">
-          Verified tutors for CBSE, ICSE &amp; State boards.
-        </p>
-
-        <SearchBar />
 
         {/* Trust pills */}
         <div className="flex items-center justify-center gap-4 flex-wrap">

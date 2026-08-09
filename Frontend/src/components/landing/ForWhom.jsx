@@ -11,7 +11,6 @@ const cards = [
       'View teacher photo, subjects, experience',
       'Secure payments',
       'One-click refund if teacher no-show',
-      'Call teacher directly after booking',
     ],
     cta: 'Find a Teacher',
     to: '/student/discover',

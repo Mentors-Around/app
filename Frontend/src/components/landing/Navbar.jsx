@@ -32,7 +32,6 @@ const Navbar = () => {
           <Link to="/#how" onClick={() => scrollTo('how')} className="text-navy/70 text-sm font-medium hover:text-navy transition">How it Works</Link>
           <Link to="/#for-students" onClick={() => scrollTo('for-students')} className="text-navy/70 text-sm font-medium hover:text-navy transition">For Students</Link>
           <Link to="/#for-teachers" onClick={() => scrollTo('for-teachers')} className="text-navy/70 text-sm font-medium hover:text-navy transition">For Teachers</Link>
-          <Link to="/coaching-centers" className="text-navy/70 text-sm font-medium hover:text-navy transition">For Coaching Centers</Link>
           {user ? (
             <Link to={getDashboardRoute(user.role)} className="bg-navy text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-navy-light transition">
               Dashboard
@@ -80,7 +79,6 @@ const Navbar = () => {
         <Link to="/#how" onClick={() => { scrollTo('how'); closeOverlay(); }} className="text-navy/70 font-semibold text-lg">How it Works</Link>
         <Link to="/#for-students" onClick={() => { scrollTo('for-students'); closeOverlay(); }} className="text-navy/70 font-semibold text-lg">For Students</Link>
         <Link to="/#for-teachers" onClick={() => { scrollTo('for-teachers'); closeOverlay(); }} className="text-navy/70 font-semibold text-lg">For Teachers</Link>
-        <Link to="/coaching-centers" onClick={() => closeOverlay()} className="text-navy/70 font-semibold text-lg">For Coaching Centers</Link>
       </div>
       
       {/* Mobile Drawer Overlay */}

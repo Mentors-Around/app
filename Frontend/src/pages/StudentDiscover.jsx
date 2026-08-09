@@ -83,6 +83,14 @@ const searchSubjects = [
 
 const classGroups = [
   {
+    title: "Classroom Category",
+    classes: ["Academic", "Non-Academic"]
+  },
+  {
+    title: "Non-Academic Subjects",
+    classes: ["Fitness", "Guitar", "Piano", "Yoga", "Singing", "Dance", "Karate", "Chess", "Drawing", "Painting", "Photography", "Public Speaking", "Other"]
+  },
+  {
     title: "Primary School",
     classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]
   },
@@ -624,28 +632,43 @@ const StudentDiscover = () => {
               </button>
               <FilterDropdown overlayRef={classGradeRefs.overlayRef} isOpen={openDropdown === 'classGrade'} onClose={() => closeOverlay()} onApply={applyDropdown}>
                 <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
-                  {classGroups.map(group => (
-                    <div key={group.title}>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{group.title}</h4>
-                      <div className="space-y-3">
-                        {group.classes.map(cls => {
-                          const checked = (localFilters.classGrades || []).includes(cls);
-                          return (
-                            <label key={cls} className="flex items-center justify-between cursor-pointer group">
-                              <span className={`text-sm font-medium ${checked ? 'text-navy' : 'text-slate-700 group-hover:text-navy'}`}>{cls}</span>
-                              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${checked ? 'bg-[#1B2D5B] border-[#1B2D5B]' : 'bg-white border-slate-300 group-hover:border-[#1B2D5B]'}`}>
-                                {checked && <i className="fa-solid fa-check text-white text-xs" />}
-                              </div>
-                              <input type="checkbox" className="sr-only" checked={checked} onChange={() => {
-                                const arr = localFilters.classGrades || [];
-                                setLocalFilters({ ...localFilters, classGrades: checked ? arr.filter(x => x !== cls) : [...arr, cls] });
-                              }} />
-                            </label>
-                          )
-                        })}
+                  {classGroups.map(group => {
+                    const isAcademicGradeGroup = !["Classroom Category", "Non-Academic Subjects"].includes(group.title);
+                    const isNonAcademicSelected = (localFilters.classGrades || []).includes("Non-Academic");
+                    const isBlurred = isAcademicGradeGroup && isNonAcademicSelected;
+
+                    return (
+                      <div key={group.title} className={`transition-all duration-300 ${isBlurred ? 'opacity-40 pointer-events-none blur-[1px]' : ''}`}>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                          <span>{group.title}</span>
+                          {isBlurred && <span className="text-[10px] text-amber-600 font-bold">N/A for Non-Academic</span>}
+                        </h4>
+                        <div className="space-y-3">
+                          {group.classes.map(cls => {
+                            const checked = (localFilters.classGrades || []).includes(cls);
+                            return (
+                              <label key={cls} className="flex items-center justify-between cursor-pointer group">
+                                <span className={`text-sm font-medium ${checked ? 'text-navy' : 'text-slate-700 group-hover:text-navy'}`}>{cls}</span>
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${checked ? 'bg-[#1B2D5B] border-[#1B2D5B]' : 'bg-white border-slate-300 group-hover:border-[#1B2D5B]'}`}>
+                                  {checked && <i className="fa-solid fa-check text-white text-xs" />}
+                                </div>
+                                <input type="checkbox" className="sr-only" disabled={isBlurred} checked={checked} onChange={() => {
+                                  const arr = localFilters.classGrades || [];
+                                  if (cls === 'Non-Academic') {
+                                    // Deselect Academic if selecting Non-Academic
+                                    const next = checked ? arr.filter(x => x !== cls) : [...arr.filter(x => ["Classroom Category", "Non-Academic Subjects", "Academic", "Fitness", "Guitar", "Piano", "Yoga", "Singing", "Dance", "Karate", "Chess", "Drawing", "Painting", "Photography", "Public Speaking", "Other"].includes(x)), cls];
+                                    setLocalFilters({ ...localFilters, classGrades: next });
+                                  } else {
+                                    setLocalFilters({ ...localFilters, classGrades: checked ? arr.filter(x => x !== cls) : [...arr, cls] });
+                                  }
+                                }} />
+                              </label>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </FilterDropdown>
             </div>
@@ -766,33 +789,6 @@ const StudentDiscover = () => {
                 </div>
               </FilterDropdown>
             </div>
-
-            {/* Pill: Response time */}
-            <div className="relative">
-              <button ref={responseRefs.triggerRef} onClick={() => toggleDropdown('response')} className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${isActive.response ? 'bg-[#1B2D5B] text-white border-[#1B2D5B]' : 'bg-white text-slate-700 border-slate-300 hover:border-[#1B2D5B]'}`}>
-                Response time <i className={`fa-solid fa-chevron-down text-[10px] ${isActive.response ? 'text-white' : 'text-slate-400'}`} />
-                {isActive.response && <span onClick={(e) => clearSingleFilter('response', e)} className="ml-1 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i className="fa-solid fa-xmark text-[11px]" /></span>}
-              </button>
-              <FilterDropdown overlayRef={responseRefs.overlayRef} isOpen={openDropdown === 'response'} onClose={() => closeOverlay()} onApply={applyDropdown}>
-                <div className="space-y-4">
-                  {responseTimes.map(opt => {
-                    const checked = localFilters.quickResponse === opt || (opt === 'Any' && !localFilters.quickResponse);
-                    return (
-                      <label key={opt} className="flex items-center justify-between cursor-pointer group">
-                        <span className={`text-base font-medium ${checked ? 'text-navy' : 'text-slate-700'}`}>{opt}</span>
-                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${checked ? 'border-[#1B2D5B]' : 'border-slate-300'}`}>
-                          {checked && <div className="w-2.5 h-2.5 rounded-full bg-[#1B2D5B]" />}
-                        </div>
-                        <input type="radio" name="response_time" className="sr-only" checked={checked} onChange={() => {
-                          setLocalFilters({ ...localFilters, quickResponse: opt === 'Any' ? null : opt })
-                        }} />
-                      </label>
-                    )
-                  })}
-                </div>
-              </FilterDropdown>
-            </div>
-
 
             {/* Pill: Rating */}
             <div className="relative">

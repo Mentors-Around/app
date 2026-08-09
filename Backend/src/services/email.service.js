@@ -1,56 +1,24 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/services/email.service.js
 // ─────────────────────────────────────────────────────────────────────────────
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import env        from '../config/env.config.js';
 import logger     from '../config/logger.config.js';
 
-let _transporter = null;
+let _resendInstance = null;
 
-const getTransporter = () => {
-  if (_transporter) return _transporter;
+const getResendClient = () => {
+  if (_resendInstance) return _resendInstance;
 
-  if (env.EMAIL_PROVIDER === 'mock') {
-    _transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      auth: { user: env.ETHEREAL_USER || 'test@ethereal.email', pass: env.ETHEREAL_PASS || 'testpass' },
-    });
-    logger.info('[Email] Using Ethereal mock transport — no real emails will be sent');
-    return _transporter;
+  if (!env.RESEND_API_KEY) {
+    throw new Error(
+      'EMAIL_PROVIDER=resend requires RESEND_API_KEY in .env\n' +
+      'Get your API Key at: https://resend.com/api-keys',
+    );
   }
-
-  if (env.EMAIL_PROVIDER === 'gmail') {
-    if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
-      throw new Error(
-        'EMAIL_PROVIDER=gmail requires GMAIL_USER and GMAIL_APP_PASSWORD in .env\n' +
-        'Generate an App Password at: https://myaccount.google.com → Security → App passwords',
-      );
-    }
-    _transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth:    { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD },
-    });
-    logger.info('[Email] Gmail transport initialised', { user: env.GMAIL_USER });
-    return _transporter;
-  }
-
-  if (env.EMAIL_PROVIDER === 'smtp') {
-    if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
-      throw new Error('EMAIL_PROVIDER=smtp requires SMTP_HOST, SMTP_USER and SMTP_PASS in .env');
-    }
-    _transporter = nodemailer.createTransport({
-      host:   env.SMTP_HOST,
-      port:   Number(env.SMTP_PORT) || 587,
-      secure: Number(env.SMTP_PORT) === 465,
-      auth:   { user: env.SMTP_USER, pass: env.SMTP_PASS },
-      tls:    { rejectUnauthorized: env.NODE_ENV === 'production' },
-    });
-    logger.info('[Email] SMTP transport initialised', { host: env.SMTP_HOST });
-    return _transporter;
-  }
-
-  throw new Error(`Unknown EMAIL_PROVIDER="${env.EMAIL_PROVIDER}". Valid values: gmail | smtp | mock`);
+  _resendInstance = new Resend(env.RESEND_API_KEY);
+  logger.info('[Email] Resend client initialised');
+  return _resendInstance;
 };
 
 // ── HTML builders ─────────────────────────────────────────────────────────────
@@ -135,37 +103,44 @@ export const EmailService = {
       return null;
     }
 
-    const from = env.EMAIL_FROM
-      || `TrueEd <${env.GMAIL_USER || env.SMTP_USER || 'noreply@trueed.in'}>`;
+    if (env.EMAIL_PROVIDER === 'mock') {
+      logger.info('[Email] MOCK mode — skipping email dispatch', { to: _maskEmail(to), subject });
+      console.log(`\n📧 MOCK EMAIL TO: ${to}\nSUBJECT: ${subject}\n`);
+      return { id: 'mock-' + Date.now() };
+    }
+
+    const from = env.EMAIL_FROM || 'TrueEd <onboarding@resend.dev>';
 
     try {
-      const transport = getTransporter();
-      const info      = await transport.sendMail({ from, to, subject, html, text });
+      const resend = getResendClient();
+      const { data, error } = await resend.emails.send({
+        from,
+        to,
+        subject,
+        html,
+        ...(text ? { text } : {}),
+      });
 
-      if (env.EMAIL_PROVIDER === 'mock') {
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        logger.debug('[Email] MOCK — open this URL to read the email in browser', { previewUrl });
-        console.log('\n📧 EMAIL PREVIEW (copy into browser):', previewUrl, '\n');
+      if (error) {
+        throw new Error(error.message || JSON.stringify(error));
       }
 
-      logger.info('[Email] Sent successfully', {
-        to: _maskEmail(to), subject, messageId: info.messageId,
+      logger.info('[Email] Sent successfully via Resend', {
+        to: _maskEmail(to), subject, messageId: data?.id,
       });
-      return info;
+      return data;
 
     } catch (err) {
-      logger.error('[Email] ❌ DELIVERY FAILED', {
+      logger.error('[Email] ❌ DELIVERY FAILED (Resend)', {
         to: _maskEmail(to), subject,
         provider:   env.EMAIL_PROVIDER,
-        errorCode:  err.code || 'UNKNOWN',
         errorMsg:   err.message,
-        gmailUser:  env.GMAIL_USER || '(not set)',
-        hasAppPass: !!env.GMAIL_APP_PASSWORD,
+        hasApiKey:  !!env.RESEND_API_KEY,
       });
 
       if (env.NODE_ENV === 'development') {
         const hint = _getErrorHint(err);
-        throw new Error(`[Email] Gmail delivery failed: ${err.message}${hint}`);
+        throw new Error(`[Email] Resend delivery failed: ${err.message}${hint}`);
       }
       return null;
     }
@@ -269,18 +244,16 @@ export const EmailService = {
       logger.info('[Email] Mock provider — skipping connection check');
       return true;
     }
+    if (!env.RESEND_API_KEY) {
+      logger.error('[Email] ❌ RESEND_API_KEY is missing in .env');
+      return false;
+    }
     try {
-      const transport = getTransporter();
-      await transport.verify();
-      logger.info('[Email] ✅ Transporter connection verified successfully');
+      getResendClient();
+      logger.info('[Email] ✅ Resend client initialised successfully');
       return true;
     } catch (err) {
-      logger.error('[Email] ❌ Transporter connection FAILED', {
-        error: err.message, errorCode: err.code || 'UNKNOWN', hint: _getErrorHint(err),
-      });
-      console.error('\n⛔ EMAIL SETUP PROBLEM:', err.message);
-      console.error(_getErrorHint(err));
-      console.error('Fix this before OTPs will be delivered.\n');
+      logger.error('[Email] ❌ Resend setup failed', { error: err.message });
       return false;
     }
   },
@@ -293,16 +266,18 @@ const _maskEmail = (email) => {
 };
 
 const _getErrorHint = (err) => {
-  const code = err.code || '';
-  const msg  = err.message || '';
-  if (code === 'EAUTH' || msg.includes('535') || msg.includes('Authentication')) {
+  const msg = err.message || '';
+  if (msg.includes('API key') || msg.includes('unauthorized') || msg.includes('401')) {
     return (
-      '\n💡 FIX: Gmail authentication failed.\n' +
-      '   1. myaccount.google.com → Security → 2-Step Verification → App passwords\n' +
-      '   2. Generate a new App Password → paste 16-char code (no spaces) in GMAIL_APP_PASSWORD'
+      '\n💡 FIX: Resend API Key is invalid or unauthorized.\n' +
+      '   Check RESEND_API_KEY in .env (starts with re_).'
     );
   }
-  if (code === 'ECONNECTION' || code === 'ECONNREFUSED') return '\n💡 FIX: Cannot reach smtp.gmail.com. Check internet connection.';
-  if (code === 'ETIMEDOUT') return '\n💡 FIX: Connection timed out. Network may be blocking port 587/465.';
-  return '\n💡 See https://nodemailer.com/smtp/ for SMTP troubleshooting.';
+  if (msg.includes('domain') || msg.includes('testing')) {
+    return (
+      '\n💡 FIX: Domain verification issue in Resend.\n' +
+      '   If using onboarding@resend.dev, you can only send to your account registered email.'
+    );
+  }
+  return '\n💡 See https://resend.com/docs for Resend API documentation.';
 };

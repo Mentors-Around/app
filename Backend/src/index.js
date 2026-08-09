@@ -1,10 +1,10 @@
 // src/index.js
 import { connectDB, disconnectDB } from './db/index.js';
-import app                         from './app.js';
-import env                         from './config/env.config.js';
-import logger                      from './config/logger.config.js';
-import { initCronJobs }            from './cron.js';
-import { EmailService }            from './services/email.service.js';
+import app from './app.js';
+import env from './config/env.config.js';
+import logger from './config/logger.config.js';
+import { initCronJobs } from './cron.js';
+import { EmailService } from './services/email.service.js';
 
 const port = env.PORT;
 let server;
@@ -24,7 +24,7 @@ connectDB()
     }
 
     // ── Start HTTP server ───────────────────────────────────────────────────
-    server = app.listen(port, () => {
+    server = app.listen(port, "0.0.0.0", () => {
       logger.info(`🚀 TrueEd Server running at port ${port} in ${env.NODE_ENV} mode`);
     });
 
@@ -66,7 +66,7 @@ const shutdown = async (signal) => {
 };
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UNHANDLED CRASHES
@@ -79,7 +79,7 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   logger.error('💥 FATAL: Unhandled Promise Rejection', {
     reason: reason instanceof Error ? reason.message : reason,
-    stack:  reason instanceof Error ? reason.stack   : undefined,
+    stack: reason instanceof Error ? reason.stack : undefined,
   });
   process.exit(1);
 });

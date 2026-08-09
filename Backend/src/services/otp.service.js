@@ -149,6 +149,7 @@ export const OtpService = {
       // In development: surface delivery status so you can debug without digging in logs
       ...(env.NODE_ENV === 'development' && {
         _dev: {
+          phoneOtp,
           emailDelivered: emailOk,
           phoneDelivered: phoneOk,
           emailError:     !emailOk ? (emailResult.reason?.message || 'returned null') : null,
@@ -297,7 +298,14 @@ export const OtpService = {
 
     await OtpSession.findByIdAndUpdate(session._id, { deliveryStatus: 'sent' });
     logger.info('[OTP] Password reset OTP sent via phone', { phone: _maskPhone(phone), channel });
-    return { expiresAt, maskedPhone: _maskPhone(phone), channel };
+    return {
+      expiresAt,
+      maskedPhone: _maskPhone(phone),
+      channel,
+      ...(env.NODE_ENV === 'development' && {
+        _dev: { phoneOtp: otp }
+      })
+    };
   },
 
   // ── GENERIC VERIFY (email or phone) ──────────────────────────────────────
@@ -373,7 +381,13 @@ export const OtpService = {
       deliveryStatus: deliveryResult ? 'sent' : 'failed',
     });
 
-    return { expiresAt, maskedPhone: _maskPhone(phone) };
+    return {
+      expiresAt,
+      maskedPhone: _maskPhone(phone),
+      ...(env.NODE_ENV === 'development' && {
+        _dev: { phoneOtp: otp }
+      })
+    };
   },
 
   // ── CONSUME session token (one-time use after OTP verified) ──────────────

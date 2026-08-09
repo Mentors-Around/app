@@ -120,8 +120,12 @@ const Signup = () => {
     setError('');
     setLoading(true);
     try {
-      await sendSignupOTP(email, phone, role);
-      setSuccess('Verification codes sent! Check your email for Email OTP & terminal for Phone OTP.');
+      const res = await sendSignupOTP(email, phone, role);
+      const phoneCode = res?._dev?.phoneOtp;
+      if (phoneCode) {
+        alert(`📱 [DEV OTP ALERT]\nYour Phone OTP is: ${phoneCode}`);
+      }
+      setSuccess('Verification codes sent! Check your email for Email OTP.');
       setStep(3);
     } catch (err) {
       setError(err.message || 'Failed to send verification codes.');
@@ -483,7 +487,7 @@ const Signup = () => {
                 maxLength="6"
                 value={phoneOtp}
                 onChange={(e) => setPhoneOtp(e.target.value)}
-                placeholder="6-digit Phone OTP (Logged to Terminal)"
+                placeholder="6-digit Phone OTP"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-bold text-navy focus:outline-none focus:border-navy focus:bg-white transition"
               />
             </div>

@@ -129,9 +129,11 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
-      await sendPhoneOTP(cleanPhone);
+      const res = await sendPhoneOTP(cleanPhone);
       setOtpSent(true);
       setOtpCooldown(30);
+      const otpCode = res?._dev?.phoneOtp || '123456';
+      alert(`📱 [DEV OTP ALERT]\nYour Phone OTP is: ${otpCode}`);
       setSuccess('Demo OTP is 123456');
     } catch (err) {
       setError(err.message || 'Failed to send OTP.');

@@ -1,4 +1,5 @@
 import env from "./env.config.js";
+import ApiError from "../utils/ApiError.js";
 
 const allowedOriginsSet = new Set(env.ALLOWED_ORIGINS);
 
@@ -7,12 +8,12 @@ const corsOptions = {
     // Allow server-to-server (no origin) only in non-production
     if (!origin) {
       if (env.NODE_ENV !== "production") return callback(null, true);
-      return callback(new Error("Origin header required in production"));
+      return callback(new ApiError(403, "Origin header required in production"));
     }
     if (allowedOriginsSet.has(origin)) {
       callback(null, true);
     } else {
-      callback(new Error(`CORS: origin '${origin}' not allowed`));
+      callback(new ApiError(403, `CORS: origin '${origin}' not allowed`));
     }
   },
 

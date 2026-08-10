@@ -1,5 +1,5 @@
 // Frontend/src/services/api.js
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://trued.onrender.com/api/v1';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://trueed.onrender.com/api/v1';
 
 /**
  * Generate a unique Idempotency-Key for sensitive POST/PATCH operations

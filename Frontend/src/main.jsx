@@ -10,7 +10,7 @@ import Logo from './components/shared/Logo';
 
 // Initialize Sentry error monitoring
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN || "";
-if (sentryDsn) {
+if (sentryDsn && sentryDsn.startsWith("http")) {
   Sentry.init({
     dsn: sentryDsn,
     integrations: [

@@ -1,7 +1,9 @@
 import env from "./env.config.js";
 import ApiError from "../utils/ApiError.js";
 
-const allowedOriginsSet = new Set(env.ALLOWED_ORIGINS);
+const allowedOriginsSet = new Set(
+  env.ALLOWED_ORIGINS.map((url) => url.trim().replace(/\/+$/, ""))
+);
 
 const corsOptions = {
   origin(origin, callback) {
@@ -10,7 +12,8 @@ const corsOptions = {
       if (env.NODE_ENV !== "production") return callback(null, true);
       return callback(new ApiError(403, "Origin header required in production"));
     }
-    if (allowedOriginsSet.has(origin)) {
+    const cleanOrigin = origin.trim().replace(/\/+$/, "");
+    if (allowedOriginsSet.has(cleanOrigin)) {
       callback(null, true);
     } else {
       callback(new ApiError(403, `CORS: origin '${origin}' not allowed`));

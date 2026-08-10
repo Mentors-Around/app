@@ -8,7 +8,7 @@ const commaSeparatedList = makeValidator((x) => {
     throw new Error("Expected a non-empty comma-separated string");
   return x
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/\/+$/, ""))
     .filter(Boolean);
 });
 

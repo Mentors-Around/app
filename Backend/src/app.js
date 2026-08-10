@@ -37,7 +37,8 @@ app.set('trust proxy', 1);
 
 // ── CORS — must be FIRST, before security headers and rate limiters ──────────
 // Handle OPTIONS preflight explicitly so rate limiters never reject it
-app.options('*', cors(corsOptions));
+// Note: use regex /.*/ instead of '*' — path-to-regexp v8+ (Node 24) rejects bare '*'
+app.options(/.*/, cors(corsOptions));
 app.use(cors(corsOptions));
 
 // ── Security headers (helmet, etc.) ──────────────────────────────────────────

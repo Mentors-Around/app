@@ -67,7 +67,7 @@ const env = cleanEnv(process.env, {
   MAX_CONCURRENT_UPLOADS:  num({ default: 50 }),
 
   // ── Email (Resend) ──────────────────────────────────────────────────────────
-  EMAIL_PROVIDER: str({ choices: ['resend', 'mock'], default: 'resend' }),
+  EMAIL_PROVIDER: str({ choices: ['resend', 'mock'], default: 'mock' }),
   EMAIL_FROM:     str({ default: 'TrueEd <onboarding@resend.dev>' }),
   RESEND_API_KEY: str({ default: '' }),
 

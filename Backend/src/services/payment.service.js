@@ -8,7 +8,7 @@ import { PLATFORM_FEE } from "../constants/app.constants.js";
 let razorpay = null;
 if (env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET) {
   razorpay = new Razorpay({
-    key_id:     env.RAZORPAY_KEY_ID,
+    key_id: env.RAZORPAY_KEY_ID,
     key_secret: env.RAZORPAY_KEY_SECRET,
   });
 }
@@ -27,9 +27,9 @@ export const PaymentService = {
     this._assertGateway();
     try {
       const order = await razorpay.orders.create({
-        amount:   amountPaise,
+        amount: amountPaise,
         currency,
-        receipt:  receipt?.substring(0, 40), // Razorpay limit
+        receipt: receipt?.substring(0, 40), // Razorpay limit
         notes,
       });
       logger.info("Razorpay order created", { orderId: order.id, amount: amountPaise });
@@ -46,8 +46,8 @@ export const PaymentService = {
   async createTokenPurchaseOrder(userId) {
     return this.createOrder({
       amountPaise: PLATFORM_FEE.TOKEN_PRICE_PAISE,
-      receipt:     `tok_${userId.toString().slice(-8)}_${Date.now()}`,
-      notes:       { purpose: "token_purchase", userId: userId.toString() },
+      receipt: `tok_${userId.toString().slice(-8)}_${Date.now()}`,
+      notes: { purpose: "token_purchase", userId: userId.toString() },
     });
   },
 
@@ -58,7 +58,7 @@ export const PaymentService = {
     return this.createOrder({
       amountPaise,
       receipt: `enr_${classroomId.toString().slice(-8)}_${Date.now()}`,
-      notes:   { purpose: "enrollment_fee", userId: userId.toString(), classroomId: classroomId.toString() },
+      notes: { purpose: "enrollment_fee", userId: userId.toString(), classroomId: classroomId.toString() },
     });
   },
 
@@ -76,7 +76,7 @@ export const PaymentService = {
       .digest("hex");
     return crypto.timingSafeEqual(
       Buffer.from(expected, "hex"),
-      Buffer.from(signature,  "hex")
+      Buffer.from(signature, "hex")
     );
   },
 
@@ -84,14 +84,14 @@ export const PaymentService = {
    * Verify client-side payment signature (after capture).
    */
   verifyPaymentSignature({ orderId, paymentId, signature }) {
-    const body     = `${orderId}|${paymentId}`;
+    const body = `${orderId}|${paymentId}`;
     const expected = crypto
       .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
       .update(body)
       .digest("hex");
     return crypto.timingSafeEqual(
       Buffer.from(expected, "hex"),
-      Buffer.from(signature,  "hex")
+      Buffer.from(signature, "hex")
     );
   },
 

@@ -11,12 +11,12 @@ import { PLATFORM_FEE } from "../constants/app.constants.js";
  * Platform takes 15%, teacher receives 89%.
  */
 export function calcCase1Split(enrollmentFeePaise) {
-  const pot         = enrollmentFeePaise; // 100% from student
+  const pot = enrollmentFeePaise; // 100% from student
   const platformCut = Math.round((pot * PLATFORM_FEE.PLATFORM_CUT_CASE1_PERCENT) / 100);
-  const teacherAmt  = pot - platformCut;  // 85% of student fee; teacher already "lost" 4% deposit
+  const teacherAmt = pot - platformCut;  // 85% of student fee; teacher already "lost" 4% deposit
 
   return {
-    case:         "case_1",
+    case: "case_1",
     studentRefund: 0,
     teacherPayout: teacherAmt,
     platformCut,
@@ -34,10 +34,10 @@ export function calcCase2Split(enrollmentFeePaise) {
     (enrollmentFeePaise * PLATFORM_FEE.TEACHER_DEPOSIT_PERCENT) / 100
   );
   return {
-    case:          "case_2",
+    case: "case_2",
     studentRefund: enrollmentFeePaise,
     teacherPayout: 0,
-    platformCut:   teacherDeposit, // keeps only the 4% deposit
+    platformCut: teacherDeposit, // keeps only the 4% deposit
     teacherDepositForfeited: teacherDeposit,
   };
 }
@@ -62,26 +62,26 @@ export function calcCase2Split(enrollmentFeePaise) {
 export function calcCase3Split(enrollmentFeePaise, classesAfterMidpoint, extraClassesConducted) {
   if (classesAfterMidpoint <= 0) classesAfterMidpoint = 1; // guard div-by-zero
 
-  const platformCut      = Math.round((enrollmentFeePaise * PLATFORM_FEE.PLATFORM_CUT_CASE3_PERCENT) / 100);
-  const teacherDeposit   = Math.round((enrollmentFeePaise * PLATFORM_FEE.TEACHER_DEPOSIT_PERCENT) / 100);
-  const remainder        = enrollmentFeePaise - platformCut; // 86% of student fee
+  const platformCut = Math.round((enrollmentFeePaise * PLATFORM_FEE.PLATFORM_CUT_CASE3_PERCENT) / 100);
+  const teacherDeposit = Math.round((enrollmentFeePaise * PLATFORM_FEE.TEACHER_DEPOSIT_PERCENT) / 100);
+  const remainder = enrollmentFeePaise - platformCut; // 86% of student fee
 
-  const studentFixed     = Math.round((enrollmentFeePaise * PLATFORM_FEE.STUDENT_FIXED_REFUND_CASE3_PERCENT) / 100); // 30%
-  const proRataPot       = remainder - studentFixed; // ~56% — split pro-rata
+  const studentFixed = Math.round((enrollmentFeePaise * PLATFORM_FEE.STUDENT_FIXED_REFUND_CASE3_PERCENT) / 100); // 30%
+  const proRataPot = remainder - studentFixed; // ~56% — split pro-rata
 
-  const ratio            = Math.min(extraClassesConducted / classesAfterMidpoint, 1);
-  const teacherProRata   = Math.round(proRataPot * ratio);
-  const studentProRata   = proRataPot - teacherProRata;
+  const ratio = Math.min(extraClassesConducted / classesAfterMidpoint, 1);
+  const teacherProRata = Math.round(proRataPot * ratio);
+  const studentProRata = proRataPot - teacherProRata;
 
-  const studentRefund    = studentFixed + studentProRata;
-  const teacherPayout    = teacherProRata; // teacher already "lost" 4% deposit
+  const studentRefund = studentFixed + studentProRata;
+  const teacherPayout = teacherProRata; // teacher already "lost" 4% deposit
   const actualPlatformCut = platformCut + teacherDeposit; // 14% + 4% = 18% of enrollment fee
 
   return {
-    case:          "case_3",
+    case: "case_3",
     studentRefund,
     teacherPayout,
-    platformCut:   actualPlatformCut,
+    platformCut: actualPlatformCut,
     breakdown: {
       platformPercent: PLATFORM_FEE.PLATFORM_CUT_CASE3_PERCENT,
       studentFixed,

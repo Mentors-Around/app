@@ -80,8 +80,8 @@ export const ClassroomService = {
     // Simple heuristic: half the scheduled sessions = midpoint
     const totalSlots = schedule.length;
     const midpointSlot = Math.ceil(totalSlots / 2);
-    const classesAfterMidpoint    = totalSlots - midpointSlot;
-    const completedAfterMidpoint  = Math.max(0, completedSessionIds.length - midpointSlot);
+    const classesAfterMidpoint = totalSlots - midpointSlot;
+    const completedAfterMidpoint = Math.max(0, completedSessionIds.length - midpointSlot);
 
     return { classesAfterMidpoint, completedAfterMidpoint };
   },

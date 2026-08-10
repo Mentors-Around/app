@@ -2,8 +2,8 @@
 // src/services/email.service.js
 // ─────────────────────────────────────────────────────────────────────────────
 import { Resend } from 'resend';
-import env        from '../config/env.config.js';
-import logger     from '../config/logger.config.js';
+import env from '../config/env.config.js';
+import logger from '../config/logger.config.js';
 
 let _resendInstance = null;
 
@@ -59,9 +59,9 @@ const buildReceiptHtml = ({
   const amountRupees = (amountPaise / 100).toFixed(2);
   const formattedDate = new Date(date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
   const typeLabels = {
-    token_purchase:  '🎟️  Token Purchase',
-    enrollment_fee:  '📚 Classroom Enrollment',
-    cash_deposit:    '💰 Wallet Deposit',
+    token_purchase: '🎟️  Token Purchase',
+    enrollment_fee: '📚 Classroom Enrollment',
+    cash_deposit: '💰 Wallet Deposit',
     cash_withdrawal: '🏦 Wallet Withdrawal',
     teacher_deposit: '🔒 Query Acceptance Deposit',
   };
@@ -133,9 +133,9 @@ export const EmailService = {
     } catch (err) {
       logger.error('[Email] ❌ DELIVERY FAILED (Resend)', {
         to: _maskEmail(to), subject,
-        provider:   env.EMAIL_PROVIDER,
-        errorMsg:   err.message,
-        hasApiKey:  !!env.RESEND_API_KEY,
+        provider: env.EMAIL_PROVIDER,
+        errorMsg: err.message,
+        hasApiKey: !!env.RESEND_API_KEY,
       });
 
       if (env.NODE_ENV === 'development') {
@@ -148,16 +148,16 @@ export const EmailService = {
 
   async sendOtp(to, otp, expiryMinutes = 10, purpose = 'login') {
     const subjectMap = {
-      register:     'Verify your TrueEd account',
-      login:        'Your TrueEd login code',
-      reset:        'Reset your TrueEd password',
+      register: 'Verify your TrueEd account',
+      login: 'Your TrueEd login code',
+      reset: 'Reset your TrueEd password',
       phone_change: 'TrueEd — verify phone change',
       email_change: 'TrueEd — verify your new email',
       email_verify: 'Verify your TrueEd email',
     };
     const subject = subjectMap[purpose] || 'Your TrueEd OTP';
-    const html    = buildOtpHtml(otp, expiryMinutes, purpose);
-    const text    = `Your TrueEd OTP: ${otp}\nValid for ${expiryMinutes} minutes. Never share this.`;
+    const html = buildOtpHtml(otp, expiryMinutes, purpose);
+    const text = `Your TrueEd OTP: ${otp}\nValid for ${expiryMinutes} minutes. Never share this.`;
     return this.send({ to, subject, html, text });
   },
 
@@ -172,8 +172,8 @@ export const EmailService = {
     if (!to) return null;
     const { description = 'TrueEd Transaction' } = receiptData;
     const subject = `TrueEd Receipt — ${description}`;
-    const html    = buildReceiptHtml(receiptData);
-    const text    = [
+    const html = buildReceiptHtml(receiptData);
+    const text = [
       `TrueEd Payment Receipt`,
       `Description: ${description}`,
       `Amount: ₹${(receiptData.amountPaise / 100).toFixed(2)}`,
@@ -206,10 +206,10 @@ export const EmailService = {
     const { studentName, classroomTitle, eventType, eventTitle, eventBody = '' } = data;
 
     const typeConfig = {
-      announcement: { emoji: '📢', label: 'New Announcement',       color: '#4F46E5' },
-      material:     { emoji: '📄', label: 'New Study Material',     color: '#059669' },
-      poll:         { emoji: '🗳️', label: 'New Poll / Vote',        color: '#D97706' },
-      session:      { emoji: '📅', label: 'Session Schedule Update', color: '#7C3AED' },
+      announcement: { emoji: '📢', label: 'New Announcement', color: '#4F46E5' },
+      material: { emoji: '📄', label: 'New Study Material', color: '#059669' },
+      poll: { emoji: '🗳️', label: 'New Poll / Vote', color: '#D97706' },
+      session: { emoji: '📅', label: 'Session Schedule Update', color: '#7C3AED' },
     };
     const config = typeConfig[eventType] || { emoji: '🔔', label: 'Classroom Update', color: '#4F46E5' };
 

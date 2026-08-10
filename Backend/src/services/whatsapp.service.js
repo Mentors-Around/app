@@ -4,7 +4,7 @@
 // Free tier: first 1,000 user-initiated conversations/month at no cost.
 // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
 // ─────────────────────────────────────────────────────────────────────────────
-import env    from '../config/env.config.js';
+import env from '../config/env.config.js';
 import logger from '../config/logger.config.js';
 
 const META_API_VERSION = 'v20.0';
@@ -19,9 +19,9 @@ const _send = async (payload) => {
   const url = `${BASE_URL}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
   const response = await fetch(url, {
-    method:  'POST',
+    method: 'POST',
     headers: {
-      'Content-Type':  'application/json',
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${env.WHATSAPP_TOKEN}`,
     },
     body: JSON.stringify(payload),
@@ -61,7 +61,7 @@ export const WhatsAppService = {
    * @param {number} expiryMinutes
    */
   async sendOtp(phone, otp, expiryMinutes = 10) {
-    const to           = normaliseForMeta(phone);
+    const to = normaliseForMeta(phone);
     const templateName = env.WHATSAPP_OTP_TEMPLATE || 'trueed_otp';
     const languageCode = env.WHATSAPP_TEMPLATE_LANG || 'en';
 
@@ -70,12 +70,12 @@ export const WhatsAppService = {
       to,
       type: 'template',
       template: {
-        name:     templateName,
+        name: templateName,
         language: { code: languageCode },
         components: [
           {
             // BODY component — passes the OTP as {{1}}
-            type:       'body',
+            type: 'body',
             parameters: [
               { type: 'text', text: otp },
             ],
@@ -83,9 +83,9 @@ export const WhatsAppService = {
           {
             // BUTTON component — Meta's OTP template has a "Copy Code" button
             // Remove this block if your template has no button
-            type:    'button',
+            type: 'button',
             sub_type: 'url',
-            index:   '0',
+            index: '0',
             parameters: [
               { type: 'text', text: otp },
             ],
@@ -97,14 +97,14 @@ export const WhatsAppService = {
     try {
       const result = await _send(payload);
       logger.info('WhatsApp OTP sent', {
-        to:       `****${phone.slice(-4)}`,
+        to: `****${phone.slice(-4)}`,
         template: templateName,
         messageId: result?.messages?.[0]?.id,
       });
       return result;
     } catch (err) {
       logger.error('WhatsApp OTP delivery failed', {
-        to:    `****${phone.slice(-4)}`,
+        to: `****${phone.slice(-4)}`,
         error: err.message,
       });
       // Never throw — caller decides whether to fall back
@@ -152,16 +152,16 @@ export const WhatsAppService = {
    */
   parseIncomingMessage(body) {
     try {
-      const entry   = body?.entry?.[0];
+      const entry = body?.entry?.[0];
       const changes = entry?.changes?.[0];
-      const value   = changes?.value;
+      const value = changes?.value;
       const message = value?.messages?.[0];
       if (!message) return null;
       return {
-        from:      message.from,
+        from: message.from,
         messageId: message.id,
-        type:      message.type,
-        text:      message.text?.body || null,
+        type: message.type,
+        text: message.text?.body || null,
         timestamp: message.timestamp,
       };
     } catch {

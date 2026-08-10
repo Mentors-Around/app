@@ -23,12 +23,12 @@ export const TokenService = {
    */
   generateTokenPair(user, rememberMe = false) {
     const payload = {
-      _id:  user._id.toString(),
+      _id: user._id.toString(),
       role: user.role,
       rememberMe,
     };
     return {
-      accessToken:  this.generateAccessToken(payload),
+      accessToken: this.generateAccessToken(payload),
       refreshToken: this.generateRefreshToken(payload),
     };
   },
@@ -58,21 +58,21 @@ export const TokenService = {
   getRefreshCookieOptions() {
     return {
       httpOnly: true,
-      secure:   env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: env.NODE_ENV === "production" ? "strict" : "lax",
-      maxAge:   7 * 24 * 60 * 60 * 1000,
-      domain:   env.REFRESH_TOKEN_COOKIE_DOMAIN || env.COOKIE_DOMAIN || undefined,
-      path:     "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      domain: env.REFRESH_TOKEN_COOKIE_DOMAIN || env.COOKIE_DOMAIN || undefined,
+      path: "/",
     };
   },
 
   getAccessCookieOptions() {
     return {
       httpOnly: true,
-      secure:   env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: env.NODE_ENV === "production" ? "strict" : "lax",
-      maxAge:   15 * 60 * 1000,
-      domain:   env.COOKIE_DOMAIN || undefined,
+      maxAge: 15 * 60 * 1000,
+      domain: env.COOKIE_DOMAIN || undefined,
     };
   },
 };

@@ -33,7 +33,7 @@ export const globalLimiter = rateLimit({
   ...sharedOptions,
   windowMs: env.RATE_LIMIT_WINDOW_MS,
   max: env.RATE_LIMIT_MAX_REQUESTS,
-  skip: (req) => env.NODE_ENV === "development" || req.path === "/health",
+  skip: (req) => env.NODE_ENV === "development" || req.method === 'OPTIONS' || req.path === "/health",
 });
 
 /**
@@ -45,6 +45,8 @@ export const authLimiter = rateLimit({
   windowMs: RATE_LIMITS.AUTH_WINDOW_MS,
   max: RATE_LIMITS.AUTH_MAX,
   skip: (req) => {
+    // Always skip OPTIONS preflight — CORS must handle these without interference
+    if (req.method === 'OPTIONS') return true;
     if (env.NODE_ENV === "development") return true;
     const exemptPaths = ["/refresh", "/logout", "/google", "/google/callback"];
     return exemptPaths.some(path => req.path.endsWith(path));

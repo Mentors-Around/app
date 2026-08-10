@@ -5,7 +5,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import Alert from '../../components/shared/Alert';
 
 const Login = () => {
-  const { login, loginWithPhone, sendPhoneOTP, user, getDashboardRoute, handleGoogleToken } = useAuth();
+  const { login, loginWithPhone, sendPhoneOTP, user, getDashboardRoute } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -31,21 +31,6 @@ const Login = () => {
   const emailRef = useRef(null);
   const phoneRef = useRef(null);
 
-  // Check for Google token in query params
-  useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      setLoading(true);
-      handleGoogleToken(token)
-        .then((res) => {
-          navigate(getDashboardRoute(res.role), { replace: true });
-        })
-        .catch((err) => {
-          setError(err.message || 'Google authentication failed.');
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [searchParams, handleGoogleToken, navigate, getDashboardRoute]);
 
   // Auto-login check
   useEffect(() => {
@@ -242,29 +227,6 @@ const Login = () => {
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
         </button>
       </form>
-
-      {/* Social Login */}
-      <div className="mt-6 relative flex items-center justify-center">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-200"></div>
-        </div>
-        <div className="relative bg-white px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          or continue with
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <button
-          onClick={() => {
-            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-            window.location.href = `${apiBase}/auth/google`;
-          }}
-          className="w-full py-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition flex items-center justify-center gap-3"
-        >
-          <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" className="w-5 h-5" />
-          Continue with Google
-        </button>
-      </div>
 
       <p className="mt-8 text-center text-sm font-semibold text-slate-500">
         Don't have an account?{' '}

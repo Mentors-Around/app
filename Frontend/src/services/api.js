@@ -78,6 +78,17 @@ async function request(endpoint, options = {}) {
   };
 
   let url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  
+  // Fail-safe: Clean up any malformed prefix in url before fetch
+  if (url.includes('VITE_API_BASE_URL=')) {
+    url = url.replace(/.*VITE_API_BASE_URL=\s*/, '');
+  }
+  if (url.includes('https:/') && !url.includes('https://')) {
+    url = url.replace('https:/', 'https://');
+  }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://trueed.onrender.com/api/v1/${url.replace(/^\/+/, '')}`;
+  }
   if (options.query && typeof options.query === 'object') {
     const params = new URLSearchParams();
     Object.entries(options.query).forEach(([k, v]) => {

@@ -1,5 +1,27 @@
 // Frontend/src/services/api.js
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://trueed.onrender.com/api/v1';
+const getSanitisedBaseUrl = () => {
+  let envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!envUrl || typeof envUrl !== 'string' || !envUrl.trim()) {
+    return 'https://trueed.onrender.com/api/v1';
+  }
+  // Strip accidental "VITE_API_BASE_URL=" prefix if pasted into Vercel value field
+  if (envUrl.includes('VITE_API_BASE_URL=')) {
+    envUrl = envUrl.replace(/.*VITE_API_BASE_URL=\s*/, '');
+  }
+  // Strip surrounding quotes or whitespace
+  envUrl = envUrl.replace(/^['"]|['"]$/g, '').trim();
+  // Fix single slash https:/ to https:// if malformed
+  envUrl = envUrl.replace(/^https?:\/*/, (match) => (match.startsWith('https') ? 'https://' : 'http://'));
+  // Strip trailing slashes
+  envUrl = envUrl.replace(/\/+$/, '');
+  
+  if (!envUrl.startsWith('http://') && !envUrl.startsWith('https://')) {
+    envUrl = `https://${envUrl}`;
+  }
+  return envUrl;
+};
+
+const BASE_URL = getSanitisedBaseUrl();
 
 /**
  * Generate a unique Idempotency-Key for sensitive POST/PATCH operations

@@ -12,9 +12,9 @@ const providers = {
     const response = await fetch(
       `https://api.msg91.com/api/v5/otp?template_id=${env.MSG91_TEMPLATE_ID}&mobile=${normalised}`,
       {
-        method:  "POST",
+        method: "POST",
         headers: {
-          authkey:        env.MSG91_API_KEY,
+          authkey: env.MSG91_API_KEY,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ message }),
@@ -31,9 +31,9 @@ const providers = {
     if (!env.FAST2SMS_API_KEY) throw new Error("FAST2SMS_API_KEY not configured");
     const mobile = phone.replace(/^\+?91/, "");
     const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
-      method:  "POST",
+      method: "POST",
       headers: {
-        authorization:  env.FAST2SMS_API_KEY,
+        authorization: env.FAST2SMS_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ route: "q", message, numbers: mobile }),
@@ -49,12 +49,12 @@ const providers = {
     if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_PHONE_NUMBER) {
       throw new Error("Twilio credentials not configured");
     }
-    const url         = `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`;
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`;
     const credentials = Buffer.from(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`).toString("base64");
-    const body        = new URLSearchParams({ From: env.TWILIO_PHONE_NUMBER, To: phone, Body: message });
+    const body = new URLSearchParams({ From: env.TWILIO_PHONE_NUMBER, To: phone, Body: message });
 
     const response = await fetch(url, {
-      method:  "POST",
+      method: "POST",
       headers: { Authorization: `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" },
       body,
     });
@@ -80,7 +80,7 @@ const providers = {
 export const SmsService = {
   async send(phone, message) {
     const provider = env.SMS_PROVIDER || "mock";
-    const handler  = providers[provider];
+    const handler = providers[provider];
     if (!handler) {
       logger.error("Unknown SMS provider", { provider });
       return null;

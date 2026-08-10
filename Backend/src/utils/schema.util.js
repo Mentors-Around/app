@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const { Schema } = mongoose;
 
 export const jsonTransform = {
-  virtuals:   true,
+  virtuals: true,
   versionKey: false,
   transform(_doc, ret) {
     ret.id = ret._id?.toString();
@@ -13,15 +13,15 @@ export const jsonTransform = {
 };
 
 export const toObjectOptions = {
-  virtuals:   true,
+  virtuals: true,
   versionKey: false,
 };
 
 export const auditSchema = new Schema(
   {
-    reviewedBy:  { type: Schema.Types.ObjectId, ref: "User", default: null },
-    reviewedAt:  { type: Date,   default: null },
-    reviewNote:  { type: String, trim: true, default: "" },
+    reviewedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewNote: { type: String, trim: true, default: "" },
     adminAction: { type: String, trim: true, default: "" },
   },
   { _id: false }
@@ -38,7 +38,7 @@ export const geoPointSchema = new Schema(
             Array.isArray(v) &&
             v.length === 2 &&
             v[0] >= -180 && v[0] <= 180 &&
-            v[1] >= -90  && v[1] <= 90
+            v[1] >= -90 && v[1] <= 90
           );
         },
         message: "Invalid GeoJSON coordinates [lng, lat]",
@@ -51,8 +51,8 @@ export const geoPointSchema = new Schema(
 /** Always store monetary values in PAISE */
 export function moneyField(opts = {}) {
   return {
-    type:    Number,
-    min:     [0, "Amount cannot be negative"],
+    type: Number,
+    min: [0, "Amount cannot be negative"],
     default: 0,
     ...opts,
   };
@@ -60,19 +60,19 @@ export function moneyField(opts = {}) {
 
 export const phoneValidator = {
   validator: (v) => /^\+?[1-9]\d{9,14}$/.test(v),
-  message:   (props) => `${props.value} is not a valid phone number`,
+  message: (props) => `${props.value} is not a valid phone number`,
 };
 
 export const urlValidator = {
   validator: (v) => !v || /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(v),
-  message:   "Must be a valid URL",
+  message: "Must be a valid URL",
 };
 
 export function enumField(enumObj, defaultVal, required = true) {
   return {
-    type:     String,
-    enum:     { values: Object.values(enumObj), message: "{VALUE} is not a valid value" },
-    default:  defaultVal,
+    type: String,
+    enum: { values: Object.values(enumObj), message: "{VALUE} is not a valid value" },
+    default: defaultVal,
     required,
   };
 }

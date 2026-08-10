@@ -3,7 +3,7 @@
 // Domain-level notification dispatcher.
 // Persists to Notification collection + sends SMS/push in parallel.
 // ─────────────────────────────────────────────────────────────────────────────
-import logger       from '../config/logger.config.js';
+import logger from '../config/logger.config.js';
 import { SmsService } from './sms.service.js';
 import { paiseToRupees } from '../utils/finance.util.js';
 
@@ -100,7 +100,7 @@ export const NotificationService = {
 
   async notifyClassReminder(students, classroom, scheduledAt) {
     const time = new Date(scheduledAt).toLocaleString('en-IN');
-    const msg  = `Reminder: Class for "${classroom.title}" starts at ${time}.`;
+    const msg = `Reminder: Class for "${classroom.title}" starts at ${time}.`;
     await Promise.allSettled([
       ...students.map((s) => this.sendSms(s.phone, msg)),
       ...students.map((s) => dispatch(s._id, 'upcoming_class', 'Class Reminder', msg, { classroomId: classroom._id })),

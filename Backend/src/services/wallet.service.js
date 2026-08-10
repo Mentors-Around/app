@@ -107,8 +107,8 @@ export const WalletService = {
       { studentId },
       {
         $inc: {
-          cashBalancePaise:         amountPaise,
-          totalCashDepositedPaise:  amountPaise,
+          cashBalancePaise: amountPaise,
+          totalCashDepositedPaise: amountPaise,
         },
       },
       { new: true, upsert: true, session },

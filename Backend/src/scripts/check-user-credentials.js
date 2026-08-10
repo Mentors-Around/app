@@ -11,7 +11,7 @@ async function run() {
   console.log('Connected to MongoDB');
 
   const emails = ['subhi.singh11m@gmail.com', 'sugyanworkplace@gmail.com', 'alex.nightfury60@gmail.com', 'alex.nightfury60'];
-  
+
   for (const email of emails) {
     const user = await User.findOne({
       $or: [{ email: email.toLowerCase() }, { name: email }],

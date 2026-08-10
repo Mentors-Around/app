@@ -15,7 +15,7 @@ export const CloudinaryService = {
       const stream = cloudinary.uploader.upload_stream(
         {
           resource_type: "auto",
-          folder:        options.folder || CLOUDINARY_FOLDERS.MATERIALS,
+          folder: options.folder || CLOUDINARY_FOLDERS.MATERIALS,
           ...options,
         },
         (error, result) => {
@@ -39,9 +39,9 @@ export const CloudinaryService = {
    */
   async uploadProfileImage(buffer, userId) {
     return this.uploadBuffer(buffer, {
-      folder:         CLOUDINARY_FOLDERS.PROFILE_IMAGES,
-      public_id:      `profile_${userId}`,
-      overwrite:      true,
+      folder: CLOUDINARY_FOLDERS.PROFILE_IMAGES,
+      public_id: `profile_${userId}`,
+      overwrite: true,
       transformation: [{ width: 400, height: 400, crop: "fill", gravity: "face" }],
     });
   },
@@ -51,7 +51,7 @@ export const CloudinaryService = {
    */
   async uploadKYCDocument(buffer, userId, docType) {
     return this.uploadBuffer(buffer, {
-      folder:    CLOUDINARY_FOLDERS.KYC_DOCUMENTS,
+      folder: CLOUDINARY_FOLDERS.KYC_DOCUMENTS,
       public_id: `kyc_${userId}_${docType}_${Date.now()}`,
     });
   },
@@ -61,7 +61,7 @@ export const CloudinaryService = {
    */
   async uploadClassroomMedia(buffer, classroomId, index = 0) {
     return this.uploadBuffer(buffer, {
-      folder:    CLOUDINARY_FOLDERS.CLASSROOM_MEDIA,
+      folder: CLOUDINARY_FOLDERS.CLASSROOM_MEDIA,
       public_id: `classroom_${classroomId}_${index}_${Date.now()}`,
     });
   },
@@ -71,7 +71,7 @@ export const CloudinaryService = {
    */
   async uploadMaterial(buffer, classroomId, fileName) {
     return this.uploadBuffer(buffer, {
-      folder:    CLOUDINARY_FOLDERS.MATERIALS,
+      folder: CLOUDINARY_FOLDERS.MATERIALS,
       public_id: `material_${classroomId}_${Date.now()}`,
       use_filename: true,
       unique_filename: false,
@@ -83,7 +83,7 @@ export const CloudinaryService = {
    */
   async uploadSubmission(buffer, assignmentId, studentId) {
     return this.uploadBuffer(buffer, {
-      folder:    CLOUDINARY_FOLDERS.SUBMISSION_FILES,
+      folder: CLOUDINARY_FOLDERS.SUBMISSION_FILES,
       public_id: `sub_${assignmentId}_${studentId}_${Date.now()}`,
     });
   },

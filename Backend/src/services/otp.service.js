@@ -54,7 +54,7 @@ export const OtpService = {
       bcrypt.hash(emailOtp, 10),
     ]);
 
-    const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + (env.OTP_EXPIRY_MINUTES || 10) * 60 * 1000);
 
     // ── Create session with status 'pending' — update to 'sent' after delivery ──
     // BUG FIX: old code set deliveryStatus:'sent' BEFORE actually sending.
@@ -141,7 +141,7 @@ export const OtpService = {
 
     const otp       = this._generateOtp();
     const otpHash   = await bcrypt.hash(otp, 10);
-    const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + (env.OTP_EXPIRY_MINUTES || 10) * 60 * 1000);
 
     const session = await OtpSession.create({
       phone:           null,
@@ -184,7 +184,7 @@ export const OtpService = {
 
     const otp       = this._generateOtp();
     const otpHash   = await bcrypt.hash(otp, 10);
-    const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + (env.OTP_EXPIRY_MINUTES || 10) * 60 * 1000);
 
     const useWhatsApp = env.WHATSAPP_OTP_ENABLED === 'true'
       && !!env.WHATSAPP_PHONE_NUMBER_ID && !!env.WHATSAPP_TOKEN;
@@ -259,7 +259,7 @@ export const OtpService = {
 
     const otp       = this._generateOtp();
     const otpHash   = await bcrypt.hash(otp, 10);
-    const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + (env.OTP_EXPIRY_MINUTES || 10) * 60 * 1000);
 
     const useWhatsApp = env.WHATSAPP_OTP_ENABLED === 'true'
       && !!env.WHATSAPP_PHONE_NUMBER_ID && !!env.WHATSAPP_TOKEN;

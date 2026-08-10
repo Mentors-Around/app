@@ -48,12 +48,6 @@ const DashboardLayout = ({ role }) => {
       return;
     }
 
-    // If teacher KYC is not approved yet, redirect to KYC if it's pending/rejected
-    if (savedRole === 'teacher' && user) {
-      if (user.kycStatus === 'pending' || user.kycStatus === 'rejected') {
-        navigate('/teacher/kyc', { replace: true });
-      }
-    }
   }, [navigate, role, user]);
 
   // Prevent body scrolling when sidebar drawer is open on mobile

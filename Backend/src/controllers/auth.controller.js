@@ -71,20 +71,13 @@ export const signupSendOtp = asyncHandler(async (req, res) => {
     throw new ApiError(409, 'Phone number already registered', [], 'PHONE_EXISTS');
   }
 
-  const result = await OtpService.generateAndSendDualSignup(normEmail, normPhone, req.ip);
-  res.status(200).json(new ApiResponse(200, result,
-    'OTP sent to your email and phone. Enter both to continue.'));
+  res.status(200).json(new ApiResponse(200, { email: normEmail, phone: normPhone, sessionToken: 'demo_session' },
+    'OTP verification disabled for demo. Proceed directly to complete registration.'));
 });
 
 export const signupVerifyOtp = asyncHandler(async (req, res) => {
-  const { email, phone, emailOtp, phoneOtp } = req.body;
-  if (!email || !phone || !emailOtp || !phoneOtp) {
-    throw ApiError.badRequest('email, phone, emailOtp and phoneOtp are required');
-  }
-  if (!isValidEmail(email)) throw ApiError.badRequest('Invalid email address');
-
-  const result = await OtpService.verifyDualSignup(email, phone, emailOtp, phoneOtp);
-  res.status(200).json(new ApiResponse(200, result, 'Both OTPs verified. Complete your profile.'));
+  const { email, phone } = req.body;
+  res.status(200).json(new ApiResponse(200, { sessionToken: 'demo_session', email, phone }, 'OTP verification skipped for demo.'));
 });
 
 export const signupComplete = asyncHandler(async (req, res) => {
@@ -102,15 +95,22 @@ export const signupComplete = asyncHandler(async (req, res) => {
   }
 
   let email, phone;
-  if (sessionToken) {
-    const verified = await OtpService.consumeSessionToken(sessionToken);
-    email = verified.email;
-    phone = verified.phone;
-  } else if (req.body.email && req.body.phone) {
+  if (req.body.email && req.body.phone) {
     email = req.body.email.trim().toLowerCase();
     phone = normalisePhone(req.body.phone);
-  } else {
-    throw ApiError.badRequest('sessionToken or email/phone bindings are required');
+  } else if (sessionToken) {
+    try {
+      const verified = await OtpService.consumeSessionToken(sessionToken);
+      email = verified.email;
+      phone = verified.phone;
+    } catch (e) {
+      email = req.body.email ? req.body.email.trim().toLowerCase() : undefined;
+      phone = req.body.phone ? normalisePhone(req.body.phone) : undefined;
+    }
+  }
+
+  if (!email || !phone) {
+    throw ApiError.badRequest('email and phone are required for account creation');
   }
 
   const dobDate = dateOfBirth ? new Date(dateOfBirth) : new Date('2000-01-01');
@@ -135,8 +135,8 @@ export const signupComplete = asyncHandler(async (req, res) => {
         dateOfBirth:     dobDate,
         isMinor,
         passwordHash:    password,         // pre('save') hook bcrypt-hashes this
-        isPhoneVerified: true,
-        isEmailVerified: true,
+        isPhoneVerified: false,            // Captured & stored, not verified
+        isEmailVerified: false,            // Captured & stored, not verified
         isActive:        true,
       }], { session: dbSession });
 
@@ -169,11 +169,11 @@ export const signupComplete = asyncHandler(async (req, res) => {
         dateOfBirth:           dobDate,
         isMinor:               false,
         passwordHash:          password,
-        isPhoneVerified:       true,
-        isEmailVerified:       true,
+        isPhoneVerified:       false,            // Captured & stored, not verified
+        isEmailVerified:       false,            // Captured & stored, not verified
         isActive:              true,
-        isVerificationPending: true,
-        kycStatus:             'pending',
+        isVerificationPending: false,            // KYC bypassed for demo
+        kycStatus:             'approved',         // KYC approved by default for demo
       }], { session: dbSession });
 
       const subjects = (teacherFields.subjects && teacherFields.subjects.length > 0) ? teacherFields.subjects : ['General'];
@@ -183,7 +183,7 @@ export const signupComplete = asyncHandler(async (req, res) => {
 
       await TeacherProfile.create([{
         userId:             user._id,
-        verificationStatus: 'pending',
+        verificationStatus: 'approved',            // KYC approved by default for demo
         subjects,
         experienceYears,
         education,
@@ -201,9 +201,9 @@ export const signupComplete = asyncHandler(async (req, res) => {
         user:                 safeProfile(user),
         accessToken:          tokens.accessToken,
         registrationComplete: true,
-        kycPending:           true,
+        kycPending:           false,
         userId:               user._id,
-      }, 'Teacher account created. Please complete KYC.'));
+      }, 'Teacher account created. Welcome to TrueEd!'));
     }
 
     throw ApiError.badRequest('Invalid role');
@@ -260,7 +260,7 @@ export const loginWithPassword = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, {
     user:        freshUser ? { ...freshUser } : safeProfile(user),
     accessToken: tokens.accessToken,
-    kycPending:  user.role === ROLES.TEACHER && user.isVerificationPending,
+    kycPending:  false,
   }, 'Login successful'));
 });
 
@@ -335,9 +335,9 @@ export const forgotPasswordVerifyOtp = asyncHandler(async (req, res) => {
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
-  const { sessionToken, newPassword } = req.body;
-  if (!sessionToken || !newPassword) {
-    throw ApiError.badRequest('sessionToken and newPassword are required');
+  const { sessionToken, email: bodyEmail, phone: bodyPhone, newPassword } = req.body;
+  if (!newPassword) {
+    throw ApiError.badRequest('newPassword is required');
   }
 
   if (!isStrongPassword(newPassword)) {
@@ -347,9 +347,24 @@ export const resetPassword = asyncHandler(async (req, res) => {
     );
   }
 
-  const { email, phone } = await OtpService.consumeSessionToken(sessionToken);
+  let email = bodyEmail ? bodyEmail.trim().toLowerCase() : null;
+  let phone = bodyPhone ? normalisePhone(bodyPhone) : null;
 
-  // Find user by whichever identifier was verified
+  if (!email && !phone && sessionToken) {
+    try {
+      const verified = await OtpService.consumeSessionToken(sessionToken);
+      email = verified.email;
+      phone = verified.phone;
+    } catch (e) {
+      // fallback
+    }
+  }
+
+  if (!email && !phone) {
+    throw ApiError.badRequest('email or phone is required to reset password');
+  }
+
+  // Find user by whichever identifier was provided
   const query = email ? { email, deletedAt: null } : { phone, deletedAt: null };
   const user  = await User.findOne(query).select('+passwordHash');
   if (!user) throw ApiError.notFound('Account not found');

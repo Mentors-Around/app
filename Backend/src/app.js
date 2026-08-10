@@ -80,7 +80,13 @@ app.use('/api/v1/reports',     reportRoutes);
 app.use('/api/v1/tests',         testRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 
-// ── Health check ──────────────────────────────────────────────────────────────
+// ── Root & Health check ────────────────────────────────────────────────────────
+// Render pings GET / and HEAD / for health — return 200 to avoid 404 log spam
+app.get('/', (_req, res) =>
+  res.status(200).json({ status: 'ok', service: 'TrueEd API', docs: '/api/v1' }),
+);
+app.head('/', (_req, res) => res.sendStatus(200));
+
 app.get('/health', (_req, res) =>
   res.status(200).json({
     status:    'ok',

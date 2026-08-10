@@ -1,20 +1,27 @@
 import env from "./env.config.js";
 import ApiError from "../utils/ApiError.js";
 
-const allowedOriginsSet = new Set(env.ALLOWED_ORIGINS);
+const allowedOriginsSet = new Set(
+  env.ALLOWED_ORIGINS.map((url) => url.trim().replace(/\/+$/, ""))
+);
 
 const corsOptions = {
   origin(origin, callback) {
-    // Allow server-to-server (no origin) only in non-production
+    // Allow non-browser requests (e.g. server-to-server, health checks, Postman)
     if (!origin) {
-      if (env.NODE_ENV !== "production") return callback(null, true);
-      return callback(new ApiError(403, "Origin header required in production"));
+      return callback(null, true);
     }
-    if (allowedOriginsSet.has(origin)) {
-      callback(null, true);
-    } else {
-      callback(new ApiError(403, `CORS: origin '${origin}' not allowed`));
+    const cleanOrigin = origin.trim().replace(/\/+$/, "");
+
+    if (
+      allowedOriginsSet.has("*") ||
+      allowedOriginsSet.has(cleanOrigin) ||
+      /\.vercel\.app$/.test(cleanOrigin)
+    ) {
+      return callback(null, true);
     }
+
+    callback(null, false);
   },
 
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

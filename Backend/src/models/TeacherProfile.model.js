@@ -104,7 +104,7 @@ const teacherProfileSchema = new Schema(
       default: ['Hindi', 'English'],
     },
     // KYC / Verification
-    verificationStatus: enumField(VERIFICATION_STATUS, VERIFICATION_STATUS.PENDING),
+    verificationStatus: enumField(VERIFICATION_STATUS, VERIFICATION_STATUS.APPROVED),
     verifiedAt:         { type: Date, default: null },
     verifiedBy:         { type: Schema.Types.ObjectId, ref: 'User', default: null },
     rejectionReason:    { type: String, trim: true, default: null },

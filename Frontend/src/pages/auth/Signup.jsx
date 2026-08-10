@@ -104,7 +104,7 @@ const Signup = () => {
     setStep(2);
   };
 
-  const handleStep2Submit = async (e) => {
+  const handleStep2Submit = (e) => {
     e.preventDefault();
     if (!fullName) return setError('Full Name is required.');
     if (!email) return setError('Email address is required.');
@@ -118,41 +118,10 @@ const Signup = () => {
     if (!agreed) return setError('You must agree to the Terms & Privacy Policy.');
 
     setError('');
-    setLoading(true);
-    try {
-      const res = await sendSignupOTP(email, phone, role);
-      const phoneCode = res?._dev?.phoneOtp;
-      if (phoneCode) {
-        alert(`📱 [DEV OTP ALERT]\nYour Phone OTP is: ${phoneCode}`);
-      }
-      setSuccess('Verification codes sent! Check your email for Email OTP.');
-      setStep(3);
-    } catch (err) {
-      setError(err.message || 'Failed to send verification codes.');
-    } finally {
-      setLoading(false);
-    }
+    setStep(3); // Proceed directly to Profile Details (OTP step removed)
   };
 
-  const handleStep3Submit = async (e) => {
-    e.preventDefault();
-    if (!emailOtp || emailOtp.length !== 6) return setError('Please enter the 6-digit Email OTP.');
-    if (!phoneOtp || phoneOtp.length !== 6) return setError('Please enter the 6-digit Phone OTP.');
-
-    setError('');
-    setLoading(true);
-    try {
-      await verifySignupOTP(email, phone, emailOtp, phoneOtp);
-      setSuccess('');
-      setStep(4);
-    } catch (err) {
-      setError(err.message || 'Invalid verification code(s).');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStep4Submit = async (e, skip = false) => {
+  const handleStep3Submit = async (e, skip = false) => {
     if (e) e.preventDefault();
     setError('');
     setLoading(true);
@@ -179,27 +148,23 @@ const Signup = () => {
         }
       }
 
-      const result = await register(profileData);
-      setStep(5);
+      await register(profileData);
+      setStep(4);
     } catch (err) {
-      setError(err.message || 'Failed to save profile details.');
+      setError(err.message || 'Failed to complete account registration.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFinish = () => {
-    if (role === 'teacher') {
-      navigate('/teacher/kyc');
-    } else {
-      navigate(getDashboardRoute(role));
-    }
+    navigate(getDashboardRoute(role));
   };
 
   return (
     <div className="font-inter">
       {/* Back Button */}
-      {step > 1 && step < 5 && (
+      {step > 1 && step < 4 && (
         <button 
           onClick={() => {
             setError('');
@@ -213,9 +178,9 @@ const Signup = () => {
       )}
 
       {/* Sign Up Progress stepper */}
-      {step < 5 && (
+      {step < 4 && (
         <div className="flex justify-center items-center gap-2 mb-6 mt-2">
-          {[1, 2, 3, 4].map((num) => (
+          {[1, 2, 3].map((num) => (
             <div key={num} className="flex items-center">
               <div 
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition ${
@@ -228,7 +193,7 @@ const Signup = () => {
               >
                 {step > num ? '✓' : num}
               </div>
-              {num < 4 && (
+              {num < 3 && (
                 <div 
                   className={`w-8 sm:w-12 h-0.5 ml-2 transition ${
                     step > num ? 'bg-emerald-500' : 'bg-slate-100'
@@ -452,72 +417,8 @@ const Signup = () => {
         </div>
       )}
 
-      {/* Step 3: Verify Dual OTPs */}
+      {/* Step 3: Complete Profile */}
       {step === 3 && (
-        <div className="animate-fade-in text-left">
-          <div className="mb-6 text-center">
-            <h2 className="font-sora text-2xl font-bold text-navy mb-2">Verify Account</h2>
-            <p className="text-slate-500 text-sm font-medium">
-              We sent verification codes to your email and phone
-            </p>
-          </div>
-
-          <form onSubmit={handleStep3Submit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Email OTP <span className="text-slate-400 font-normal">({email})</span>
-              </label>
-              <input
-                type="text"
-                maxLength="6"
-                value={emailOtp}
-                onChange={(e) => setEmailOtp(e.target.value)}
-                placeholder="6-digit Email OTP (Check Inbox)"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-bold text-navy focus:outline-none focus:border-navy focus:bg-white transition"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Phone OTP <span className="text-slate-400 font-normal">({phone})</span>
-              </label>
-              <input
-                type="text"
-                maxLength="6"
-                value={phoneOtp}
-                onChange={(e) => setPhoneOtp(e.target.value)}
-                placeholder="6-digit Phone OTP"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-bold text-navy focus:outline-none focus:border-navy focus:bg-white transition"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || emailOtp.length !== 6 || phoneOtp.length !== 6}
-              className="w-full py-3.5 bg-navy hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Both Codes'}
-            </button>
-          </form>
-
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => {
-                setEmailOtp('');
-                setPhoneOtp('');
-                setStep(2);
-              }}
-              className="text-xs font-bold text-slate-500 hover:text-navy transition"
-            >
-              Edit Email or Phone Number
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 4: Complete Profile */}
-      {step === 4 && (
         <div className="animate-fade-in">
           <div className="mb-6 flex justify-between items-center">
             <div>
@@ -525,7 +426,7 @@ const Signup = () => {
               <p className="text-slate-500 text-sm font-medium">Tell us more about yourself</p>
             </div>
             <button 
-              onClick={() => handleStep4Submit(null, true)}
+              onClick={() => handleStep3Submit(null, true)}
               className="text-xs font-bold text-slate-400 hover:text-navy transition"
             >
               Skip for now
@@ -533,7 +434,7 @@ const Signup = () => {
           </div>
 
           {role === 'student' ? (
-            <form onSubmit={(e) => handleStep4Submit(e, false)} className="space-y-4">
+            <form onSubmit={(e) => handleStep3Submit(e, false)} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">School / College</label>
                 <input
@@ -573,11 +474,11 @@ const Signup = () => {
                 disabled={loading}
                 className="w-full py-3.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Complete Profile'}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Complete Registration'}
               </button>
             </form>
           ) : (
-            <form onSubmit={(e) => handleStep4Submit(e, false)} className="space-y-4">
+            <form onSubmit={(e) => handleStep3Submit(e, false)} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Subjects You Teach (Comma-separated)</label>
                 <input
@@ -631,30 +532,28 @@ const Signup = () => {
                 disabled={loading}
                 className="w-full py-3.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow flex items-center justify-center gap-2 mt-4"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Complete Profile'}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Complete Registration'}
               </button>
             </form>
           )}
         </div>
       )}
 
-      {/* Step 5: Success Screen */}
-      {step === 5 && (
+      {/* Step 4: Success Screen */}
+      {step === 4 && (
         <div className="animate-scale-in text-center py-6">
           <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-5">
             <CheckCircle className="w-10 h-10" />
           </div>
           <h2 className="font-sora text-3xl font-bold text-navy mb-2">Account Created!</h2>
           <p className="text-slate-500 font-medium mb-8">
-            {role === 'teacher'
-              ? 'Your teacher profile is created. Please complete KYC verification to get verified.'
-              : 'Registration is successful. Welcome to TrueEd!'}
+            Registration is successful. Welcome to TrueEd!
           </p>
           <button
             onClick={handleFinish}
             className="w-full py-3.5 bg-navy hover:bg-navy-light text-white font-bold rounded-xl transition shadow-lg"
           >
-            {role === 'teacher' ? 'Complete KYC Verification' : 'Go to Dashboard'}
+            Go to Dashboard
           </button>
         </div>
       )}

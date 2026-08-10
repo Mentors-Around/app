@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [kycStatus, setKycStatus] = useState('NOT_VERIFIED');
+  const [kycStatus, setKycStatus] = useState('approved');
   const [kycReason, setKycReason] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('trueed_profile', JSON.stringify(profileUser));
             localStorage.setItem('trueed_role', profileUser.role);
             
-            const kyc = profileUser.kycStatus || (profileUser.isVerificationPending ? 'pending' : 'VERIFIED');
+            const kyc = profileUser.kycStatus || 'approved';
             setKycStatus(kyc);
           } else if (savedProfile && savedRole) {
             const parsedUser = JSON.parse(savedProfile);
@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }) => {
             setUser(parsedUser);
             setRole(savedRole);
             setIsAuthenticated(true);
+            setKycStatus('approved');
           }
         } catch (err) {
           console.warn('Failed to verify token on mount:', err.message);
@@ -104,8 +105,7 @@ export const AuthProvider = ({ children }) => {
         setRole(userObj.role);
         setIsAuthenticated(true);
 
-        const currentKyc = userObj.kycStatus || (res.kycPending ? 'pending' : 'VERIFIED');
-        setKycStatus(currentKyc);
+        setKycStatus('approved');
 
         return { success: true, role: userObj.role, user: userObj };
       } else {
@@ -121,60 +121,24 @@ export const AuthProvider = ({ children }) => {
   };
 
   const sendSignupOTP = async (email, phone, role) => {
-    try {
-      const res = await api.auth.signupSendOtp(email, phone, role);
-      return res;
-    } catch (err) {
-      throw new Error(err.message || 'Failed to send OTP code.');
-    }
+    return { success: true, message: 'OTP skipped for demo' };
   };
 
   const verifySignupOTP = async (email, phone, emailOtp, phoneOtp) => {
-    try {
-      const res = await api.auth.signupVerifyOtp(email, phone, emailOtp, phoneOtp);
-      if (res?.sessionToken) {
-        localStorage.setItem('trueed_signup_session', res.sessionToken);
-      }
-      return res;
-    } catch (err) {
-      throw new Error(err.message || 'OTP verification failed.');
-    }
+    return { success: true, message: 'OTP skipped for demo' };
   };
 
   const sendForgotOTP = async (channel, emailOrPhone) => {
-    try {
-      const isEmail = emailOrPhone.includes('@');
-      const payload = isEmail ? { channel: 'email', email: emailOrPhone } : { channel: 'phone', phone: emailOrPhone };
-      const res = await api.auth.forgotPasswordSendOtp(payload.channel, payload.email, payload.phone);
-      return res;
-    } catch (err) {
-      throw new Error(err.message || 'Failed to send OTP code.');
-    }
+    return { success: true, message: 'Proceed to reset password' };
   };
 
   const verifyForgotOTP = async (channel, emailOrPhone, otp) => {
-    try {
-      const isEmail = emailOrPhone.includes('@');
-      const res = await api.auth.forgotPasswordVerifyOtp(
-        isEmail ? 'email' : 'phone',
-        isEmail ? emailOrPhone : undefined,
-        !isEmail ? emailOrPhone : undefined,
-        otp
-      );
-      if (res?.sessionToken) {
-        localStorage.setItem('trueed_reset_session', res.sessionToken);
-      }
-      return res;
-    } catch (err) {
-      throw new Error(err.message || 'Verification failed.');
-    }
+    return { success: true, message: 'OTP skipped for demo' };
   };
 
   const register = async (profileData) => {
     try {
-      const sessionToken = localStorage.getItem('trueed_signup_session');
-      const payload = { ...profileData, sessionToken };
-      const res = await api.auth.signupComplete(payload);
+      const res = await api.auth.signupComplete(profileData);
       const userObj = res.user || res;
       const accessToken = res.accessToken;
 
@@ -183,27 +147,29 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('trueed_token', accessToken);
         localStorage.setItem('trueed_profile', JSON.stringify(userObj));
         localStorage.setItem('trueed_role', userObj.role);
-        localStorage.removeItem('trueed_signup_session');
 
         setUser(userObj);
         setRole(userObj.role);
         setIsAuthenticated(true);
+        setKycStatus('approved');
 
         return { success: true, role: userObj.role };
       }
-      localStorage.removeItem('trueed_signup_session');
       return { success: true, message: res.message || 'Registration complete' };
     } catch (err) {
       throw new Error(err.message || 'Registration failed');
     }
   };
 
-  const resetPassword = async (newPassword) => {
+  const resetPassword = async (emailOrPhone, newPassword) => {
     try {
-      const sessionToken = localStorage.getItem('trueed_reset_session');
-      if (!sessionToken) throw new Error('Session expired. Please request a new OTP.');
-      const res = await api.auth.resetPassword(sessionToken, newPassword);
-      localStorage.removeItem('trueed_reset_session');
+      const isEmail = typeof emailOrPhone === 'string' && emailOrPhone.includes('@');
+      const payload = {
+        email: isEmail ? emailOrPhone : undefined,
+        phone: !isEmail ? emailOrPhone : undefined,
+        newPassword,
+      };
+      const res = await api.auth.resetPassword(payload);
       return { success: true, ...res };
     } catch (err) {
       throw new Error(err.message || 'Password reset failed');

@@ -101,39 +101,55 @@ const RefundPolicy = () => {
             {/* 4. Teacher Fails to Complete - Short Course */}
             <section className="space-y-2">
               <h2 className="font-sora font-bold text-xl text-navy">
-                4. Teacher Fails to Complete — Short Course / Session (14 Days or Less)
+                4. Teacher Fails to Complete — Short Course / Session (15 Days or Less)
               </h2>
               <p>
-                If a teacher fails to complete a short course or session lasting 14 days or less, the student receives a refund of the teacher's 90% portion. TrueEd's 10% platform fee is non-refundable.
+                If a teacher fails to complete or leaves a classroom scheduled for 15 days or less (Case 2), <strong>100% of the course fee is refunded back to the student</strong>. TrueEd retains only the 4% upfront commitment deposit collected from the teacher.
               </p>
             </section>
 
             {/* 5. Teacher Fails to Complete - Long Course */}
             <section className="space-y-4">
               <h2 className="font-sora font-bold text-xl text-navy">
-                5. Teacher Fails to Complete — Long Course (15+ Days)
+                5. Teacher Fails to Complete — Long Course (More Than 15 Days)
               </h2>
               <p>
-                If a teacher fails to complete a course lasting 15 days or more, the student receives a flat 50% refund of the total amount paid, regardless of how much of the course has already been taught. This replaces any refund calculation based on the normal 40%/60% payout milestone.
+                If a teacher leaves or fails to complete a classroom scheduled for more than 15 days (Case 1), refunds follow these exact rules:
               </p>
+              <ul className="list-disc pl-5 space-y-2 text-sm">
+                <li><strong>Teacher Leaves Before 50% Duration (or Before 15 Days):</strong> 100% of the fee is refunded back to the student. 4% deposit is retained by TrueEd, and 0% is paid to the teacher.</li>
+                <li><strong>Teacher Leaves After 50% Duration:</strong> Teacher receives 40% for the completed first half, the student receives a 50% refund, and TrueEd retains 14% (4% upfront + 10%).</li>
+              </ul>
 
               {/* Table */}
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left border-collapse text-xs sm:text-sm">
                   <thead>
                     <tr className="bg-slate-100 text-navy font-bold border-b border-slate-200">
-                      <th className="p-3.5">Course Type</th>
-                      <th className="p-3.5">Teacher Fails to Complete Refund Rule</th>
+                      <th className="p-3.5">Course Scenario</th>
+                      <th className="p-3.5">Student Refund</th>
+                      <th className="p-3.5">Teacher Payout</th>
+                      <th className="p-3.5">Platform Retention</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     <tr className="hover:bg-slate-50">
-                      <td className="p-3.5 font-semibold text-slate-800">14 days or less</td>
-                      <td className="p-3.5">90% refund of the total amount paid (teacher's portion). TrueEd's 10% platform fee is not refunded.</td>
+                      <td className="p-3.5 font-semibold text-slate-800">≤ 15 days (Teacher Leaves)</td>
+                      <td className="p-3.5 font-bold text-emerald-600">100% Refund</td>
+                      <td className="p-3.5">0%</td>
+                      <td className="p-3.5">4% (Teacher Deposit)</td>
                     </tr>
                     <tr className="hover:bg-slate-50">
-                      <td className="p-3.5 font-semibold text-slate-800">15+ days</td>
-                      <td className="p-3.5">Flat 50% refund of the total amount paid, regardless of how much was taught.</td>
+                      <td className="p-3.5 font-semibold text-slate-800">&gt; 15 days (Leaves Before 50%)</td>
+                      <td className="p-3.5 font-bold text-emerald-600">100% Refund</td>
+                      <td className="p-3.5">0%</td>
+                      <td className="p-3.5">4% (Teacher Deposit)</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50">
+                      <td className="p-3.5 font-semibold text-slate-800">&gt; 15 days (Leaves After 50%)</td>
+                      <td className="p-3.5 font-bold text-amber-600">50% Refund</td>
+                      <td className="p-3.5">40%</td>
+                      <td className="p-3.5">14% (4% Upfront + 10%)</td>
                     </tr>
                   </tbody>
                 </table>
@@ -146,48 +162,44 @@ const RefundPolicy = () => {
                 6. Normal Payment Release Rules — Successful Courses
               </h2>
               <p>
-                The following applies when the teacher successfully completes the course. A 10% TrueEd platform fee is deducted according to the applicable release rule before the teacher receives the net payout.
+                When a teacher successfully completes a course, TrueEd retains a total 10% platform commission (4% upfront token acceptance deposit + 6% at completion), and releases 94% total to the teacher:
               </p>
 
               <div className="space-y-3">
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <h4 className="font-bold text-navy text-sm mb-1">Single Sessions &amp; Short Courses (up to 14 days):</h4>
+                  <h4 className="font-bold text-navy text-sm mb-1">Short Courses (15 Days or Less):</h4>
                   <p className="text-sm">
-                    For successfully completed sessions/courses, a 10% platform fee is deducted and the remaining amount is released to the teacher within 24 hours of the session/course ending. If the teacher fails to complete, the separate 90% teacher-portion refund rule applies.
+                    Full 94% payout is released to the teacher upon 100% completion of the course.
                   </p>
                 </div>
 
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <h4 className="font-bold text-navy text-sm mb-1">Courses Longer Than 15 Days:</h4>
+                  <h4 className="font-bold text-navy text-sm mb-1">Long Courses (More Than 15 Days):</h4>
                   <p className="text-sm">
-                    For successfully completed courses, a 10% platform fee is deducted upfront. Of the remaining amount, 40% is released after 50% course completion, and the remaining 60% is released on 100% completion. If the teacher fails to complete, the separate flat 50% refund rule applies instead.
+                    Payout is split into two milestones: <strong>40%</strong> is released after 50% course duration completion, and the remaining <strong>54%</strong> is released upon 100% course completion (Total 94% to teacher).
                   </p>
                 </div>
               </div>
 
               {/* Worked Example */}
               <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 md:p-5">
-                <h4 className="font-bold text-navy text-sm mb-3">Worked Example — ₹100 Course Payment (15+ days, Successful Completion)</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs font-semibold">
+                <h4 className="font-bold text-navy text-sm mb-3">Worked Example — ₹1,000 Course Fee (&gt; 15 days, Successful Completion)</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-semibold">
                   <div className="bg-white p-2.5 rounded-lg border border-amber-200">
                     <div className="text-slate-500 text-[10px] uppercase">Student Pays</div>
-                    <div className="text-navy text-base font-bold">₹100</div>
+                    <div className="text-navy text-base font-bold">₹1,000</div>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-amber-200">
-                    <div className="text-slate-500 text-[10px] uppercase">Platform Fee (10%)</div>
-                    <div className="text-red-500 text-base font-bold">-₹10</div>
-                  </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-amber-200">
-                    <div className="text-slate-500 text-[10px] uppercase">Net Payout Base</div>
-                    <div className="text-slate-800 text-base font-bold">₹90</div>
+                    <div className="text-slate-500 text-[10px] uppercase">Total Commission (10%)</div>
+                    <div className="text-red-500 text-base font-bold">₹100</div>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-amber-200">
                     <div className="text-slate-500 text-[10px] uppercase">40% @ 50% Done</div>
-                    <div className="text-green-600 text-base font-bold">₹36</div>
+                    <div className="text-green-600 text-base font-bold">₹400</div>
                   </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-amber-200 col-span-2 sm:col-span-1">
-                    <div className="text-slate-500 text-[10px] uppercase">60% @ 100% Done</div>
-                    <div className="text-green-600 text-base font-bold">₹54</div>
+                  <div className="bg-white p-2.5 rounded-lg border border-amber-200">
+                    <div className="text-slate-500 text-[10px] uppercase">54% @ 100% Done</div>
+                    <div className="text-green-600 text-base font-bold">₹540</div>
                   </div>
                 </div>
               </div>

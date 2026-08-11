@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react';
+import { Shield, Clock, AlertCircle, CheckCircle, RefreshCw, Layers, DollarSign } from 'lucide-react';
 
 const FAQItem = ({ question, answer }) => {
   const [isOpen, setIsOpen] = useState(false);
   
   return (
-    <div className="border border-slate-200 rounded-lg bg-white overflow-hidden mb-3">
+    <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden mb-3 shadow-xs">
       <button 
         onClick={() => setIsOpen(!isOpen)} 
         className="w-full flex items-center justify-between p-5 text-left bg-white hover:bg-slate-50 transition"
       >
-        <span className="font-sora font-semibold text-navy">{question}</span>
+        <span className="font-sora font-semibold text-navy text-base">{question}</span>
         <i className={`fa-solid fa-chevron-down text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       <div className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="p-5 pt-0 text-muted text-sm border-t border-slate-100 mt-2">
+        <div className="p-5 pt-0 text-muted text-sm border-t border-slate-100 mt-2 leading-relaxed">
           {answer}
         </div>
       </div>
@@ -28,169 +29,209 @@ const HowPaymentsWork = () => {
   }, []);
 
   const faqs = [
-    { q: 'What happens if the teacher cancels the class?', a: 'If a teacher cancels or does not show up, your money is completely safe. Report the issue from your dashboard within 12 hours, and we will process a 100% refund immediately.' },
-    { q: 'Can I pay directly to the teacher?', a: 'To ensure your payment is protected by TrueEd escrow, all payments must go through our secure platform. Direct payments are against our policy and forfeit payment protection.' },
-    { q: 'How do I request a refund?', a: 'Go to your Bookings tab, select the specific class, and click "Report Issue / Request Refund". Provide a brief reason, and our admin team will resolve it within 12 hours.' },
-    { q: 'What payment methods do you accept?', a: 'We accept UPI, Credit/Debit cards, Net Banking, and major mobile wallets through our secure payment gateway.' },
-    { q: 'Are there any hidden charges?', a: 'No. The amount you see at checkout (Session fee + 15% platform fee + ₹19 access fee) is exactly what you pay. There are zero hidden costs.' }
+    { 
+      q: 'How does the 10% platform commission work?', 
+      a: 'TrueEd charges a flat 10% total platform fee. 4% is deposited by the teacher upfront when accepting a student query token, and the remaining 6% is deducted upon successful completion of the course.' 
+    },
+    { 
+      q: 'What happens if a teacher leaves or cancels early?', 
+      a: 'If a teacher leaves before 50% course duration (or before 15 days), students get a 100% full refund and 4% is kept as platform commission. If a teacher leaves after 50% duration on a long course, the teacher receives 40%, the student gets a 50% refund, and 14% is retained by the platform.' 
+    },
+    { 
+      q: 'When do teachers receive their payouts?', 
+      a: 'For courses longer than 15 days (Case 1), teachers receive 40% after completing 50% of course duration and the remaining 54% upon 100% completion. For courses 15 days or shorter (Case 2), teachers receive 94% upon 100% course completion.' 
+    },
+    { 
+      q: 'Can I pay directly to the teacher?', 
+      a: 'To ensure your payment is fully protected by TrueEd Escrow, all payments must go through our platform. Direct payments violate platform policy and forfeit payment protection.' 
+    },
+    { 
+      q: 'Are there any hidden charges?', 
+      a: 'No. The amount shown at checkout includes the session fee and 10% platform fee transparency. There are zero hidden fees.' 
+    }
   ];
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-slate-50 pb-20">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-navy to-sky text-white py-24 px-6 text-center">
-        <div className="max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-amber/20 border border-amber/30 text-amber font-bold text-xs px-4 py-2 rounded-full mb-6">
-            <i className="fa-solid fa-shield-halved" /> Payment Protection Included
+      <section className="bg-gradient-to-br from-navy via-navy-light to-sky-700 text-white py-20 px-6 text-center relative overflow-hidden">
+        <div className="max-w-3xl mx-auto relative z-10">
+          <div className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 text-amber-300 font-bold text-xs px-4 py-2 rounded-full mb-6">
+            <Shield className="w-4 h-4 text-amber-300" /> 100% Escrow Protection Guaranteed
           </div>
           <h1 className="font-sora text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
-            Your Money is Always Safe
+            How Payments &amp; Escrow Work
           </h1>
-          <p className="text-lg text-white/80 max-w-2xl mx-auto">
-            TrueEd uses a secure escrow system. We hold your payment safely and only release it to the teacher once your learning is delivered as promised.
+          <p className="text-base md:text-lg text-white/85 max-w-2xl mx-auto leading-relaxed">
+            TrueEd protects every rupee using transparent escrow rules. We take a flat <strong>10% platform fee</strong> while securing 100% of student funds until learning milestones are completed.
           </p>
         </div>
       </section>
 
-      {/* Escrow Visual Flow */}
-      <section className="py-20 px-6 max-w-[1100px] mx-auto text-center">
-        <h2 className="font-sora text-3xl font-bold text-navy mb-4">How TrueEd Escrow Works</h2>
-        <p className="text-muted mb-16">A simple, transparent process to protect both students and teachers.</p>
-        
-        <div className="flex flex-col md:flex-row items-center justify-between relative max-w-4xl mx-auto">
-          <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] h-1 bg-slate-200 -z-10 -translate-y-1/2" />
-          
-          <div className="bg-white w-64 p-6 rounded-brand shadow-brand border border-slate-200 z-10 mb-8 md:mb-0 relative">
-            <div className="w-14 h-14 bg-sky/10 text-sky rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
-              <i className="fa-solid fa-credit-card" />
-            </div>
-            <h3 className="font-sora font-bold text-navy mb-2">1. Student Pays</h3>
-            <p className="text-xs text-muted">You book a class and pay securely through our platform.</p>
-          </div>
-
-          <div className="bg-navy w-64 p-6 rounded-brand shadow-brand z-10 mb-8 md:mb-0 transform md:scale-110 relative">
-            <div className="w-14 h-14 bg-white/10 text-white rounded-full flex items-center justify-center text-2xl mx-auto mb-4 border border-white/20">
-              <i className="fa-solid fa-lock" />
-            </div>
-            <h3 className="font-sora font-bold text-white mb-2">2. TrueEd Holds</h3>
-            <p className="text-xs text-white/70">Funds are locked securely in our escrow account.</p>
-          </div>
-
-          <div className="bg-white w-64 p-6 rounded-brand shadow-brand border border-slate-200 z-10 relative">
-            <div className="w-14 h-14 bg-green-50 text-success rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
-              <i className="fa-solid fa-hand-holding-dollar" />
-            </div>
-            <h3 className="font-sora font-bold text-navy mb-2">3. Teacher Gets Paid</h3>
-            <p className="text-xs text-muted">Money is released only after the class is completed.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Payment Release Rules */}
-      <section className="py-20 px-6 bg-white">
-        <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div>
-            <h2 className="font-sora text-3xl font-bold text-navy mb-6">Payment Release Rules</h2>
-            <div className="space-y-6">
-              <div className="flex gap-4">
-                <div className="w-12 h-12 bg-sky/10 text-sky rounded-xl flex items-center justify-center flex-shrink-0 text-xl">
-                  <i className="fa-solid fa-laptop" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-navy text-lg">For Online Sessions</h3>
-                  <p className="text-sm text-muted mt-1 leading-relaxed">
-                    Money is held securely for <strong>24 hours</strong> after each class finishes. If the student raises no dispute, the funds are automatically released to the teacher.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 bg-amber/10 text-amber-700 rounded-xl flex items-center justify-center flex-shrink-0 text-xl">
-                  <i className="fa-solid fa-house-user" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-navy text-lg">For Offline/Monthly Courses</h3>
-                  <p className="text-sm text-muted mt-1 leading-relaxed">
-                    To protect both parties over long commitments, <strong>40%</strong> is released to the teacher after 15 days, and the remaining <strong>60%</strong> is released upon course completion.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-4 pt-4 border-t border-slate-100">
-                <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center flex-shrink-0 text-xl">
-                  <i className="fa-solid fa-arrow-rotate-left" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-error text-lg">Refund Policy</h3>
-                  <p className="text-sm text-muted mt-1 leading-relaxed">
-                    If the teacher doesn't show up or leaves early, report it within <strong>12 hours</strong>. Our admin team will review and process a full refund within <strong>12 hours</strong> of reporting.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Visual Timeline */}
-          <div className="bg-slate-50 p-8 rounded-brand border border-slate-200">
-            <h3 className="font-sora font-bold text-navy text-center mb-8">Monthly Booking Timeline</h3>
-            <div className="relative pt-6 pb-2">
-              <div className="absolute top-10 left-4 right-4 h-1.5 bg-slate-200 rounded-full" />
-              <div className="absolute top-10 left-4 w-1/2 h-1.5 bg-sky rounded-l-full" />
-              <div className="absolute top-10 left-1/2 w-1/2 h-1.5 bg-amber rounded-r-full" />
-              
-              <div className="flex justify-between relative z-10">
-                <div className="flex flex-col items-center w-1/3">
-                  <div className="w-5 h-5 bg-sky rounded-full border-4 border-white shadow-sm mb-3" />
-                  <span className="font-bold text-navy text-sm">Day 1</span>
-                  <span className="text-[10px] text-muted text-center mt-1">Student pays full amount</span>
-                </div>
-                <div className="flex flex-col items-center w-1/3">
-                  <div className="w-5 h-5 bg-amber rounded-full border-4 border-white shadow-sm mb-3" />
-                  <span className="font-bold text-navy text-sm">Day 15</span>
-                  <span className="text-[10px] text-muted text-center mt-1">Teacher receives 40%</span>
-                </div>
-                <div className="flex flex-col items-center w-1/3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full border-4 border-white shadow-sm mb-3" />
-                  <span className="font-bold text-navy text-sm">Course End</span>
-                  <span className="text-[10px] text-muted text-center mt-1">Teacher receives 60%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Guarantees */}
-      <section className="py-20 px-6 max-w-[1100px] mx-auto">
+      {/* Overview Cards: Upfront 4% + 10% Commission */}
+      <section className="py-12 px-6 max-w-[1100px] mx-auto -mt-10 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-8 rounded-brand shadow-sm border-t-4 border-t-red-400">
-            <i className="fa-solid fa-calendar-xmark text-3xl text-red-400 mb-4" />
-            <h3 className="font-bold text-navy mb-2">No Show, Full Refund</h3>
-            <p className="text-sm text-muted">If the class doesn't happen due to the teacher, you get your money back instantly.</p>
+          <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
+            <div className="w-12 h-12 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center text-xl font-bold mb-4">
+              10%
+            </div>
+            <h3 className="font-sora font-bold text-navy text-lg mb-2">Flat 10% Platform Fee</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Our overall commission is strictly capped at 10%. The teacher receives 94% net payout upon successful completion.
+            </p>
           </div>
-          <div className="bg-white p-8 rounded-brand shadow-sm border-t-4 border-t-sky">
-            <i className="fa-solid fa-lock text-3xl text-sky mb-4" />
-            <h3 className="font-bold text-navy mb-2">Secure Gateway</h3>
-            <p className="text-sm text-muted">Bank-grade encryption ensures your card details and payments are always protected.</p>
+
+          <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
+            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl font-bold mb-4">
+              4%
+            </div>
+            <h3 className="font-sora font-bold text-navy text-lg mb-2">Upfront Teacher Commitment</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Teachers deposit 4% immediately upon accepting query tokens to lock in commitment before class starts.
+            </p>
           </div>
-          <div className="bg-white p-8 rounded-brand shadow-sm border-t-4 border-t-amber">
-            <i className="fa-solid fa-file-invoice-dollar text-3xl text-amber mb-4" />
-            <h3 className="font-bold text-navy mb-2">No Hidden Charges</h3>
-            <p className="text-sm text-muted">What you see is what you pay. We maintain 100% transparency on platform fees.</p>
+
+          <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold mb-4">
+              100%
+            </div>
+            <h3 className="font-sora font-bold text-navy text-lg mb-2">Student Money Safeguard</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Full 100% money back guarantee to students if a teacher leaves early or cancels a course.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Case 1 vs Case 2 Payout Breakdown */}
+      <section className="py-12 px-6 max-w-[1100px] mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="font-sora text-3xl font-extrabold text-navy mb-3">Two Simple Payout Cases</h2>
+          <p className="text-slate-600 font-medium">Clear milestones based on classroom duration.</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* CASE 1 */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 flex flex-col justify-between">
+            <div>
+              <div className="inline-block bg-sky-100 text-sky-800 text-xs font-extrabold uppercase px-3 py-1 rounded-full mb-4">
+                CASE 1: Long Classrooms (&gt; 15 Days)
+              </div>
+              <h3 className="font-sora text-2xl font-bold text-navy mb-4">Scheduled for More Than 15 Days</h3>
+              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                To maintain trust over extended periods, payouts are released in two milestone installments:
+              </p>
+
+              <div className="space-y-4 mb-6">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-navy text-sm">50% Course Duration Completed:</span>
+                    <p className="text-xs text-slate-600 mt-0.5">Teacher receives <strong>40%</strong> of the total course fees.</p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-navy text-sm">100% Course Duration Completed:</span>
+                    <p className="text-xs text-slate-600 mt-0.5">Teacher receives remaining <strong>54%</strong> of total course fees (Total 94%).</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200/80 text-xs text-amber-900 leading-relaxed">
+                <p className="font-bold text-amber-950 mb-1">If Teacher Leaves Early (&gt; 15 Days):</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li><strong>Before 50% / 15 Days:</strong> Student gets <strong>100% refund</strong>, platform keeps 4%, teacher gets 0%.</li>
+                  <li><strong>After 50% Duration:</strong> Teacher keeps <strong>40%</strong>, student gets <strong>50% refund</strong>, platform keeps 14% total.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* CASE 2 */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 flex flex-col justify-between">
+            <div>
+              <div className="inline-block bg-purple-100 text-purple-800 text-xs font-extrabold uppercase px-3 py-1 rounded-full mb-4">
+                CASE 2: Short Classrooms (≤ 15 Days)
+              </div>
+              <h3 className="font-sora text-2xl font-bold text-navy mb-4">Scheduled for 15 Days or Less</h3>
+              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                For short crash courses and workshops, full payout is settled at completion:
+              </p>
+
+              <div className="space-y-4 mb-6">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-navy text-sm">100% Course Completion:</span>
+                    <p className="text-xs text-slate-600 mt-0.5">Teacher receives full <strong>94%</strong> net fees after course completion.</p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-navy text-sm">Platform Commission:</span>
+                    <p className="text-xs text-slate-600 mt-0.5">Platform retains <strong>10%</strong> commission total (4% upfront + 6% at completion).</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200/80 text-xs text-amber-900 leading-relaxed">
+                <p className="font-bold text-amber-950 mb-1">If Teacher Leaves Early (≤ 15 Days):</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>Student receives <strong>100% refund</strong> back to their wallet/bank.</li>
+                  <li>Platform keeps <strong>4%</strong> commission (taken upfront from teacher deposit).</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Visual Timeline Section */}
+      <section className="py-12 px-6 max-w-[1100px] mx-auto">
+        <div className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-sm">
+          <h3 className="font-sora font-bold text-2xl text-navy text-center mb-8">Course Payout Timeline (Case 1: &gt; 15 Days)</h3>
+          
+          <div className="relative pt-8 pb-4">
+            <div className="absolute top-12 left-6 right-6 h-2 bg-slate-200 rounded-full" />
+            <div className="absolute top-12 left-6 w-1/2 h-2 bg-sky-500 rounded-l-full" />
+            <div className="absolute top-12 left-1/2 w-1/2 h-2 bg-emerald-500 rounded-r-full" />
+            
+            <div className="flex justify-between relative z-10">
+              <div className="flex flex-col items-center w-1/3">
+                <div className="w-7 h-7 bg-sky-500 rounded-full border-4 border-white shadow-md mb-3" />
+                <span className="font-bold text-navy text-sm">Day 1</span>
+                <span className="text-xs text-slate-500 text-center mt-1">Student Enrolls &amp; Teacher 4% Deposit Charged</span>
+              </div>
+              <div className="flex flex-col items-center w-1/3">
+                <div className="w-7 h-7 bg-amber-500 rounded-full border-4 border-white shadow-md mb-3" />
+                <span className="font-bold text-navy text-sm">50% Duration</span>
+                <span className="text-xs text-slate-500 text-center mt-1">Teacher Receives <strong>40%</strong> Payout</span>
+              </div>
+              <div className="flex flex-col items-center w-1/3">
+                <div className="w-7 h-7 bg-emerald-500 rounded-full border-4 border-white shadow-md mb-3" />
+                <span className="font-bold text-navy text-sm">100% Completion</span>
+                <span className="text-xs text-slate-500 text-center mt-1">Teacher Receives Remaining <strong>54%</strong> (Total 94%)</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-20 px-6 bg-white border-t border-slate-100">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-sora text-3xl font-bold text-navy mb-4">Frequently Asked Questions</h2>
-            <p className="text-muted">Everything you need to know about payments and refunds.</p>
-          </div>
-          <div>
-            {faqs.map((faq, i) => (
-              <FAQItem key={i} question={faq.q} answer={faq.a} />
-            ))}
-          </div>
+      <section className="py-16 px-6 max-w-3xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 className="font-sora text-3xl font-bold text-navy mb-3">Frequently Asked Questions</h2>
+          <p className="text-slate-600">Everything you need to know about TrueEd payments and commission.</p>
+        </div>
+        <div>
+          {faqs.map((faq, i) => (
+            <FAQItem key={i} question={faq.q} answer={faq.a} />
+          ))}
         </div>
       </section>
     </div>

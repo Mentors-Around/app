@@ -8,13 +8,15 @@ export const DB_NAME = 'trueed';
 export const PLATFORM_FEE = Object.freeze({
   TOKEN_PRICE_PAISE:                  1900,   // ₹19 per purchase
   TOKENS_PER_PURCHASE:                3,
-  TEACHER_DEPOSIT_PERCENT:            4,
-  PLATFORM_CUT_CASE1_PERCENT:         15,
-  TEACHER_SHARE_CASE1_PERCENT:        89,
-  PLATFORM_CUT_CASE2_PERCENT:         4,
-  STUDENT_REFUND_CASE2_PERCENT:       100,
-  PLATFORM_CUT_CASE3_PERCENT:         14,
-  STUDENT_FIXED_REFUND_CASE3_PERCENT: 30,
+  TEACHER_DEPOSIT_PERCENT:            4,      // 4% taken upfront from teacher on query accept
+  PLATFORM_CUT_TOTAL_PERCENT:         10,     // 10% total platform commission (4% upfront + 6% at completion)
+  CASE1_DURATION_DAYS_THRESHOLD:      15,     // > 15 days threshold for Case 1
+  CASE1_MID_TEACHER_PAYOUT_PERCENT:   40,     // 40% paid to teacher at 50% course duration
+  CASE1_FINAL_TEACHER_PAYOUT_PERCENT: 54,     // 54% paid to teacher at 100% course duration (Total 94%)
+  CASE1_EARLY_LEAVE_TEACHER_PERCENT:  40,     // 40% to teacher if teacher leaves after 50%
+  CASE1_EARLY_LEAVE_STUDENT_PERCENT:  50,     // 50% refund to student if teacher leaves after 50%
+  CASE1_EARLY_LEAVE_PLATFORM_PERCENT: 14,     // 14% total to platform if teacher leaves after 50% (4% upfront + 10%)
+  CASE2_FINAL_TEACHER_PAYOUT_PERCENT: 94,     // 94% paid to teacher at 100% course completion for <= 15 days
 });
 
 // ── Token / Query flow ────────────────────────────────────────────────────────

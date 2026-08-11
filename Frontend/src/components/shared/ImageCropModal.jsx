@@ -45,23 +45,36 @@ export default function ImageCropModal({ isOpen, imageSrc, onClose, onCropComple
     ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
     ctx.clip();
 
-    const scale = (img.naturalWidth / img.width) * zoom;
-    const cropX = (img.width / 2 - offset.x / zoom - 100) * scale;
-    const cropY = (img.height / 2 - offset.y / zoom - 100) * scale;
-    const cropSize = 200 * scale;
+      const viewportSize = img.parentElement ? img.parentElement.clientWidth : 256;
+      const renderedWidth = img.width || viewportSize;
+      const renderedHeight = img.height || viewportSize;
 
-    ctx.drawImage(
-      img,
-      cropX,
-      cropY,
-      cropSize,
-      cropSize,
-      0,
-      0,
-      size,
-      size
-    );
-    ctx.restore();
+      const displayedWidth = renderedWidth * zoom;
+      const displayedHeight = renderedHeight * zoom;
+
+      const cropDispX = displayedWidth / 2 - viewportSize / 2 - offset.x;
+      const cropDispY = displayedHeight / 2 - viewportSize / 2 - offset.y;
+
+      const scaleNatX = img.naturalWidth / displayedWidth;
+      const scaleNatY = img.naturalHeight / displayedHeight;
+
+      const sourceX = cropDispX * scaleNatX;
+      const sourceY = cropDispY * scaleNatY;
+      const sourceWidth = viewportSize * scaleNatX;
+      const sourceHeight = viewportSize * scaleNatY;
+
+      ctx.drawImage(
+        img,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        0,
+        0,
+        size,
+        size
+      );
+      ctx.restore();
 
     canvas.toBlob((blob) => {
       onCropComplete(blob, canvas.toDataURL('image/jpeg', 0.9));

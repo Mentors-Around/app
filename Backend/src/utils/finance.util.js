@@ -6,91 +6,138 @@
 import { PLATFORM_FEE } from "../constants/app.constants.js";
 
 /**
- * CASE 1: Teacher completed the course fully OR got ≥70% early-end votes.
- * Pot = 100% student fee (held) + 4% teacher deposit = 104%
- * Platform takes 15%, teacher receives 89%.
+ * CASE 1: Classroom scheduled for MORE THAN 15 days (> 15 days)
+ * 
+ * Successful Completion:
+ * - 50% course duration completion: Pay teacher 40% of total fees.
+ * - 100% course completion: Pay teacher remaining 54% of total fees.
+ * - Platform takes 4% upfront from teacher when accepting query token, plus 6% from payout = 10% total commission.
+ */
+
+export function calcCase1MidpointSplit(enrollmentFeePaise) {
+  const teacherPayout = Math.round((enrollmentFeePaise * (PLATFORM_FEE.CASE1_MID_TEACHER_PAYOUT_PERCENT || 40)) / 100);
+  return {
+    case: "case_1_midpoint",
+    teacherPayout,
+    studentRefund: 0,
+    platformCut: 0,
+  };
+}
+
+export function calcCase1FinalSplit(enrollmentFeePaise) {
+  const teacherPayout = Math.round((enrollmentFeePaise * (PLATFORM_FEE.CASE1_FINAL_TEACHER_PAYOUT_PERCENT || 54)) / 100);
+  const platformCutFromFee = Math.round((enrollmentFeePaise * 6) / 100);
+  const upfrontDeposit = calcTeacherDeposit(enrollmentFeePaise);
+  
+  return {
+    case: "case_1_final",
+    studentRefund: 0,
+    teacherPayout,
+    platformCut: platformCutFromFee + upfrontDeposit, // 6% + 4% = 10% total commission
+    upfrontDeposit,
+  };
+}
+
+/**
+ * CASE 1 Full Split (Combined 40% + 54% = 94% teacher total)
  */
 export function calcCase1Split(enrollmentFeePaise) {
-  const pot = enrollmentFeePaise; // 100% from student
-  const platformCut = Math.round((pot * PLATFORM_FEE.PLATFORM_CUT_CASE1_PERCENT) / 100);
-  const teacherAmt = pot - platformCut;  // 85% of student fee; teacher already "lost" 4% deposit
+  const teacherPayout = Math.round((enrollmentFeePaise * 94) / 100);
+  const platformCutFromFee = Math.round((enrollmentFeePaise * 6) / 100);
+  const upfrontDeposit = calcTeacherDeposit(enrollmentFeePaise);
 
   return {
     case: "case_1",
     studentRefund: 0,
-    teacherPayout: teacherAmt,
-    platformCut,
-    // Teacher deposit (4%) is forfeited to platform as part of the 15%
-    teacherDepositForfeited: Math.round((enrollmentFeePaise * PLATFORM_FEE.TEACHER_DEPOSIT_PERCENT) / 100),
+    teacherPayout,
+    platformCut: platformCutFromFee + upfrontDeposit, // 10% total
+    upfrontDeposit,
   };
 }
 
 /**
- * CASE 2: Teacher left before completing 50% of planned class hours.
- * Students get 100% refund. Platform keeps the 4% teacher deposit.
+ * CASE 1 Teacher Leaves / Cancellation Scenarios:
+ * 
+ * 1. Leaves BEFORE 50% duration (or before 15 days):
+ *    - 100% refund to student
+ *    - 0% to teacher
+ *    - 4% kept by platform (from upfront teacher deposit)
  */
-export function calcCase2Split(enrollmentFeePaise) {
-  const teacherDeposit = Math.round(
-    (enrollmentFeePaise * PLATFORM_FEE.TEACHER_DEPOSIT_PERCENT) / 100
-  );
+export function calcCase1EarlyLeaveBeforeMidpoint(enrollmentFeePaise) {
+  const upfrontDeposit = calcTeacherDeposit(enrollmentFeePaise);
   return {
-    case: "case_2",
-    studentRefund: enrollmentFeePaise,
+    case: "case_1_leave_before_midpoint",
+    studentRefund: enrollmentFeePaise, // 100%
     teacherPayout: 0,
-    platformCut: teacherDeposit, // keeps only the 4% deposit
-    teacherDepositForfeited: teacherDeposit,
+    platformCut: upfrontDeposit, // 4% kept
+    upfrontDeposit,
   };
 }
 
 /**
- * CASE 3: Teacher left after 50% but course isn't completed.
- *
- * Pot = 100% student fee + 4% teacher deposit = 104%
- * Platform cuts: 14%
- * Remaining: 90% of student fee
- *
- * Of the 90%:
- *   - Student always gets back 30% (fixed)
- *   - Remaining 20% is split pro-rata:
- *       teacher gets (extraClassesTaken / scheduledAfterMidpoint) × 20%
- *       student gets the rest of that 20%
- *
- * @param {number} enrollmentFeePaise
- * @param {number} classesAfterMidpoint   - total classes scheduled in 2nd half
- * @param {number} extraClassesConducted  - classes actually conducted in 2nd half
+ * 2. Leaves AFTER 50% duration:
+ *    - 40% to teacher (paid at 50% mark)
+ *    - 50% refund to student
+ *    - 14% total to platform (4% upfront + 10% remaining)
  */
-export function calcCase3Split(enrollmentFeePaise, classesAfterMidpoint, extraClassesConducted) {
-  if (classesAfterMidpoint <= 0) classesAfterMidpoint = 1; // guard div-by-zero
-
-  const platformCut = Math.round((enrollmentFeePaise * PLATFORM_FEE.PLATFORM_CUT_CASE3_PERCENT) / 100);
-  const teacherDeposit = Math.round((enrollmentFeePaise * PLATFORM_FEE.TEACHER_DEPOSIT_PERCENT) / 100);
-  const remainder = enrollmentFeePaise - platformCut; // 86% of student fee
-
-  const studentFixed = Math.round((enrollmentFeePaise * PLATFORM_FEE.STUDENT_FIXED_REFUND_CASE3_PERCENT) / 100); // 30%
-  const proRataPot = remainder - studentFixed; // ~56% — split pro-rata
-
-  const ratio = Math.min(extraClassesConducted / classesAfterMidpoint, 1);
-  const teacherProRata = Math.round(proRataPot * ratio);
-  const studentProRata = proRataPot - teacherProRata;
-
-  const studentRefund = studentFixed + studentProRata;
-  const teacherPayout = teacherProRata; // teacher already "lost" 4% deposit
-  const actualPlatformCut = platformCut + teacherDeposit; // 14% + 4% = 18% of enrollment fee
+export function calcCase1EarlyLeaveAfterMidpoint(enrollmentFeePaise) {
+  const teacherPayout = Math.round((enrollmentFeePaise * 40) / 100);
+  const studentRefund = Math.round((enrollmentFeePaise * 50) / 100);
+  const upfrontDeposit = calcTeacherDeposit(enrollmentFeePaise);
+  const platformCutFromFee = Math.round((enrollmentFeePaise * 10) / 100);
 
   return {
-    case: "case_3",
+    case: "case_1_leave_after_midpoint",
     studentRefund,
     teacherPayout,
-    platformCut: actualPlatformCut,
-    breakdown: {
-      platformPercent: PLATFORM_FEE.PLATFORM_CUT_CASE3_PERCENT,
-      studentFixed,
-      studentProRata,
-      teacherProRata,
-      ratio: parseFloat(ratio.toFixed(4)),
-    },
-    teacherDepositForfeited: teacherDeposit,
+    platformCut: platformCutFromFee + upfrontDeposit, // 14% total
+    upfrontDeposit,
   };
+}
+
+/**
+ * CASE 2: Classroom scheduled for LESS THAN OR EQUAL TO 15 days (≤ 15 days)
+ * 
+ * Successful Completion:
+ * - 94% given to teacher after course completion.
+ * - Platform takes 10% total (4% upfront + 6% at completion).
+ */
+export function calcCase2Split(enrollmentFeePaise) {
+  const teacherPayout = Math.round((enrollmentFeePaise * 94) / 100);
+  const platformCutFromFee = Math.round((enrollmentFeePaise * 6) / 100);
+  const upfrontDeposit = calcTeacherDeposit(enrollmentFeePaise);
+
+  return {
+    case: "case_2",
+    studentRefund: 0,
+    teacherPayout,
+    platformCut: platformCutFromFee + upfrontDeposit, // 10% total
+    upfrontDeposit,
+  };
+}
+
+/**
+ * CASE 2 Early Leave / Cancellation:
+ * - 100% refunded back to student.
+ * - 4% kept by platform (upfront teacher deposit).
+ * - 0% to teacher.
+ */
+export function calcCase2EarlyLeave(enrollmentFeePaise) {
+  const upfrontDeposit = calcTeacherDeposit(enrollmentFeePaise);
+  return {
+    case: "case_2_early_leave",
+    studentRefund: enrollmentFeePaise, // 100%
+    teacherPayout: 0,
+    platformCut: upfrontDeposit, // 4%
+    upfrontDeposit,
+  };
+}
+
+/**
+ * Legacy Case 3 compatibility alias (maps to Case 1 Early Leave After Midpoint)
+ */
+export function calcCase3Split(enrollmentFeePaise) {
+  return calcCase1EarlyLeaveAfterMidpoint(enrollmentFeePaise);
 }
 
 /**

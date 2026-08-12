@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useOverlay, useOverlayRefs } from '../contexts/OverlayContext';
-import { tutors as allTutors } from '../data/tutors';
 import SortDropdown from '../components/student/SortDropdown';
 import TutorCard from '../components/shared/TutorCard';
 import Pagination from '../components/shared/Pagination';

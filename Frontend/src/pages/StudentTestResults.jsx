@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { tutors } from '../data/tutors';
 import TutorCard from '../components/shared/TutorCard';
+import api from '../services/api';
 
 const dummyQuestions = [
   { id: 1, text: "What is the sum of angles in a triangle?", options: ["180 degrees", "360 degrees", "90 degrees", "270 degrees"], correctAnswerIndex: 0, studentAnswerIndex: 0 },
@@ -17,12 +17,23 @@ const dummyQuestions = [
 ];
 
 const StudentTestResults = () => {
+  const [recommendedTeachers, setRecommendedTeachers] = useState([]);
+
   useEffect(() => {
     document.title = 'Test Results — TrueEd';
     window.scrollTo(0, 0);
-  }, []);
 
-  const recommendedTeachers = tutors.filter(t => t.subject === 'Mathematics').slice(0, 2);
+    const fetchTeachers = async () => {
+      try {
+        const res = await api.teacher.search('Mathematics').catch(() => null);
+        const list = res?.docs || res?.teachers || [];
+        setRecommendedTeachers(list.slice(0, 2));
+      } catch (err) {
+        console.warn('Failed to load recommended teachers:', err);
+      }
+    };
+    fetchTeachers();
+  }, []);
 
   return (
     <div className="max-w-5xl mx-auto pb-10">

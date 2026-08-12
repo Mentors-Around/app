@@ -94,56 +94,8 @@ const App = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Seed Verified Reviews
     if (!localStorage.getItem('trueed_reviews')) {
-      const mockReviews = [
-        {
-          id: 'rev_1',
-          teacherId: '2', // e.g. Dr. A.P.J. Abdul Kalam (Mock) or just 2 (Vikram S)
-          studentId: 'student-2',
-          studentName: 'Rahul S.',
-          studentInitials: 'R',
-          enrollmentId: 'enroll_1',
-          overallRating: 5,
-          categories: { teachingQuality: 5, subjectKnowledge: 5, communication: 5, punctuality: 4, doubtSolving: 5 },
-          text: 'Absolutely brilliant teacher. The concepts are explained so clearly that even the hardest problems feel easy now.',
-          reply: null,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          verified: true
-        },
-        {
-          id: 'rev_2',
-          teacherId: '1',
-          studentId: 'student-3',
-          studentName: 'Priya M.',
-          studentInitials: 'P',
-          enrollmentId: 'enroll_2',
-          overallRating: 5,
-          categories: { teachingQuality: 5, subjectKnowledge: 5, communication: 4, punctuality: 5, doubtSolving: 5 },
-          text: 'Very patient and understanding. Helped me build confidence before my final exams.',
-          reply: 'Thank you Priya! You worked hard.',
-          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-          verified: true
-        },
-        {
-          id: 'rev_3',
-          teacherId: '1',
-          studentId: 'student-4',
-          studentName: 'Karan V.',
-          studentInitials: 'K',
-          enrollmentId: 'enroll_3',
-          overallRating: 4,
-          categories: { teachingQuality: 4, subjectKnowledge: 5, communication: 4, punctuality: 4, doubtSolving: 4 },
-          text: 'Great teaching style. Sometimes internet issues during online classes but overall very good.',
-          reply: null,
-          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          verified: true
-        }
-      ];
-      localStorage.setItem('trueed_reviews', JSON.stringify(mockReviews));
+      localStorage.setItem('trueed_reviews', JSON.stringify([]));
     }
   }, []);
 

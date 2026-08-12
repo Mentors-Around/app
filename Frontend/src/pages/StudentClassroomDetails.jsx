@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar, Clock, Monitor, BookOpen, Users, PlayCircle, Shield, X, AlertCircle, ArrowLeft, Send, CheckCircle2, PartyPopper, ArrowRight, Wallet, Star, Lock, Eye, EyeOff } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import { useWallet } from '../contexts/WalletContext';
-import { tutors } from '../data/tutors';
 import ReviewModal from '../components/shared/ReviewModal';
 import TeacherAvatar from '../components/shared/TeacherAvatar';
 import api from '../services/api';
@@ -134,9 +133,11 @@ const StudentClassroomDetails = () => {
     setIsSubmittingQuery(true);
     setQueryError(null);
     try {
+      const userMessage = (queryForm.message || '').trim();
+      const finalMessage = userMessage.length > 0 ? userMessage : 'I want to join the classroom';
       const newQuery = await api.enrollment.sendQuery({
         classroomId: classroom.id || classroom._id,
-        message: queryForm.message.trim(),
+        message: finalMessage,
       });
       // Backend returns the query object
       setClassroomQuery({ ...newQuery, id: newQuery._id || newQuery.id, status: 'pending' });

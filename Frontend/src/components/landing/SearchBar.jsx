@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Clock, MapPin, Star } from 'lucide-react';
+import api from '../../services/api';
 
 const placeholders = [
   "Search for Mathematics tutor...",
@@ -13,17 +14,6 @@ const trendingSearches = [
   "Mathematics", "Physics", "Guitar", "NEET", "Spoken English"
 ];
 
-const dummyResults = [
-  { id: 1, name: 'Kavita Verma', subject: 'Mathematics', city: 'Bangalore', rating: 4.8, color: 'bg-blue-500' },
-  { id: 2, name: 'Arun Singh', subject: 'Physics', city: 'Delhi', rating: 4.5, color: 'bg-green-500' },
-  { id: 3, name: 'Sneha R', subject: 'English', city: 'Mumbai', rating: 4.9, color: 'bg-purple-500' },
-  { id: 4, name: 'Rahul Sharma', subject: 'Chemistry', city: 'Pune', rating: 4.7, color: 'bg-orange-500' },
-  { id: 5, name: 'Priya Patel', subject: 'Biology', city: 'Ahmedabad', rating: 4.6, color: 'bg-teal-500' },
-  { id: 6, name: 'Vikram Joshi', subject: 'Guitar', city: 'Jaipur', rating: 4.9, color: 'bg-red-500' },
-  { id: 7, name: 'Neha Gupta', subject: 'NEET', city: 'Lucknow', rating: 4.8, color: 'bg-indigo-500' },
-  { id: 8, name: 'Sanjay Reddy', subject: 'Spoken English', city: 'Chennai', rating: 4.7, color: 'bg-pink-500' }
-];
-
 const SearchBar = ({ onSearch }) => {
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -31,9 +21,28 @@ const SearchBar = ({ onSearch }) => {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const [recentSearches, setRecentSearches] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (query.trim().length >= 2) {
+      const fetchApiResults = async () => {
+        try {
+          const res = await api.teacher.search(query).catch(() => null);
+          const list = res?.docs || res?.teachers || [];
+          setSearchResults(list);
+        } catch (err) {
+          setSearchResults([]);
+        }
+      };
+      const t = setTimeout(fetchApiResults, 300);
+      return () => clearTimeout(t);
+    } else {
+      setSearchResults([]);
+    }
+  }, [query]);
 
   // Typing animation for placeholder
   useEffect(() => {
@@ -93,10 +102,7 @@ const SearchBar = ({ onSearch }) => {
     }
   };
 
-  const filteredResults = query.length >= 2 ? dummyResults.filter(r => 
-    r.name.toLowerCase().includes(query.toLowerCase()) || 
-    r.subject.toLowerCase().includes(query.toLowerCase())
-  ) : [];
+  const filteredResults = query.length >= 2 ? searchResults : [];
 
   const dropdownItemsCount = query.length >= 2 
     ? filteredResults.length 

@@ -1,24 +1,50 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 
 const StudentFavourites = () => {
-  useEffect(() => { document.title = 'Favourite Teachers — TrueEd'; }, []);
+  const [favourites, setFavourites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const dummyFavourites = [
-    { id: 1, name: 'Kavita Verma', subject: 'Mathematics', rating: 4.9, location: 'Online' },
-    { id: 2, name: 'Arun Singh', subject: 'Physics', rating: 4.8, location: 'Bangalore' },
-  ];
+  useEffect(() => {
+    document.title = 'Favourite Teachers — TrueEd';
+    const fetchSaved = async () => {
+      try {
+        setLoading(true);
+        const res = await api.student.getSavedTeachers().catch(() => null);
+        const list = Array.isArray(res) ? res : (res?.teachers || res?.docs || []);
+        const mapped = list.map(t => {
+          const u = t.userId || t;
+          return {
+            id: u._id || u.id || t._id,
+            name: u.name || 'Teacher',
+            subject: (t.subjects?.[0]) || 'General',
+            rating: t.stats?.avgRating || 5.0,
+            location: u.city || 'Online'
+          };
+        });
+        setFavourites(mapped);
+      } catch (err) {
+        console.warn('Failed to load saved teachers:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSaved();
+  }, []);
 
   return (
     <div className="max-w-[1000px] mx-auto">
       <h1 className="font-sora text-2xl font-bold text-navy mb-6">Favourite Teachers</h1>
       <div className="bg-white rounded-brand shadow-brand p-6 md:p-8">
-        {dummyFavourites.length > 0 ? (
+        {loading ? (
+          <div className="py-12 text-center text-slate-500 font-medium">Loading favourites...</div>
+        ) : favourites.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {dummyFavourites.map(t => (
+            {favourites.map(t => (
               <div key={t.id} className="border border-slate-100 p-4 rounded-lg hover:shadow-sm transition relative group">
-                <button onClick={() => console.log('clicked')} className="absolute top-3 right-3 text-slate-300 hover:text-error transition"><i className="fa-solid fa-heart" /></button>
-                <div className="w-12 h-12 bg-amber rounded-full flex items-center justify-center text-white font-bold mb-3">
+                <button className="absolute top-3 right-3 text-error transition"><i className="fa-solid fa-heart" /></button>
+                <div className="w-12 h-12 bg-navy text-white rounded-full flex items-center justify-center font-bold mb-3">
                   {t.name.split(' ').map(n=>n[0]).join('')}
                 </div>
                 <h4 className="font-bold text-navy">{t.name}</h4>

@@ -1,5 +1,5 @@
-import Hari from './Hari.jpeg';
-import Rohit from './Rohit.png';
-import Sugyan from './Sugyan.jpeg';
+import Hari from "./Hari.jpeg";
+import Sugyan from "./Sugyan.jpeg";
+import Rohit from "./Rohit.png";
 
-export { Hari, Rohit, Sugyan };
+export { Hari, Sugyan, Rohit };

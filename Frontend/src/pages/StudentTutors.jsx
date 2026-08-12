@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { tutors as allTutors } from '../data/tutors';
 import TutorCard from '../components/shared/TutorCard';
 import Pagination from '../components/shared/Pagination';
 import api from '../services/api';
@@ -19,21 +18,10 @@ const StudentTutors = () => {
     try {
       const res = await api.teacher.search(q).catch(() => null);
       const list = res?.docs || res?.teachers || [];
-      if (list.length > 0) {
-        setTeachers(list);
-      } else {
-        // Fallback to local static tutors for demo/fallback purposes
-        const filteredStatic = allTutors.filter(t => 
-          !q || 
-          t.name.toLowerCase().includes(q.toLowerCase()) || 
-          t.subject.toLowerCase().includes(q.toLowerCase())
-        );
-        setTeachers(filteredStatic);
-      }
+      setTeachers(list);
     } catch (err) {
       console.warn('Failed to fetch tutors:', err);
-      // Fallback
-      setTeachers(allTutors);
+      setTeachers([]);
     } finally {
       setLoading(false);
     }

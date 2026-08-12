@@ -1,14 +1,7 @@
 import { useState, useEffect } from 'react';
-import { adminStats, pendingTeachers } from '../data/stats';
 import StatCard from '../components/shared/StatCard';
 import Modal from '../components/shared/Modal';
-
-const approvedTeachers = [
-  { id: 4, name: 'Meera Joshi', initials: 'MJ', color: '#ec4899', email: 'meera@email.com', phone: '+91 98765 11111', subject: 'Mathematics', education: 'M.Sc Mathematics, DU', experience: '8 years', expYears: 8, rate: '₹700/hr', location: 'JP Nagar', mode: 'Both', bio: 'Experienced mathematics educator.', status: 'approved', submittedAt: '2 weeks ago', documents: { idProof: 'Aadhaar', degree: 'M.Sc Cert', experience: 'Letter', photo: 'Photo' } },
-  { id: 5, name: 'Suresh Iyer', initials: 'SI', color: '#6366f1', email: 'suresh@email.com', phone: '+91 98765 22222', subject: 'Physics', education: 'M.Sc Physics, BITS', experience: '5 years', expYears: 5, rate: '₹550/hr', location: 'Whitefield', mode: 'Online', bio: 'Physics teacher with IIT JEE expertise.', status: 'approved', submittedAt: '3 weeks ago', documents: { idProof: 'PAN Card', degree: 'B.Sc Cert', experience: null, photo: 'Photo' } },
-];
-
-const allTeachers = [...pendingTeachers, ...approvedTeachers];
+import api from '../services/api';
 
 const statusStyle = {
   pending: 'bg-warning/10 text-warning',
@@ -19,7 +12,7 @@ const statusStyle = {
 const TeacherCard = ({ teacher, onApprove, onReject, onView }) => (
   <div className="bg-white rounded-brand shadow-brand mb-4 overflow-hidden">
     <div className="flex items-center gap-4 p-5">
-      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style={{ backgroundColor: teacher.color }}>
+      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 bg-navy">
         {teacher.initials}
       </div>
       <div className="flex-1 min-w-0">
@@ -27,8 +20,8 @@ const TeacherCard = ({ teacher, onApprove, onReject, onView }) => (
         <p className="text-xs text-muted">{teacher.email}</p>
         <p className="text-xs text-muted">Submitted {teacher.submittedAt}</p>
       </div>
-      <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${statusStyle[teacher.status]}`}>
-        {teacher.status.charAt(0).toUpperCase() + teacher.status.slice(1)}
+      <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${statusStyle[teacher.status] || 'bg-slate-100 text-slate-600'}`}>
+        {(teacher.status || 'Pending').charAt(0).toUpperCase() + (teacher.status || 'Pending').slice(1)}
       </span>
     </div>
     <div className="px-5 pb-3">
@@ -55,29 +48,77 @@ const TeacherCard = ({ teacher, onApprove, onReject, onView }) => (
 );
 
 const AdminVerify = () => {
-  useEffect(() => { document.title = 'Admin Verification — TrueEd'; }, []);
-  const [teachers, setTeachers] = useState(allTeachers);
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const statCards = [
-    { icon: 'fa-solid fa-chalkboard-user', iconBg: 'bg-navy/10', iconColor: 'text-navy', label: 'Total Teachers', value: adminStats.totalTeachers },
-    { icon: 'fa-solid fa-user-clock', iconBg: 'bg-warning/10', iconColor: 'text-warning', label: 'Pending KYC', value: adminStats.pendingKYC },
-    { icon: 'fa-solid fa-graduation-cap', iconBg: 'bg-sky/10', iconColor: 'text-sky', label: 'Total Students', value: adminStats.totalStudents },
-    { icon: 'fa-solid fa-calendar-check', iconBg: 'bg-success/10', iconColor: 'text-success', label: 'Total Sessions', value: adminStats.totalSessions },
-    { icon: 'fa-solid fa-indian-rupee-sign', iconBg: 'bg-amber/10', iconColor: 'text-amber', label: 'Total Revenue', value: adminStats.totalRevenue },
-  ];
-
-  const handleApprove = (id) => {
-    if (window.confirm('Approve this teacher?')) {
-      setTeachers((t) => t.map((x) => x.id === id ? { ...x, status: 'approved' } : x));
+  const fetchTeachers = async () => {
+    try {
+      setLoading(true);
+      const res = await api.admin.getAllTeachers().catch(() => null);
+      const docs = Array.isArray(res) ? res : (res?.docs || res?.teachers || []);
+      const mapped = docs.map(t => {
+        const u = t.userId || t;
+        const name = u.name || 'Teacher';
+        return {
+          id: u._id || u.id || t._id,
+          name,
+          initials: name.split(' ').map(n=>n[0]).join('').toUpperCase(),
+          email: u.email || '',
+          phone: u.phone || '',
+          subject: (t.subjects || []).join(', ') || 'General',
+          education: t.qualification || '',
+          experience: t.experienceYears ? `${t.experienceYears} years` : 'Not specified',
+          location: u.city || 'India',
+          mode: 'Online',
+          bio: t.bio || t.headline || '',
+          status: (t.verificationStatus || u.verificationStatus || 'pending').toLowerCase(),
+          submittedAt: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-IN') : 'Recently',
+        };
+      });
+      setTeachers(mapped);
+    } catch (err) {
+      console.warn('Failed to load admin teachers:', err);
+    } finally {
+      setLoading(false);
     }
   };
-  const handleReject = (id) => {
+
+  useEffect(() => {
+    document.title = 'Admin Verification — TrueEd';
+    fetchTeachers();
+  }, []);
+
+  const statCards = [
+    { icon: 'fa-solid fa-chalkboard-user', iconBg: 'bg-navy/10', iconColor: 'text-navy', label: 'Total Teachers', value: teachers.length },
+    { icon: 'fa-solid fa-user-clock', iconBg: 'bg-warning/10', iconColor: 'text-warning', label: 'Pending KYC', value: teachers.filter(t=>t.status === 'pending').length },
+    { icon: 'fa-solid fa-graduation-cap', iconBg: 'bg-sky/10', iconColor: 'text-sky', label: 'Approved Teachers', value: teachers.filter(t=>t.status === 'approved').length },
+  ];
+
+  const handleApprove = async (id) => {
+    if (window.confirm('Approve this teacher?')) {
+      try {
+        await api.admin.approveTeacher(id);
+        fetchTeachers();
+      } catch (e) {
+        alert(e.message || 'Failed to approve teacher');
+      }
+    }
+  };
+
+  const handleReject = async (id) => {
     const reason = window.prompt('Reason for rejection:');
-    if (reason) setTeachers((t) => t.map((x) => x.id === id ? { ...x, status: 'rejected', rejectionReason: reason } : x));
+    if (reason) {
+      try {
+        await api.admin.rejectTeacher(id, reason);
+        fetchTeachers();
+      } catch (e) {
+        alert(e.message || 'Failed to reject teacher');
+      }
+    }
   };
   const handleView = (t) => { setSelected(t); setModalOpen(true); };
 

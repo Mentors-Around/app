@@ -3,17 +3,6 @@ import { Link } from 'react-router-dom';
 import { MapPin, BookOpen, GraduationCap, Clock, Activity, FileText, X, CheckCircle } from 'lucide-react';
 import api from '../services/api.js';
 
-const mockStudents = [
-  { id: 1, name: 'Aarav Sharma', initials: 'AS', grade: 'Class 12', city: 'Mumbai', subjects: ['Physics', 'Math'], totalSessions: 14, lastSession: 'Oct 24, 2026', status: 'Active', attendance: '94%' },
-  { id: 2, name: 'Priya Kapoor', initials: 'PK', grade: 'Class 10', city: 'Delhi', subjects: ['Math', 'Science'], totalSessions: 8, lastSession: 'Oct 20, 2026', status: 'Active', attendance: '88%' },
-  { id: 3, name: 'Rahul Verma', initials: 'RV', grade: 'Class 11', city: 'Bangalore', subjects: ['Chemistry'], totalSessions: 22, lastSession: 'Sep 15, 2026', status: 'Inactive', attendance: '76%' },
-  { id: 4, name: 'Sneha Patel', initials: 'SP', grade: 'Class 9', city: 'Ahmedabad', subjects: ['English', 'SST'], totalSessions: 5, lastSession: 'Oct 25, 2026', status: 'Active', attendance: '100%' },
-  { id: 5, name: 'Karan Singh', initials: 'KS', grade: 'Class 12', city: 'Pune', subjects: ['Physics'], totalSessions: 3, lastSession: 'Oct 10, 2026', status: 'Inactive', attendance: '50%' },
-  { id: 6, name: 'Neha Gupta', initials: 'NG', grade: 'Class 8', city: 'Lucknow', subjects: ['Math'], totalSessions: 12, lastSession: 'Oct 22, 2026', status: 'Active', attendance: '92%' },
-  { id: 7, name: 'Vikram Joshi', initials: 'VJ', grade: 'Class 11', city: 'Jaipur', subjects: ['Biology', 'Chemistry'], totalSessions: 19, lastSession: 'Oct 23, 2026', status: 'Active', attendance: '95%' },
-  { id: 8, name: 'Aditi Rao', initials: 'AR', grade: 'Class 10', city: 'Hyderabad', subjects: ['Physics', 'Math'], totalSessions: 2, lastSession: 'Aug 05, 2026', status: 'Inactive', attendance: '60%' },
-];
-
 export default function TeacherStudents() {
   const [realStudents, setRealStudents] = useState([]);
   const [loading, setLoading] = useState(true);

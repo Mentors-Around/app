@@ -22,7 +22,7 @@ const Community = () => {
           
           <div className="space-y-3">
             {[
-              { title: 'Best online whiteboard tools for Mathematics?', author: 'Alex Johnson', initials: 'AJ', replies: 12, time: '2 hours ago', color: '#3b82f6' },
+              { title: 'Best online whiteboard tools for Mathematics?', author: 'Mathematics Faculty', initials: 'MF', replies: 12, time: '2 hours ago', color: '#3b82f6' },
               { title: 'How to handle students who refuse to do homework', author: 'Neha Gupta', initials: 'NG', replies: 34, time: '5 hours ago', color: '#ec4899' },
               { title: 'CBSE Class 10 Science - New syllabus changes discussed', author: 'Dr. Suresh', initials: 'DS', replies: 8, time: '1 day ago', color: '#f59e0b' },
               { title: 'Tax filing tips for freelance educators', author: 'Amit S.', initials: 'AS', replies: 45, time: '2 days ago', color: '#10b981' },

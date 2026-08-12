@@ -2,16 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import { Bell, CheckCircle, Calendar, CreditCard, MessageSquare, Check, Trash2, CheckCheck, AlertCircle } from 'lucide-react';
-
-const mockNotifications = [
-  { id: 1, type: 'accepted', title: 'Query Accepted', text: 'Teacher Alex Johnson accepted your classroom query.', time: '2 hours ago', group: 'Today', isRead: false },
-  { id: 2, type: 'reminder', title: 'Upcoming Class', text: 'Physics Crash Course starts in 1 hour.', time: '3 hours ago', group: 'Today', isRead: false },
-  { id: 3, type: 'payment', title: 'Payment Successful', text: 'Payment successful for Mastering Calculus.', time: 'Yesterday', group: 'Yesterday', isRead: true },
-  { id: 4, type: 'reply', title: 'New Reply', text: 'Teacher Sarah Smith replied to your query.', time: 'Yesterday', group: 'Yesterday', isRead: true },
-  { id: 5, type: 'announcement', title: 'New Announcement', text: 'Classroom announcement posted in Mathematics.', time: 'Oct 15, 2026', group: 'Earlier', isRead: true },
-  { id: 6, type: 'reminder', title: 'Upcoming Class', text: 'Organic Chemistry lab starts soon.', time: 'Oct 14, 2026', group: 'Earlier', isRead: true },
-];
-
 import api from '../services/api.js';
 
 export default function Notifications() {

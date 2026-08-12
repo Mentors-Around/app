@@ -1,25 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
-
-const DUMMY_STUDENTS = [
-  { id: 1, name: 'Aarav M.' },
-  { id: 2, name: 'Priya K.' },
-  { id: 3, name: 'Rahul S.' },
-  { id: 4, name: 'Sneha P.' }
-];
-
-const DUMMY_REPORTS = [
-  { id: 'REP-1001', student: 'Rahul S.', category: 'Misbehavior', description: 'Disruptive during online sessions.', date: 'Oct 24, 2026', status: 'Pending Review', history: [{ state: 'Submitted', date: 'Oct 24, 2026' }] },
-  { id: 'REP-1002', student: 'Karan V.', category: 'Spam', description: 'Spamming the chat with irrelevant links.', date: 'Oct 20, 2026', status: 'Under Investigation', history: [{ state: 'Submitted', date: 'Oct 20, 2026' }, { state: 'Investigation Started', date: 'Oct 21, 2026' }] },
-  { id: 'REP-1003', student: 'Rohan D.', category: 'Non-payment', description: 'Has not paid for the last 3 sessions.', date: 'Sep 15, 2026', status: 'Resolved', history: [{ state: 'Submitted', date: 'Sep 15, 2026' }, { state: 'Investigation Started', date: 'Sep 16, 2026' }, { state: 'Case Closed', date: 'Sep 18, 2026' }] },
-];
+import api from '../services/api';
 
 export default function TeacherReports() {
-  useEffect(() => {
-    document.title = "Student Reports — TrueEd";
-  }, []);
-
-  const [reports, setReports] = useState(DUMMY_REPORTS);
+  const [students, setStudents] = useState([]);
+  const [reports, setReports] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState(null);
   
@@ -29,13 +14,31 @@ export default function TeacherReports() {
     description: ''
   });
 
+  useEffect(() => {
+    document.title = "Student Reports — TrueEd";
+    const fetchStudents = async () => {
+      try {
+        const res = await api.teacher.getMyStudents().catch(() => []);
+        const list = Array.isArray(res) ? res : (res?.docs || []);
+        const mapped = list.map((s, idx) => ({
+          id: s.id || `s_${idx}`,
+          name: s.name || 'Student'
+        }));
+        setStudents(mapped);
+      } catch (err) {
+        console.warn('Failed to load students for reporting:', err);
+      }
+    };
+    fetchStudents();
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.studentId || !formData.category || !formData.description) return;
     
-    const student = DUMMY_STUDENTS.find(s => s.id === parseInt(formData.studentId));
+    const student = students.find(s => String(s.id) === String(formData.studentId)) || { name: 'Student' };
     const newReport = {
-      id: `REP-${1004 + reports.length}`,
+      id: `REP-${1001 + reports.length}`,
       student: student.name,
       category: formData.category,
       description: formData.description,
@@ -137,7 +140,7 @@ export default function TeacherReports() {
                   required
                 >
                   <option value="">-- Choose a Student --</option>
-                  {DUMMY_STUDENTS.map(s => (
+                  {students.map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>

@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import api from '../services/api';
 
 const TeacherRooms = () => {
   const [activeTab, setActiveTab] = useState('create'); // 'create' or 'my-rooms'
   const [createdRoomCode, setCreatedRoomCode] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
   
   const [form, setForm] = useState({
     name: '',
@@ -17,37 +20,34 @@ const TeacherRooms = () => {
     description: ''
   });
 
+  const fetchRooms = async () => {
+    try {
+      setLoadingRooms(true);
+      const res = await api.teacher.getMyClassrooms().catch(() => null);
+      const list = Array.isArray(res) ? res : (res?.docs || res?.classrooms || []);
+      const mapped = list.map(c => ({
+        id: c._id || c.id,
+        name: c.title || c.name || 'Classroom',
+        subject: c.subject || 'General',
+        date: c.startDate ? new Date(c.startDate).toLocaleDateString('en-IN') : 'Flexible',
+        students: c.enrolledStudentsCount || c.stats?.totalEnrolled || 0,
+        max: c.maxStudents || 20,
+        mode: c.mode === 'offline' ? 'Offline' : 'Online',
+        price: (c.feesPaise || 0) / 100
+      }));
+      setRooms(mapped);
+    } catch (err) {
+      console.warn('Failed to load teacher rooms:', err);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
   useEffect(() => {
     document.title = 'Group Rooms — TrueEd';
     window.scrollTo(0, 0);
+    fetchRooms();
   }, []);
-
-  const handleCreate = (e) => {
-    e.preventDefault();
-    // Simulate API call
-    setTimeout(() => {
-      setCreatedRoomCode(`ROOM-${Math.floor(1000 + Math.random() * 9000)}`);
-      window.scrollTo(0, 0);
-    }, 600);
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(createdRoomCode);
-    alert('Code copied to clipboard!');
-  };
-
-  const resetForm = () => {
-    setCreatedRoomCode(null);
-    setForm({
-      name: '', subject: '', level: '', maxStudents: 10,
-      date: '', time: '', duration: '', mode: 'Online', price: '', description: ''
-    });
-  };
-
-  const dummyRooms = [
-    { id: 1, name: 'Crash Course: Organic Chemistry', subject: 'Chemistry', date: 'Oct 25, 2023 - 05:00 PM', students: 12, max: 20, mode: 'Online', price: 499 },
-    { id: 2, name: 'Board Prep: Calculus Masterclass', subject: 'Mathematics', date: 'Oct 28, 2023 - 10:00 AM', students: 8, max: 15, mode: 'Offline', price: 799 }
-  ];
 
   return (
     <div className="max-w-4xl mx-auto pb-10">
@@ -182,35 +182,37 @@ const TeacherRooms = () => {
         )
       ) : (
         <div className="space-y-4">
-          {dummyRooms.map(room => (
-            <div key={room.id} className="bg-white p-6 rounded-brand shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between gap-6">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="font-sora font-bold text-navy text-lg">{room.name}</h3>
-                  <span className="text-[10px] font-bold text-sky bg-sky/10 px-2 py-0.5 rounded uppercase tracking-wider">{room.subject}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 font-medium mb-4">
-                  <span className="flex items-center gap-1.5"><i className="fa-regular fa-calendar" /> {room.date}</span>
-                  <span className="flex items-center gap-1.5"><i className={`fa-solid ${room.mode === 'Online' ? 'fa-laptop' : 'fa-house-user'}`} /> {room.mode}</span>
-                  <span className="flex items-center gap-1.5 font-bold text-navy"><i className="fa-solid fa-indian-rupee-sign text-[10px]" /> {room.price}/student</span>
-                </div>
-                <div className="bg-slate-50 inline-flex items-center gap-3 py-2 px-4 rounded-lg border border-slate-100">
-                  <div className="flex -space-x-2">
-                    {[1,2,3].map(i => <div key={i} className="w-6 h-6 rounded-full bg-slate-300 border-2 border-white" />)}
-                  </div>
-                  <span className="text-sm font-semibold text-navy">{room.students} / {room.max} Students Joined</span>
-                </div>
-              </div>
-              <div className="flex sm:flex-col gap-3 justify-end sm:justify-start">
-                <button className="flex-1 py-2 px-4 bg-slate-100 text-navy font-semibold rounded hover:bg-slate-200 transition text-sm">
-                  Edit Room
-                </button>
-                <button className="flex-1 py-2 px-4 bg-red-50 text-error font-semibold rounded hover:bg-red-100 transition text-sm">
-                  Cancel Room
-                </button>
-              </div>
+          {loadingRooms ? (
+            <div className="py-12 text-center text-slate-500 font-medium">Loading your classrooms...</div>
+          ) : rooms.length === 0 ? (
+            <div className="bg-white p-12 rounded-brand border border-slate-200 text-center shadow-sm">
+              <i className="fa-solid fa-chalkboard-user text-4xl text-slate-300 mb-3 block" />
+              <h3 className="font-sora font-bold text-navy text-lg mb-1">No Group Rooms Found</h3>
+              <p className="text-slate-500 text-sm max-w-sm mx-auto mb-4">Create your first group room to start teaching students.</p>
+              <button onClick={() => setActiveTab('create')} className="px-5 py-2.5 bg-navy text-white font-bold text-sm rounded-xl hover:bg-navy-light transition">
+                Create New Room
+              </button>
             </div>
-          ))}
+          ) : (
+            rooms.map(room => (
+              <div key={room.id} className="bg-white p-6 rounded-brand shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between gap-6">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="font-sora font-bold text-navy text-lg">{room.name}</h3>
+                    <span className="text-[10px] font-bold text-sky bg-sky/10 px-2 py-0.5 rounded uppercase tracking-wider">{room.subject}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 font-medium mb-4">
+                    <span className="flex items-center gap-1.5"><i className="fa-regular fa-calendar" /> {room.date}</span>
+                    <span className="flex items-center gap-1.5"><i className={`fa-solid ${room.mode === 'Online' ? 'fa-laptop' : 'fa-house-user'}`} /> {room.mode}</span>
+                    <span className="flex items-center gap-1.5 font-bold text-navy"><i className="fa-solid fa-indian-rupee-sign text-[10px]" /> ₹{room.price}/student</span>
+                  </div>
+                  <div className="bg-slate-50 inline-flex items-center gap-3 py-2 px-4 rounded-lg border border-slate-100">
+                    <span className="text-sm font-semibold text-navy">{room.students} / {room.max} Students Enrolled</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

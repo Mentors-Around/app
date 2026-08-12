@@ -72,21 +72,21 @@ const TeacherEarningsInfo = () => {
           </div>
         </section>
 
-        {/* Top Earners */}
+        {/* Top Educator Highlights */}
         <section>
-          <h2 className="font-sora text-2xl font-bold text-navy text-center mb-10">Teacher Success Stories</h2>
+          <h2 className="font-sora text-2xl font-bold text-navy text-center mb-10">Platform Teacher Earnings</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { name: 'Kavita Verma', subj: 'Mathematics', city: 'Delhi', earn: '₹48,000/mo' },
-              { name: 'Arun Singh', subj: 'Physics (JEE)', city: 'Kota', earn: '₹88,000/mo' },
-              { name: 'Sneha R', subj: 'English', city: 'Bangalore', earn: '₹38,000/mo' }
-            ].map(t => (
-              <div key={t.name} className="border border-slate-200 p-6 rounded-brand flex items-start gap-4 hover:shadow-brand transition">
+              { label: 'Top Educator Income', subj: 'Competitive Prep', city: 'National Platform', earn: 'Up to ₹88,000/mo' },
+              { label: 'Full-time Educators', subj: 'K-12 Subjects', city: 'Online / Offline', earn: 'Avg ₹48,000/mo' },
+              { label: 'Part-time Tutors', subj: 'Language & Skills', city: 'Flexible Hours', earn: 'Avg ₹25,000/mo' }
+            ].map((t, idx) => (
+              <div key={idx} className="border border-slate-200 p-6 rounded-brand flex items-start gap-4 hover:shadow-brand transition">
                 <div className="w-12 h-12 bg-sky/10 text-sky rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0">
-                  {t.name.split(' ').map(n=>n[0]).join('')}
+                  <i className="fa-solid fa-trophy" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-navy">{t.name}</h4>
+                  <h4 className="font-bold text-navy">{t.label}</h4>
                   <p className="text-xs text-muted mb-2">{t.subj} · {t.city}</p>
                   <p className="text-sm font-semibold text-success">{t.earn}</p>
                 </div>

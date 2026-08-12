@@ -620,22 +620,64 @@ export const replyToReview = asyncHandler(async (req, res) => {
 export const searchTeachersPublic = asyncHandler(async (req, res) => {
   const { q, page = 1, limit = 20 } = req.query;
 
-  const filter = {
+  const baseUserFilter = {
     role: 'teacher',
     isActive: true,
     deletedAt: null,
   };
 
-  if (q) {
-    filter.$or = [
-      { name: { $regex: q, $options: 'i' } },
-      { username: { $regex: q, $options: 'i' } },
-      { email: { $regex: q, $options: 'i' } },
-      { city: { $regex: q, $options: 'i' } }
-    ];
+  let matchingUserIds = null;
+
+  if (q && typeof q === 'string' && q.trim().length > 0) {
+    const queryStr = q.trim();
+    const regex = new RegExp(queryStr, 'i');
+
+    const [userMatches, profileMatches] = await Promise.all([
+      User.find({
+        ...baseUserFilter,
+        $or: [
+          { name: regex },
+          { username: regex },
+          { email: regex },
+          { city: regex },
+          { state: regex },
+        ],
+      }).select('_id').lean(),
+
+      TeacherProfile.find({
+        verificationStatus: 'approved',
+        $or: [
+          { subjects: regex },
+          { headline: regex },
+          { bio: regex },
+        ],
+      }).select('userId').lean(),
+    ]);
+
+    const { Classroom } = await import('../models/index.js');
+    const classroomMatches = await Classroom.find({
+      $or: [
+        { subject: regex },
+        { title: regex },
+        { description: regex },
+      ],
+    }).select('teacherId').lean();
+
+    const idSet = new Set([
+      ...userMatches.map(u => String(u._id)),
+      ...profileMatches.map(p => String(p.userId)),
+      ...classroomMatches.map(c => String(c.teacherId)),
+    ]);
+
+    matchingUserIds = Array.from(idSet);
   }
 
-  const matchedUsers = await User.find(filter).select('_id name username avatarUrl city state').lean();
+  const userFilter = { ...baseUserFilter };
+  if (matchingUserIds !== null) {
+    userFilter._id = { $in: matchingUserIds };
+  }
+
+  const matchedUsers = await User.find(userFilter).select('_id name username avatarUrl city state').lean();
   const teacherUserIds = matchedUsers.map(u => u._id);
 
   const { Classroom } = await import('../models/index.js');

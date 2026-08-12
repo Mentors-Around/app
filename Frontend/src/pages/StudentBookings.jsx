@@ -1,33 +1,50 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 
 const StudentBookings = () => {
-  useEffect(() => { document.title = 'My Bookings — TrueEd'; }, []);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const getFormattedDate = (daysOffset) => {
-    const d = new Date();
-    d.setDate(d.getDate() + daysOffset);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const dummyBookings = [
-    { id: 1, teacher: 'Kavita Verma', subject: 'Mathematics', date: getFormattedDate(2), time: '10:00 AM', status: 'Upcoming' },
-    { id: 2, teacher: 'Arun Singh', subject: 'Physics', date: getFormattedDate(-2), time: '04:00 PM', status: 'Completed' },
-    { id: 3, teacher: 'Sneha R', subject: 'English', date: getFormattedDate(-7), time: '06:00 PM', status: 'Cancelled' },
-  ];
+  useEffect(() => {
+    document.title = 'My Bookings — TrueEd';
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const res = await api.enrollment.getMyEnrollments().catch(() => null);
+        const list = Array.isArray(res) ? res : (res?.docs || res?.enrollments || []);
+        const mapped = list.map(e => ({
+          id: e._id || e.id,
+          teacher: e.teacherId?.name || e.teacherName || 'Teacher',
+          subject: e.classroomId?.subject || e.subject || 'Classroom Session',
+          date: e.createdAt ? new Date(e.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
+          time: 'Active',
+          status: e.status === 'active' ? 'Upcoming' : (e.status === 'completed' ? 'Completed' : 'Cancelled'),
+        }));
+        setBookings(mapped);
+      } catch (err) {
+        console.warn('Failed to load student bookings:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBookings();
+  }, []);
 
   return (
     <div className="max-w-[1000px] mx-auto">
       <h1 className="font-sora text-2xl font-bold text-navy mb-6">My Bookings</h1>
       <div className="bg-white rounded-brand shadow-brand p-6 md:p-8">
         <div className="space-y-4">
-          {dummyBookings.length > 0 ? (
-            dummyBookings.map(b => (
+          {loading ? (
+            <div className="py-12 text-center text-slate-500 font-medium">Loading bookings...</div>
+          ) : bookings.length > 0 ? (
+            bookings.map(b => (
               <div key={b.id} className="border border-slate-100 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-sm transition">
                 <div>
                   <h4 className="font-bold text-navy">{b.teacher}</h4>
                   <p className="text-xs text-muted mb-1">{b.subject}</p>
-                  <p className="text-xs text-slate-500"><i className="fa-regular fa-calendar mr-1" /> {b.date} at {b.time}</p>
+                  <p className="text-xs text-slate-500"><i className="fa-regular fa-calendar mr-1" /> {b.date}</p>
                 </div>
                 <span className={`text-xs font-semibold px-3 py-1 rounded-full w-fit ${
                   b.status === 'Upcoming' ? 'bg-sky/10 text-sky' : b.status === 'Completed' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'

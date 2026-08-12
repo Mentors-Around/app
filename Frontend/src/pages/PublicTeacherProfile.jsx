@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Share2, Heart, CheckCircle2, MapPin, Star, Calendar, Monitor, Award, BookOpen, Clock, AlertCircle, Loader2 } from 'lucide-react';
-import { tutors } from '../data/tutors';
 import TutorCard from '../components/shared/TutorCard';
 import TeacherAvatar from '../components/shared/TeacherAvatar';
 import useAuth from '../hooks/useAuth';
@@ -9,7 +8,7 @@ import { useWallet } from '../contexts/WalletContext';
 import api from '../services/api';
 
 const getSubjectColor = (subject) => {
-  const s = subject.toLowerCase();
+  const s = (subject || '').toLowerCase();
   if (s.includes('math')) return 'from-blue-400 to-blue-600';
   if (s.includes('phys')) return 'from-purple-400 to-purple-600';
   if (s.includes('bio')) return 'from-green-400 to-green-600';
@@ -45,8 +44,6 @@ const PublicTeacherProfile = () => {
   const { tokens, requireTokens } = useWallet();
 
   // ── API-first profile loading ───────────────────────────────────────────────
-  // Security: backend already strips phone, email, bankAccount, aadhaarNumber,
-  // kycDocumentIds from the public profile response.
   const [apiProfile, setApiProfile] = useState(null);
   const [apiClassrooms, setApiClassrooms] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
@@ -56,11 +53,8 @@ const PublicTeacherProfile = () => {
     const fetchSimilar = async () => {
       try {
         const res = await api.teacher.search('');
-        if (res && res.teachers) {
-          setDbTeachers(res.teachers);
-        } else if (Array.isArray(res)) {
-          setDbTeachers(res);
-        }
+        const list = res?.docs || res?.teachers || (Array.isArray(res) ? res : []);
+        setDbTeachers(list);
       } catch (err) {
         console.warn('Failed to load similar teachers:', err);
       }
@@ -68,17 +62,13 @@ const PublicTeacherProfile = () => {
     fetchSimilar();
   }, []);
 
-  // Try loading from real backend first; fall back to static tutors data for demos
-  const tutorData = tutors.find(t => t.id.toString() === profileId);
-
   useEffect(() => {
     window.scrollTo(0, 0);
     const fetchApiProfile = async () => {
       setApiLoading(true);
       try {
-        // Only attempt API fetch if profileId looks like a MongoDB ObjectId
-        if (profileId && /^[a-f0-9]{24}$/i.test(profileId)) {
-          const res = await api.user.getProfile(profileId);
+        if (profileId) {
+          const res = await api.user.getProfile(profileId).catch(() => null);
           if (res && res.user) {
             setApiProfile(res);
             const combined = [
@@ -88,16 +78,9 @@ const PublicTeacherProfile = () => {
             setApiClassrooms(combined);
             document.title = (res.user?.name || 'Teacher') + ' — TrueEd';
           }
-        } else {
-          // Static demo tutor — use tutorData
-          const rawName = tutorData ? tutorData.name : 'Teacher';
-          document.title = rawName + ' — TrueEd';
         }
       } catch (err) {
         console.warn('Could not load teacher API profile:', err.message);
-        // Fall through to static data
-        const rawName = tutorData ? tutorData.name : 'Teacher';
-        document.title = rawName + ' — TrueEd';
       } finally {
         setApiLoading(false);
       }
@@ -113,31 +96,30 @@ const PublicTeacherProfile = () => {
   const apiStats = apiProfile?.stats || {};
 
   const teacher = {
-    name: apiUser.name || tutorData?.name || 'Unknown Teacher',
+    name: apiUser.name || 'Teacher Profile',
     initials: (() => {
-      const n = apiUser.name || tutorData?.name || '';
+      const n = apiUser.name || '';
       const parts = n.trim().split(/\s+/);
       return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (parts[0]?.[0] || '?').toUpperCase();
     })(),
-    subject: (apiProf.subjects?.[0]) || tutorData?.subject || 'Not specified',
-    subjects: apiProf.subjects || (tutorData?.subject ? [tutorData.subject] : []),
-    location: [apiUser.city, apiUser.state].filter(Boolean).join(', ') || tutorData?.location || 'Not specified',
-    rating: apiStats.avgRating || tutorData?.rating || 0,
-    reviews: apiStats.totalReviews || tutorData?.reviews || 0,
-    experience: apiProf.experienceYears ? `${apiProf.experienceYears} years` : (tutorData?.experience || 'Not specified'),
-    mode: tutorData?.mode || 'Online',
-    verified: apiProf.verificationStatus === 'approved' || tutorData?.verified || apiProfile?.profile ? true : false,
-    bio: apiProf.bio || tutorData?.bio || 'No bio available.',
-    headline: apiProf.headline || tutorData?.headline || '',
-    boards: apiProf.subjects || tutorData?.tags || [],
-    languages: apiProf.languages || tutorData?.languages || [],
-    achievements: tutorData?.achievements || [],
+    subject: (apiProf.subjects?.[0]) || 'General',
+    subjects: apiProf.subjects || [],
+    location: [apiUser.city, apiUser.state].filter(Boolean).join(', ') || 'Online',
+    rating: apiStats.avgRating || 0,
+    reviews: apiStats.totalReviews || 0,
+    experience: apiProf.experienceYears ? `${apiProf.experienceYears} years` : 'Not specified',
+    mode: 'Online',
+    verified: apiProf.verificationStatus === 'approved',
+    bio: apiProf.bio || 'No bio available.',
+    headline: apiProf.headline || '',
+    boards: apiProf.subjects || [],
+    languages: apiProf.languages || [],
+    achievements: [],
     introVideoUrl: apiProf.introVideoUrl || null,
     completionRate: apiProfile?.completionRate !== undefined ? apiProfile.completionRate : 100,
     activeClassrooms: apiProfile?.activeClassrooms || [],
     completedClassrooms: apiProfile?.completedClassrooms || [],
-    education: apiProf.education || tutorData?.education || [],
-    // NOTE: phone, email, bankAccount, aadhaarNumber are intentionally excluded
+    education: apiProf.education || [],
   };
 
   const [actualReviews, setActualReviews] = useState([]);

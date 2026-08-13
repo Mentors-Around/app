@@ -83,13 +83,13 @@ const TeacherWallet = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         
         {/* Wallet Balance Card */}
-        <div className="bg-gradient-to-br from-navy to-navy-light p-8 rounded-2xl shadow-md text-white lg:col-span-1 relative overflow-hidden flex flex-col justify-between h-full min-h-[240px]">
+        <div className="bg-gradient-to-br from-navy to-navy-light p-5 sm:p-8 rounded-2xl shadow-md text-white lg:col-span-1 relative overflow-hidden flex flex-col justify-between h-full min-h-[240px]">
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-bl-full -z-0"></div>
           <div className="relative z-10 mb-6">
-            <p className="text-sky-200/80 font-bold uppercase tracking-wider text-sm mb-2 flex items-center gap-2">
+            <p className="text-sky-200/80 font-bold uppercase tracking-wider text-xs sm:text-sm mb-2 flex items-center gap-2">
               <Wallet className="w-4 h-4" /> AVAILABLE WALLET BALANCE
             </p>
-            <h2 className="font-sora text-5xl font-bold mb-2">₹{(teacherWallet?.balance || 0).toLocaleString()}</h2>
+            <h2 className="font-sora text-3xl sm:text-4xl md:text-5xl font-bold mb-2">₹{(teacherWallet?.balance || 0).toLocaleString()}</h2>
             <p className="text-sky-100/70 text-sm font-medium">Ready for withdrawal</p>
           </div>
           
@@ -111,12 +111,12 @@ const TeacherWallet = () => {
         
         {/* Analytics Cards */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm hover:shadow-md transition group">
+          <div className="bg-white border border-slate-100 p-4 sm:p-6 rounded-2xl shadow-sm hover:shadow-md transition group">
             <div className="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-100 transition text-emerald-600 rounded-full flex items-center justify-center mb-4">
               <TrendingUp className="w-6 h-6" />
             </div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Today's Earnings</p>
-            <p className="font-sora font-bold text-3xl text-navy">₹0</p>
+            <p className="font-sora font-bold text-2xl sm:text-3xl text-navy">₹0</p>
             <p className="text-xs text-slate-500 mt-2 font-medium flex items-center gap-1"><span className="text-emerald-500">↑ 0%</span> vs yesterday</p>
           </div>
           

@@ -420,7 +420,7 @@ const Topbar = ({ onMenuClick }) => {
           </button>
           
           {activeOverlayId === 'topbar-notif' && (
-            <div ref={notifRefs.overlayRef} className="absolute top-full right-[-80px] md:right-0 mt-2 w-80 bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden z-50 animate-slide-up-sm">
+            <div ref={notifRefs.overlayRef} className="absolute top-full -right-2 sm:right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-white rounded-brand shadow-brand-xl border border-slate-100 overflow-hidden z-50 animate-slide-up-sm">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                 <span className="font-bold text-navy">Notifications</span>
                 {unreadCount > 0 && (

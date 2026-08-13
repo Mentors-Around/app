@@ -366,8 +366,8 @@ const StudentClassroomDetails = () => {
           {/* Main Info */}
           <div className="flex-1 space-y-6">
             {/* Title Card */}
-            <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-8">
-              <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-4 sm:p-6 md:p-8">
+              <div className="flex items-center gap-2 sm:gap-3 mb-4 flex-wrap">
                 <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-md uppercase tracking-wider">
                   {classroom.subject}
                 </span>
@@ -378,42 +378,42 @@ const StudentClassroomDetails = () => {
                   <Monitor className="w-3.5 h-3.5" /> {classroom.mode || 'Online'}
                 </span>
               </div>
-              <h1 className="font-sora font-extrabold text-3xl text-navy mb-4 leading-tight">{classroom.name}</h1>
-              <p className="text-slate-600 font-medium leading-relaxed">{classroom.description || 'No description provided.'}</p>
+              <h1 className="font-sora font-extrabold text-xl sm:text-2xl md:text-3xl text-navy mb-4 leading-tight">{classroom.name}</h1>
+              <p className="text-slate-600 font-medium text-sm sm:text-base leading-relaxed">{classroom.description || 'No description provided.'}</p>
             </div>
 
             {/* Schedule & Logistics */}
-            <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-8">
-              <h2 className="font-sora font-bold text-xl text-navy mb-6">Classroom Details</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-4 sm:p-6 md:p-8">
+              <h2 className="font-sora font-bold text-lg sm:text-xl text-navy mb-4 sm:mb-6">Classroom Details</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Schedule Days</p>
-                  <p className="font-semibold text-navy flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-slate-400" /> {Array.isArray(classroom.scheduleDays) && classroom.scheduleDays.length > 0 ? classroom.scheduleDays.join(', ') : (classroom.scheduleDays || 'TBD')}
+                  <p className="font-semibold text-navy flex items-center gap-2 text-sm sm:text-base">
+                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" /> {Array.isArray(classroom.scheduleDays) && classroom.scheduleDays.length > 0 ? classroom.scheduleDays.join(', ') : (classroom.scheduleDays || 'TBD')}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Timing</p>
-                  <p className="font-semibold text-navy flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-slate-400" /> {formatTime12hr(classroom.startTime) || '--'} to {formatTime12hr(classroom.endTime) || '--'}
+                  <p className="font-semibold text-navy flex items-center gap-2 text-sm sm:text-base">
+                    <Clock className="w-4 h-4 text-slate-400 shrink-0" /> {formatTime12hr(classroom.startTime) || '--'} to {formatTime12hr(classroom.endTime) || '--'}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Session Duration</p>
-                  <p className="font-semibold text-navy">{sessionDurationText}</p>
+                  <p className="font-semibold text-navy text-sm sm:text-base">{sessionDurationText}</p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Expected Lectures</p>
-                  <p className="font-semibold text-navy">{expectedLecturesCount}</p>
+                  <p className="font-semibold text-navy text-sm sm:text-base">{expectedLecturesCount}</p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Teaching Hours</p>
-                  <p className="font-semibold text-navy">{totalTeachingHours}</p>
+                  <p className="font-semibold text-navy text-sm sm:text-base">{totalTeachingHours}</p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Capacity</p>
-                  <p className="font-semibold text-navy flex items-center gap-2">
-                    <Users className="w-4 h-4 text-slate-400" /> 
+                  <p className="font-semibold text-navy flex items-center gap-2 text-sm sm:text-base">
+                    <Users className="w-4 h-4 text-slate-400 shrink-0" /> 
                     {classroom.unlimitedStudents ? 'Unlimited Seats' : `${classroom.students || 0} / ${classroom.maxStudents || 0} Students`}
                   </p>
                 </div>
@@ -422,7 +422,7 @@ const StudentClassroomDetails = () => {
 
             {/* Teacher Info */}
             {teacher && (
-              <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-8 flex items-start gap-6">
+              <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-4 sm:p-6 md:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-center sm:text-left">
                 <TeacherAvatar 
                   teacherId={teacher?.id || '1'} 
                   name={teacher?.name} 

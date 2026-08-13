@@ -239,7 +239,7 @@ const StudentWallet = () => {
       </div>
  
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 mb-8 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 md:p-10 mb-8 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-bl-full -z-0 opacity-50"></div>
           <div className="w-16 h-16 bg-sky-50 text-sky-500 rounded-full flex items-center justify-center mb-6 relative z-10">
             <Wallet className="w-8 h-8" />

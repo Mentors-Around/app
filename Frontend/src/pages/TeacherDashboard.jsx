@@ -70,30 +70,30 @@ export default function TeacherDashboard() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-12 animate-fadeIn">
+    <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 md:space-y-12 pb-12 animate-fadeIn">
       {/* SaaS Hero Section */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="flex-1">
-          <h1 className="text-3xl md:text-4xl font-sora font-extrabold text-slate-900 tracking-tight mb-5">
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 md:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+        <div className="flex-1 w-full md:w-auto">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-sora font-extrabold text-slate-900 tracking-tight mb-4 sm:mb-5">
             Good Morning, {user?.name?.split(' ')[0] || 'Teacher'} 👋
           </h1>
-          <div className="space-y-3 mb-8">
+          <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8 text-sm sm:text-base">
             <p className="text-slate-600 font-medium flex items-center gap-3">
-              <span className="text-xl">📅</span> {todayClasses.length} Scheduled Classes Today
+              <span className="text-lg sm:text-xl">📅</span> {todayClasses.length} Scheduled Classes Today
             </p>
             <Link to="/teacher/queries" className="text-slate-600 font-medium flex items-center gap-3 hover:text-sky transition-colors w-max">
-              <span className="text-xl">💬</span> {dashboardData.pendingQueriesCount} Pending Student Queries
+              <span className="text-lg sm:text-xl">💬</span> {dashboardData.pendingQueriesCount} Pending Student Queries
             </Link>
             <p className="text-slate-600 font-medium flex items-center gap-3">
-              <span className="text-xl">💳</span> Available Wallet Balance: ₹{dashboardData.walletRupees.toLocaleString()}
+              <span className="text-lg sm:text-xl">💳</span> Available Wallet Balance: ₹{dashboardData.walletRupees.toLocaleString()}
             </p>
           </div>
           
-          <div className="flex flex-wrap gap-4">
-            <Link to="/teacher/classrooms" className="px-6 py-3 bg-navy text-white font-semibold rounded-lg shadow-sm hover:shadow hover:bg-navy-light transition-all flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+            <Link to="/teacher/classrooms" className="w-full sm:w-auto text-center px-6 py-3 bg-navy text-white font-semibold rounded-lg shadow-sm hover:shadow hover:bg-navy-light transition-all flex items-center justify-center gap-2">
               Create Classroom
             </Link>
-            <Link to="/teacher/wallet" className="px-6 py-3 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 transition-all flex items-center gap-2">
+            <Link to="/teacher/wallet" className="w-full sm:w-auto text-center px-6 py-3 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
               Manage Wallet & Earnings
             </Link>
           </div>

@@ -104,7 +104,7 @@ const DashboardLayout = ({ role }) => {
               </div>
             </main>
           ) : (
-            <main className="p-4 md:p-6 lg:p-8 flex-1">
+            <main className="p-3 sm:p-5 md:p-6 lg:p-8 flex-1">
               <PageTransition key={location.pathname}>
                 <Outlet />
               </PageTransition>

@@ -613,48 +613,48 @@ export default function TeacherClassroomDetails() {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="font-sora text-3xl font-bold text-navy">{classroom.name}</h1>
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
+            <h1 className="font-sora text-xl sm:text-2xl md:text-3xl font-bold text-navy">{classroom.name}</h1>
             <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${classroom.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
               {classroom.status}
             </span>
           </div>
-          <p className="text-slate-500 font-medium">{classroom.subject} • {classroom.mode}</p>
+          <p className="text-slate-500 text-sm sm:text-base font-medium">{classroom.subject} • {classroom.mode}</p>
         </div>
       </div>
 
       {/* Analytics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Link to={`/teacher/classrooms/${id}/students`} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-sky/30 hover:shadow-md transition-all">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+        <Link to={`/teacher/classrooms/${id}/students`} className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-sky/30 hover:shadow-md transition-all">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-sky/10 text-sky rounded-full flex items-center justify-center shrink-0">
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Class Capacity</p>
-              <p className="font-sora font-extrabold text-2xl text-navy">{classroom.enrolled || students.length} <span className="text-sm text-slate-400 font-medium">/ {classroom.unlimitedStudents ? 'Unlimited' : classroom.capacity} Filled</span></p>
+              <p className="text-xs sm:text-sm font-bold text-slate-400 sm:text-slate-500 uppercase tracking-wider mb-1">Class Capacity</p>
+              <p className="font-sora font-extrabold text-xl sm:text-2xl text-navy">{classroom.enrolled || students.length} <span className="text-xs sm:text-sm text-slate-400 font-medium">/ {classroom.unlimitedStudents ? 'Unlimited' : classroom.capacity}</span></p>
             </div>
           </div>
           <div className="text-sky font-bold text-sm group-hover:translate-x-1 transition-transform">
             View <i className="fa-solid fa-arrow-right ml-1"></i>
           </div>
         </Link>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
             <IndianRupee className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Total Revenue</p>
-            <p className="font-sora font-extrabold text-2xl text-navy">₹{classroom.price * (classroom.enrolled || students.length)}</p>
+            <p className="text-xs sm:text-sm font-bold text-slate-400 sm:text-slate-500 uppercase tracking-wider mb-1">Total Revenue</p>
+            <p className="font-sora font-extrabold text-xl sm:text-2xl text-navy">₹{classroom.price * (classroom.enrolled || students.length)}</p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0">
             <i className="fa-solid fa-chart-line text-xl" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Attendance Rate</p>
-            <p className="font-sora font-extrabold text-2xl text-navy">
+            <p className="text-xs sm:text-sm font-bold text-slate-400 sm:text-slate-500 uppercase tracking-wider mb-1">Attendance Rate</p>
+            <p className="font-sora font-extrabold text-xl sm:text-2xl text-navy">
               {classroom.stats?.attendanceRate !== undefined ? `${classroom.stats.attendanceRate}%` : '100%'}
             </p>
           </div>

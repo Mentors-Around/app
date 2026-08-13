@@ -378,7 +378,7 @@ const PublicTeacherProfile = () => {
             </div>
 
             {/* Tab Contents */}
-            <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-6 md:p-8">
+            <div className="bg-white rounded-brand-xl shadow-sm border border-slate-200 p-4 sm:p-6 md:p-8">
 
               {/* CLASSROOMS TAB */}
               {activeTab === 'Classrooms' && (
@@ -412,7 +412,7 @@ const PublicTeacherProfile = () => {
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {teacherClassrooms.filter(r => r.status === 'active').map((room) => (
-                          <div key={room.id} className="bg-white border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition-all shadow-sm group">
+                          <div key={room.id} className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 hover:border-navy/30 transition-all shadow-sm group">
                             <div className="flex justify-between items-start mb-3">
                               <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-md uppercase tracking-wider">
                                 {room.subject} • {room.classLevel || 'General'}
@@ -439,13 +439,13 @@ const PublicTeacherProfile = () => {
                               </p>
                             </div>
                             
-                            <div className="flex justify-between items-center pt-4 border-t border-slate-100 gap-2">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 border-t border-slate-100 gap-3">
                               <div>
                                 <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Price per Student</p>
                                 <p className="font-sora font-extrabold text-navy">₹{room.price}</p>
                               </div>
-                              <div className="flex gap-2">
-                                <Link to={`/classroom/${room.id}`} className="px-4 py-2 bg-slate-100 text-navy text-xs font-bold rounded-lg shadow-sm hover:bg-slate-200 transition">
+                              <div className="flex w-full sm:w-auto gap-2">
+                                <Link to={`/classroom/${room.id}`} className="flex-1 sm:flex-none text-center px-4 py-2 bg-slate-100 text-navy text-xs font-bold rounded-lg shadow-sm hover:bg-slate-200 transition">
                                   View Details
                                 </Link>
                                 <Link to={`/classroom/${room.id}?query=true`} className="px-4 py-2 bg-navy text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition">

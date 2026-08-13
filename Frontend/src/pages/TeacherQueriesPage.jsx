@@ -359,7 +359,7 @@ const TeacherQueriesPage = () => {
               <div key={query.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition">
                 <div className="flex flex-col lg:flex-row">
                   {/* Left Column: Student Info */}
-                  <div className="w-full lg:w-1/3 p-6 bg-slate-50/50">
+                  <div className="w-full lg:w-1/3 p-4 sm:p-6 bg-slate-50/50">
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-12 h-12 bg-navy text-white rounded-full flex items-center justify-center font-sora font-bold text-lg shrink-0">
                         {query?.initials || (query?.student || query?.studentName || 'U').charAt(0)}
@@ -398,7 +398,7 @@ const TeacherQueriesPage = () => {
                   </div>
 
                   {/* Right Column: Timeline & Actions */}
-                  <div className="w-full flex-1 border-t lg:border-t-0 lg:border-l border-slate-100 pt-6 lg:pt-0 lg:pl-6 p-6 flex flex-col h-full">
+                  <div className="w-full flex-1 border-t lg:border-t-0 lg:border-l border-slate-100 p-4 sm:p-6 flex flex-col h-full">
                     
                     <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                       <h4 className="font-bold text-navy text-sm uppercase tracking-wide">Conversation</h4>

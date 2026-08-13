@@ -29,18 +29,18 @@ export default function StudentDashboard() {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-16 animate-fadeIn">
+    <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 md:space-y-12 pb-16 animate-fadeIn">
       {/* 1. Greeting Section */}
-      <div className="bg-gradient-to-r from-navy to-blue-600 rounded-2xl border border-navy-light p-8 md:p-12 shadow-brand flex flex-col md:flex-row items-center justify-between gap-8">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-sora font-extrabold text-white tracking-tight mb-3">
+      <div className="bg-gradient-to-r from-navy to-blue-600 rounded-2xl border border-navy-light p-5 sm:p-8 md:p-12 shadow-brand flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+        <div className="w-full md:w-auto text-left">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-sora font-extrabold text-white tracking-tight mb-2 sm:mb-3">
             Good morning, {user?.name?.split(' ')[0] || 'Student'}.
           </h1>
-          <p className="text-blue-100 text-lg max-w-lg leading-relaxed mb-8">
+          <p className="text-blue-100 text-sm sm:text-lg max-w-lg leading-relaxed mb-6 sm:mb-8">
             Let's keep the momentum going. You're doing great!
           </p>
           <div className="flex flex-wrap gap-4">
-            <Link to="/student/discover" className="px-6 py-3 bg-white text-navy font-bold rounded-lg shadow-sm hover:shadow hover:bg-slate-50 transition-all flex items-center gap-2">
+            <Link to="/student/discover" className="w-full sm:w-auto text-center px-6 py-3 bg-white text-navy font-bold rounded-lg shadow-sm hover:shadow hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
               Discover Classrooms
             </Link>
           </div>

@@ -184,7 +184,7 @@ export default function AdminClassrooms() {
       {/* Classroom Details Modal */}
       {selectedClassroom && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-lg overflow-hidden animate-slide-up-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide-up-sm">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-sora text-lg font-bold text-navy">Classroom Overview</h3>
               <button 

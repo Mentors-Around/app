@@ -316,7 +316,7 @@ const MyQueriesPage = () => {
             if (filter === 'Expired') return q.status === 'approval_expired' || q.status === 'closed_inactive' || q.status === 'expired';
             return true;
           }).map(query => (
-            <div key={query.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row gap-8">
+            <div key={query.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col md:flex-row gap-4 md:gap-8">
               
               {/* Left Info & Progress */}
               <div className="w-full md:w-[35%] shrink-0 border-b md:border-b-0 md:border-r border-slate-100 pb-4 md:pb-0 md:pr-8 flex flex-col">

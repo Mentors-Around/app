@@ -94,16 +94,16 @@ export default function ClassroomCard({ room }) {
         )}
       </div>
       
-      <div className="flex justify-between items-center pt-4 border-t border-slate-100 gap-2 mt-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 border-t border-slate-100 gap-3 mt-auto">
         <div>
           <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Price per Student</p>
-          <p className="font-sora font-extrabold text-navy">₹{room.price || room.pricePerStudent}</p>
+          <p className="font-sora font-extrabold text-navy text-base sm:text-lg">₹{room.price || room.pricePerStudent}</p>
         </div>
-        <div className="flex gap-2">
-          <Link to={`/classroom/${room.id}`} className="px-3 py-2 bg-slate-100 text-navy text-xs font-bold rounded-lg shadow-sm hover:bg-slate-200 transition">
+        <div className="flex w-full sm:w-auto gap-2">
+          <Link to={`/classroom/${room.id}`} className="flex-1 sm:flex-none text-center px-3 py-2 bg-slate-100 text-navy text-xs font-bold rounded-lg shadow-sm hover:bg-slate-200 transition">
             View Details
           </Link>
-          <Link to={`/classroom/${room.id}?query=true`} className="px-3 py-2 bg-navy text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition">
+          <Link to={`/classroom/${room.id}?query=true`} className="flex-1 sm:flex-none text-center px-3 py-2 bg-navy text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition">
             Send Query
           </Link>
         </div>
